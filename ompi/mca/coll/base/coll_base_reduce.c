@@ -289,6 +289,9 @@ int ompi_coll_base_reduce_generic( const void* sendbuf, void* recvbuf, int origi
 
             sreq = ompi_coll_base_comm_get_reqs(module->base_data, max_outstanding_reqs);
             if (NULL == sreq) { line = __LINE__; ret = -1; goto error_hndl; }
+            for (i = 0; i < max_outstanding_reqs; i++ ) {
+                sreq[i] = MPI_REQUEST_NULL;
+            }
 
             /* post first group of requests */
             for (segindex = 0; segindex < max_outstanding_reqs; segindex++) {
@@ -341,6 +344,7 @@ int ompi_coll_base_reduce_generic( const void* sendbuf, void* recvbuf, int origi
     if( inbuf_free[0] != NULL ) free(inbuf_free[0]);
     if( inbuf_free[1] != NULL ) free(inbuf_free[1]);
     if( accumbuf_free != NULL ) free(accumbuf);
+    ompi_coll_base_free_reqs(reqs, 2);
     if( NULL != sreq ) {
         ompi_coll_base_free_reqs(sreq, max_outstanding_reqs);
     }
