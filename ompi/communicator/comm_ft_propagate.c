@@ -11,6 +11,8 @@
  *
  * $HEADER$
  */
+#include "opal/mca/base/mca_base_var.h"
+
 #include "orte/util/name_fns.h"
 #include "orte/runtime/orte_globals.h"
 #include "orte/util/error_strings.h"
@@ -34,11 +36,13 @@ static int comm_failure_propagate_cb_type = -1;
 
 
 int ompi_comm_init_failure_propagate(void) {
-    int ret, id, rbcast;
+    int ret;
+    bool rbcast;
 
-    id = mca_base_param_register_int("ompi", "ft", "propagate_with_rbcast", "Use the reliable broadcast failure propagator in OMPI, or disable it and use only ORTE propagation (slower)", true);
-    mca_base_param_lookup_int(id, &rbcast);
-
+    (void) mca_base_var_register ("mpi", "ft", "ulfm", "fd_propagate_with_rbcast",
+                                  "Use the OMPI reliable broadcast failure propagator, or disable it and use only RTE propagation (slower)",
+                                  MCA_BASE_VAR_TYPE_BOOL, NULL, 0, MCA_BASE_VAR_SCOPE_READONLY,
+                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_CONSTANT, &rbcast);
     if( !rbcast ) return OMPI_SUCCESS;
 
     ret = ompi_comm_init_rbcast();

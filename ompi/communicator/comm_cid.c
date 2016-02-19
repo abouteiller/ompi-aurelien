@@ -32,6 +32,7 @@
 #include "ompi_config.h"
 
 #include "opal/dss/dss.h"
+#include "opal/mca/base/mca_base_var.h"
 #include "opal/mca/pmix/pmix.h"
 
 #include "ompi/proc/proc.h"
@@ -233,13 +234,12 @@ static void cid_redux_fn(void *_in, void *_out, int *dcount, struct ompi_datatyp
 
 int ompi_comm_cid_init (void)
 {
-    int value;
-
-    mca_base_param_reg_int_name("ompi", "cid_redux_size",
-                                "Number of context IDs that are considered in a single allreduce for collective allocation (>=2)",
-                                false, false, 4, &value);
-    if( value < 2 ) value = 2;
-    cid_redux_size = value;
+    cid_redux_size = 4;
+    (void) mca_base_var_register ("mpi", "coll", "cid", "redux_size",
+                                  "Number of context IDs that are considered in a single allreduce for collective allocation (>=2)",
+                                  MCA_BASE_VAR_TYPE_INT, NULL, 0, MCA_BASE_VAR_SCOPE_READONLY, 
+                                  OPAL_INFO_LVL_4, MCA_BASE_VAR_SCOPE_CONSTANT, &cid_redux_size);
+    if( cid_redux_size < 2 ) cid_redux_size = 2;
     cid_lCIDs = (cid_redux_elem_t *)malloc(cid_redux_size * sizeof(cid_redux_elem_t));
     cid_gCIDs = (cid_redux_elem_t *)malloc(cid_redux_size * sizeof(cid_redux_elem_t));
 
