@@ -1,6 +1,10 @@
 /* -*- Mode: C; c-basic-offset:4 ; -*- */
 /*
  * Copyright (c) 2009      Sun Microsystems, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
+ * Copyright (c) 2014-2015 The University of Tennessee and The University
+ *                         of Tennessee Research Foundation.  All rights
+ *                         reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -28,6 +32,9 @@ typedef enum {
     OMPI_REQUEST_NULL,     /**< NULL request */
     OMPI_REQUEST_NOOP,     /**< A request that does nothing (e.g., to PROC_NULL) */
     OMPI_REQUEST_COMM,     /**< MPI-3 non-blocking communicator duplication */
+#ifdef OPAL_ENABLE_FT_MPI
+    OMPI_REQUEST_IAGREE,   /**< MPIX Immediate Agreement */
+#endif /* OPAL_ENABLE_FT_MPI */
     OMPI_REQUEST_MAX       /**< Maximum request type */
 } ompi_request_type_t;
 

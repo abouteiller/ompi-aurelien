@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2013 The University of Tennessee and The University
+ * Copyright (c) 2004-2015 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -13,6 +13,7 @@
  * Copyright (c) 2006-2010 University of Houston. All rights reserved.
  * Copyright (c) 2007-2012 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2009      Sun Microsystems, Inc. All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2012-2015 Los Alamos National Security, LLC.
  *                         All rights reserved.
  * Copyright (c) 2011-2013 Inria.  All rights reserved.
@@ -51,6 +52,9 @@
 */
 opal_pointer_array_t ompi_mpi_communicators = {{0}};
 opal_pointer_array_t ompi_comm_f_to_c_table = {{0}};
+#if OPAL_ENABLE_FT_MPI
+opal_pointer_array_t ompi_mpi_comm_epoch = {{0}};
+#endif  /* OPAL_ENABLE_FT_MPI */
 
 ompi_predefined_communicator_t  ompi_mpi_comm_world = {{{0}}};
 ompi_predefined_communicator_t  ompi_mpi_comm_self = {{{0}}};
@@ -97,6 +101,14 @@ int ompi_comm_init(void)
                                                 OMPI_FORTRAN_HANDLE_MAX, 64) ) {
         return OMPI_ERROR;
     }
+
+#if OPAL_ENABLE_FT_MPI
+    OBJ_CONSTRUCT(&ompi_mpi_comm_epoch, opal_pointer_array_t);
+    if( OPAL_SUCCESS != opal_pointer_array_init(&ompi_mpi_comm_epoch, 0,
+                                                OMPI_FORTRAN_HANDLE_MAX, 64) ) {
+        return OMPI_ERROR;
+    }
+#endif  /* OPAL_ENABLE_FT_MPI */
 
     /* Setup MPI_COMM_WORLD */
     OBJ_CONSTRUCT(&ompi_mpi_comm_world, ompi_communicator_t);
@@ -148,6 +160,12 @@ int ompi_comm_init(void)
        because MPI_COMM_WORLD has some predefined attributes. */
     ompi_attr_hash_init(&ompi_mpi_comm_world.comm.c_keyhash);
 
+#if OPAL_ENABLE_FT_MPI
+    OMPI_COMM_SET_FT(&ompi_mpi_comm_world.comm, group->grp_proc_count, 0);
+    opal_pointer_array_set_item (&ompi_mpi_comm_epoch, 0,
+                                 (void*)(uintptr_t)(ompi_mpi_comm_world.comm.c_epoch));
+#endif  /* OPAL_ENABLE_FT_MPI */
+
     /* Setup MPI_COMM_SELF */
     OBJ_CONSTRUCT(&ompi_mpi_comm_self, ompi_communicator_t);
     assert(ompi_mpi_comm_self.comm.c_f_to_c_index == 1);
@@ -180,6 +198,12 @@ int ompi_comm_init(void)
        MPI_COMM_SELF, the keyhash will automatically be created. */
     ompi_mpi_comm_self.comm.c_keyhash = NULL;
 
+#if OPAL_ENABLE_FT_MPI
+    OMPI_COMM_SET_FT(&ompi_mpi_comm_self.comm, group->grp_proc_count, 0);
+    opal_pointer_array_set_item (&ompi_mpi_comm_epoch, 1,
+                                 (void*)(uintptr_t)(ompi_mpi_comm_self.comm.c_epoch));
+#endif  /* OPAL_ENABLE_FT_MPI */
+
     /* Setup MPI_COMM_NULL */
     OBJ_CONSTRUCT(&ompi_mpi_comm_null, ompi_communicator_t);
     assert(ompi_mpi_comm_null.comm.c_f_to_c_index == 2);
@@ -199,6 +223,12 @@ int ompi_comm_init(void)
     strncpy(ompi_mpi_comm_null.comm.c_name,"MPI_COMM_NULL",strlen("MPI_COMM_NULL")+1);
     ompi_mpi_comm_null.comm.c_flags |= OMPI_COMM_NAMEISSET;
     ompi_mpi_comm_null.comm.c_flags |= OMPI_COMM_INTRINSIC;
+#if OPAL_ENABLE_FT_MPI
+    OMPI_COMM_SET_FT(&ompi_mpi_comm_null.comm, 0, 0);
+    opal_pointer_array_set_item (&ompi_mpi_comm_epoch, 2
+                                 (void*)(uintptr_t)(ompi_mpi_comm_null.comm.c_epoch));
+#endif  /* OPAL_ENABLE_FT_MPI */
+
 
     /* Initialize the parent communicator to MPI_COMM_NULL */
     ompi_mpi_comm_parent = &ompi_mpi_comm_null.comm;
@@ -216,7 +246,8 @@ int ompi_comm_init(void)
     return OMPI_SUCCESS;
 }
 
-
+#if 0
+//TODO: ENABLE_FT_MPI: removed in ULFM, still used in topo
 ompi_communicator_t *ompi_comm_allocate ( int local_size, int remote_size )
 {
     ompi_communicator_t *new_comm;
@@ -241,6 +272,7 @@ ompi_communicator_t *ompi_comm_allocate ( int local_size, int remote_size )
 
     return new_comm;
 }
+#endif
 
 int ompi_comm_finalize(void)
 {
@@ -331,6 +363,9 @@ int ompi_comm_finalize(void)
 
     OBJ_DESTRUCT (&ompi_mpi_communicators);
     OBJ_DESTRUCT (&ompi_comm_f_to_c_table);
+#if OPAL_ENABLE_FT_MPI
+    OBJ_DESTRUCT (&ompi_mpi_comm_epoch);
+#endif /* OPAL_ENABLE_FT_MPI */
 
     /* finalize the comm_reg stuff */
     ompi_comm_reg_finalize();
@@ -384,6 +419,10 @@ static void ompi_comm_construct(ompi_communicator_t* comm)
        we need an easy way for the coll base code to realize we've
        done this. */
     memset(&comm->c_coll, 0, sizeof(mca_coll_base_comm_coll_t));
+
+#if OPAL_ENABLE_MPI_FT
+    OMPI_COMM_SET_FT(comm, -1, MPI_UNDEFINED);
+#endif
 }
 
 static void ompi_comm_destruct(ompi_communicator_t* comm)
@@ -445,6 +484,12 @@ static void ompi_comm_destruct(ompi_communicator_t* comm)
         OBJ_RELEASE ( comm->error_handler );
         comm->error_handler = NULL;
     }
+
+#if OPAL_ENABLE_FT_MPI
+    if( NULL != comm->agreement_specific ) {
+        OBJ_RELEASE( comm->agreement_specific );
+    }
+#endif  /* OPAL_ENABLE_FT_MPI */
 
     /* mark this cid as available */
     if ( MPI_UNDEFINED != (int)comm->c_contextid &&

@@ -2,7 +2,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2014 The University of Tennessee and The University
+ * Copyright (c) 2004-2016 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -11,6 +11,7 @@
  *                         All rights reserved.
  * Copyright (c) 2006-2007 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2006-2009 University of Houston.  All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2012-2013 Inria.  All rights reserved.
  * Copyright (c) 2014-2015 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
@@ -75,6 +76,20 @@ int MPI_Intercomm_create(MPI_Comm local_comm, int local_leader,
              return OMPI_ERRHANDLER_INVOKE ( local_comm, MPI_ERR_ARG,
                                              FUNC_NAME);
         */
+
+#if OPAL_ENABLE_FT_MPI
+        /*
+         * An early check, so as to return early if we are using a broken
+         * communicator. This is not absolutely necessary since we will
+         * check for this, and other, error conditions during the operation.
+         */
+        if( !ompi_comm_iface_create_check(local_comm, &rc) ) {
+            OMPI_ERRHANDLER_RETURN(rc, local_comm, rc, FUNC_NAME);
+        }
+        if( !ompi_comm_iface_create_check(bridge_comm, &rc) ) {
+            OMPI_ERRHANDLER_RETURN(rc, bridge_comm, rc, FUNC_NAME);
+        }
+#endif
     }
 
     OPAL_CR_ENTER_LIBRARY();
@@ -113,16 +128,31 @@ int MPI_Intercomm_create(MPI_Comm local_comm, int local_leader,
         rc = MCA_PML_CALL(irecv(&rsize, 1, MPI_INT, rleader, tag, bridge_comm,
                                 &req));
         if ( rc != MPI_SUCCESS ) {
+#if OPAL_ENABLE_FT_MPI
+            if( MPI_ERR_PROC_FAILED == rc ) {
+                rsize = 0;
+                goto skip_handshake;
+            }
+#endif  /* OPAL_ENABLE_FT_MPI */
             goto err_exit;
         }
         rc = MCA_PML_CALL(send (&local_size, 1, MPI_INT, rleader, tag,
                                 MCA_PML_BASE_SEND_STANDARD, bridge_comm));
         if ( rc != MPI_SUCCESS ) {
+#if OPAL_ENABLE_FT_MPI
+            if( MPI_ERR_PROC_FAILED == rc ) {
+                rsize = 0;
+                goto skip_handshake;
+            }
+#endif  /* OPAL_ENABLE_FT_MPI */
             goto err_exit;
         }
+#if OPAL_ENABLE_FT_MPI
+  skip_handshake:  /* nothing special */;
+#endif /* OPAL_ENABLE_FT_MPI */
         rc = ompi_request_wait( &req, MPI_STATUS_IGNORE);
         if ( rc != MPI_SUCCESS ) {
-            goto err_exit;
+            rsize = 0;  /* participate in the collective and then done */
         }
     }
 
@@ -131,7 +161,14 @@ int MPI_Intercomm_create(MPI_Comm local_comm, int local_leader,
                                          local_comm,
                                          local_comm->c_coll.coll_bcast_module);
     if ( rc != MPI_SUCCESS ) {
+#if OPAL_ENABLE_FT_MPI
+        if ( local_rank != local_leader ) {
+            goto err_exit;
+        }
+        /* the leaders must go in the ger_rprocs in order to avoid deadlocks */
+#else
         goto err_exit;
+#endif  /* OPAL_ENABLE_FT_MPI */
     }
 
     rprocs = ompi_comm_get_rprocs( local_comm, bridge_comm, lleader,
@@ -234,7 +271,7 @@ int MPI_Intercomm_create(MPI_Comm local_comm, int local_leader,
     }
     if ( OMPI_SUCCESS != rc ) {
         *newintercomm = MPI_COMM_NULL;
-        return OMPI_ERRHANDLER_INVOKE(local_comm, MPI_ERR_INTERN,
+        return OMPI_ERRHANDLER_INVOKE(local_comm, rc,
                                       FUNC_NAME);
     }
 

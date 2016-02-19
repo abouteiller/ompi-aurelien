@@ -36,6 +36,7 @@
 #include "opal/class/opal_pointer_array.h"
 #include "opal/threads/condition.h"
 #include "ompi/constants.h"
+#include "ompi/runtime/params.h"
 
 BEGIN_C_DECLS
 
@@ -111,6 +112,13 @@ struct ompi_request_t {
     ompi_request_complete_fn_t req_complete_cb; /**< Called when the request is MPI completed */
     void *req_complete_cb_data;
     ompi_mpi_object_t req_mpi_object;           /**< Pointer to MPI object that created this request */
+    /* FT Functionality uses the (req_peer) to return the peer that caused a
+     * failure, and (req_tag) to identify which operations are collective in
+     * nature.
+     */
+    int req_peer; /**< Peer rank that this request is associated with */
+    int req_tag;  /**< Tag associated with this request */
+    bool req_any_source_pending;
 };
 
 /**
@@ -178,7 +186,7 @@ do {                                                                    \
  * @param status (OUT)   Status of completed request.
  * @return               OMPI_SUCCESS or failure status.
  *
- * Note that upon completion, the request is freed, and the
+ * Note that upon completion, the request completed without error is freed, and the
  * request handle at index set to NULL.
  */
 typedef int (*ompi_request_test_fn_t)(ompi_request_t ** rptr,
@@ -194,7 +202,7 @@ typedef int (*ompi_request_test_fn_t)(ompi_request_t ** rptr,
  * @param status (OUT)   Status of completed request.
  * @return               OMPI_SUCCESS or failure status.
  *
- * Note that upon completion, the request is freed, and the
+ * Note that upon completion, the request completed without error is freed, and the
  * request handle at index set to NULL.
  */
 typedef int (*ompi_request_test_any_fn_t)(size_t count,
@@ -211,10 +219,10 @@ typedef int (*ompi_request_test_any_fn_t)(size_t count,
  * @param statuses (OUT)  Array of completion statuses.
  * @return                OMPI_SUCCESS or failure status.
  *
- * This routine returns completed==true if all requests have completed.
- * The statuses parameter is only updated if all requests completed. Likewise,
- * the requests array is not modified (no requests freed), unless all requests
- * have completed.
+ * This routine returns completed==true if all requests completed without errors
+ * have completed. The statuses parameter is only updated if all requests completed.
+ * Likewise, the requests array is not modified (no requests freed), unless all
+ * requests have completed.
  */
 typedef int (*ompi_request_test_all_fn_t)(size_t count,
                                           ompi_request_t ** requests,
@@ -237,7 +245,10 @@ typedef int (*ompi_request_test_some_fn_t)(size_t count,
                                            int * indices,
                                            ompi_status_public_t * statuses);
 /**
- * Wait (blocking-mode) for one requests to complete.
+ * Wait (blocking-mode) for one requests to complete. This function is slightly
+ * different from the MPI counter-part as it does not release the requests
+ * completed with error. Instead, the caller is responsible to call the
+ * ompi_request_free.
  *
  * @param request (IN)    Pointer to request.
  * @param status (OUT)    Status of completed request.
@@ -247,7 +258,10 @@ typedef int (*ompi_request_test_some_fn_t)(size_t count,
 typedef int (*ompi_request_wait_fn_t)(ompi_request_t ** req_ptr,
                                       ompi_status_public_t * status);
 /**
- * Wait (blocking-mode) for one of N requests to complete.
+ * Wait (blocking-mode) for one of N requests to complete. This function is
+ * slightly different from the MPI counter-part as it does not release the
+ * requests completed with error. Instead, the caller is responsible to call
+ * the ompi_request_free.
  *
  * @param count (IN)      Number of requests
  * @param requests (IN)   Array of requests
@@ -261,7 +275,10 @@ typedef int (*ompi_request_wait_any_fn_t)(size_t count,
                                           int *index,
                                           ompi_status_public_t * status);
 /**
- * Wait (blocking-mode) for all of N requests to complete.
+ * Wait (blocking-mode) for all of N requests to complete. This function is
+ * slightly different from the MPI counter-part as it does not release the
+ * requests completed with error. Instead, the caller is responsible to call
+ * the ompi_request_free.
  *
  * @param count (IN)      Number of requests
  * @param requests (IN)   Array of requests
@@ -273,7 +290,10 @@ typedef int (*ompi_request_wait_all_fn_t)(size_t count,
                                           ompi_request_t ** requests,
                                           ompi_status_public_t * statuses);
 /**
- * Wait (blocking-mode) for some of N requests to complete.
+ * Wait (blocking-mode) for some of N requests to complete. This function is
+ * slightly different from the MPI counter-part as it does not release the
+ * requests completed with error. Instead, the caller is responsible to call
+ * the ompi_request_free.
  *
  * @param count (IN)        Number of requests
  * @param requests (INOUT)  Array of requests
@@ -365,6 +385,17 @@ static inline int ompi_request_free(ompi_request_t** request)
 #define ompi_request_wait_all   (ompi_request_functions.req_wait_all)
 #define ompi_request_wait_some  (ompi_request_functions.req_wait_some)
 
+#if OPAL_ENABLE_FT_MPI
+OMPI_DECLSPEC bool ompi_request_state_ok(ompi_request_t *req);
+
+#include "ompi/mca/coll/base/coll_tags.h"
+static inline bool ompi_request_tag_is_ft(int tag) {
+    return (tag <= MCA_COLL_BASE_TAG_MIN_FT && tag >= MCA_COLL_BASE_TAG_MAX_FT);
+
+static inline bool ompi_request_tag_is_collective(int tag) {
+    return tag <= MCA_COLL_BASE_TAG_MIN && tag >= MCA_COLL_BASE_TAG_MAX;
+}
+#endif /* OPAL_ENABLE_FT_MPI */
 
 /**
  * Wait a particular request for completion
@@ -380,6 +411,15 @@ static inline void ompi_request_wait_completion(ompi_request_t *req)
         OPAL_THREAD_LOCK(&ompi_request_lock);
         ompi_request_waiting++;
         while(false == req->req_complete) {
+#if OPAL_ENABLE_FT_MPI
+            /* Check to make sure that process failure did not break the
+             * request. */
+            if( ompi_ftmpi_enabled ) {
+                if( !ompi_request_state_ok(req) ) {
+                    break;
+                }
+            }
+#endif /* OPAL_ENABLE_FT_MPI */
             opal_condition_wait(&ompi_request_cond, &ompi_request_lock);
         }
         ompi_request_waiting--;

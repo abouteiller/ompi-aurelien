@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2013 The University of Tennessee and The University
+ * Copyright (c) 2004-2016 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -103,36 +103,54 @@ static int mca_pml_ob1_recv_request_cancel(struct ompi_request_t* ompi_request, 
     ompi_communicator_t *comm = request->req_recv.req_base.req_comm;
     mca_pml_ob1_comm_t *ob1_comm = comm->c_pml_comm;
 
-    if( true == request->req_match_received ) { /* way to late to cancel this one */
-        assert( OMPI_ANY_TAG != ompi_request->req_status.MPI_TAG ); /* not matched isn't it */
-        return OMPI_SUCCESS;
-    }
-
     /* The rest should be protected behind the match logic lock */
     OPAL_THREAD_LOCK(&ob1_comm->matching_lock);
-    if( request->req_recv.req_base.req_peer == OMPI_ANY_SOURCE ) {
-        opal_list_remove_item( &ob1_comm->wild_receives, (opal_list_item_t*)request );
-    } else {
-        mca_pml_ob1_comm_proc_t* proc = mca_pml_ob1_peer_lookup (comm, request->req_recv.req_base.req_peer);
-        opal_list_remove_item(&proc->specific_receives, (opal_list_item_t*)request);
+    if( true != request->req_match_received ) { /* the match has not been already done */
+        assert( OMPI_ANY_TAG != ompi_request->req_status.MPI_TAG ); /* not matched isn't it */
+        if( request->req_recv.req_base.req_peer == OMPI_ANY_SOURCE ) {
+            opal_list_remove_item( &ob1_comm->wild_receives, (opal_list_item_t*)request );
+        } else {
+            mca_pml_ob1_comm_proc_t* proc = mca_pml_ob1_peer_lookup (comm, request->req_recv.req_base.req_peer);
+            opal_list_remove_item(&proc->specific_receives, (opal_list_item_t*)request);
+        }
+        PERUSE_TRACE_COMM_EVENT( PERUSE_COMM_REQ_REMOVE_FROM_POSTED_Q,
+                                &(request->req_recv.req_base), PERUSE_RECV );
+        OPAL_THREAD_UNLOCK(&ob1_comm->matching_lock);
+#if OPAL_ENABLE_FT_MPI
+        opal_output_verbose(10, ompi_ftmpi_output_handle,
+                            "Recv_request_cancel: cancel granted for request %p because it has not matched\n",
+                            (void*)request);
+#endif
     }
-    PERUSE_TRACE_COMM_EVENT( PERUSE_COMM_REQ_REMOVE_FROM_POSTED_Q,
-                             &(request->req_recv.req_base), PERUSE_RECV );
+    else { /* it has matched */
+        OPAL_THREAD_UNLOCK(&ob1_comm->matching_lock);
+#if OPAL_ENABLE_FT_MPI
+        if( ompi_comm_is_proc_active( comm, request->req_recv.req_base.req_peer,
+                                              OMPI_COMM_IS_INTER(comm) ) ) {
+            opal_output_verbose(10, ompi_ftmpi_output_handle,
+                                "Recv_request_cancel: cancel denied for request %p because it has matched peer %d\n",
+                                (void*)request, request->req_recv.req_base.req_peer);
+            return OMPI_SUCCESS;
+        }
+        else {
+            /* This process is dead, therefore this request is complete */
+            opal_output_verbose(10, ompi_ftmpi_output_handle,
+                                "Recv_request_cancel: cancel granted for request %p because peer %d is dead\n",
+                                (void*)request, request->req_recv.req_base.req_peer);
+        }
+#else
+        /* cannot be cancelled anymore, it has matched */
+        return OMPI_SUCCESS;
+#endif /*OPAL_ENABLE_FT_MPI*/
+    }
     /**
      * As now the PML is done with this request we have to force the pml_complete
      * to true. Otherwise, the request will never be freed.
      */
-    request->req_recv.req_base.req_pml_complete = true;
-    OPAL_THREAD_UNLOCK(&ob1_comm->matching_lock);
-
     OPAL_THREAD_LOCK(&ompi_request_lock);
     ompi_request->req_status._cancelled = true;
-    /* This macro will set the req_complete to true so the MPI Test/Wait* functions
-     * on this request will be able to complete. As the status is marked as
-     * cancelled the cancel state will be detected.
-     */
-    MCA_PML_OB1_RECV_REQUEST_MPI_COMPLETE(request);
     OPAL_THREAD_UNLOCK(&ompi_request_lock);
+    recv_request_pml_complete(request);
     /*
      * Receive request cancelled, make user buffer accessible.
      */
@@ -209,6 +227,16 @@ static void mca_pml_ob1_put_completion (mca_pml_ob1_rdma_frag_t *frag, int64_t r
             mca_pml_ob1_recv_request_schedule(recvreq, bml_btl);
         }
     }
+#if 0 
+    // TODO: ENABLE_FT_MPI: does this case actually happen, ever? 
+    else {
+        opal_output_verbose(mca_pml_ob1_output, 1, "pml:ob1: %s: operation failed with size= %d", __func__, status);
+        recvreq->req_recv.req_base.req_ompi.req_status.MPI_ERROR = status;
+        /* Skip RDMA bytes when waiting for completion */
+        bytes_received = recvreq->req_send_offset - recvreq->req_rdma_offset;
+        recvreq->req_rdma_offset = recvreq->req_send_offset; /* prevent posting of more RDMA */
+    }
+#endif
 
     MCA_PML_OB1_PROGRESS_PENDING(bml_btl);
 }
@@ -371,9 +399,12 @@ static void mca_pml_ob1_rget_completion (mca_btl_base_module_t* btl, struct mca_
     if (OPAL_UNLIKELY(OMPI_SUCCESS != status)) {
         status = mca_pml_ob1_recv_request_get_frag_failed (frag, status);
         if (OPAL_UNLIKELY(OMPI_SUCCESS != status)) {
-            /* TSW - FIX */
-            OMPI_ERROR_LOG(status);
-            ompi_rte_abort(-1, NULL);
+            size_t skipped_bytes = recvreq->req_send_offset - recvreq->req_rdma_offset;
+            opal_output_verbose(mca_pml_ob1_output, 1, "pml:ob1: %s: operation failed with code %d", __func__, status);
+            recvreq->req_recv.req_base.req_ompi.req_status.MPI_ERROR = status;
+            recvreq->req_rdma_offset = recvreq->req_send_offset; /* prevent posting of more RDMA */
+            /* Account for the skipped RDMA bytes when waiting for completion */
+            OPAL_THREAD_ADD_SIZE_T(&recvreq->req_bytes_received, skipped_bytes);
         }
     } else {
         /* is receive request complete */
@@ -382,11 +413,11 @@ static void mca_pml_ob1_rget_completion (mca_btl_base_module_t* btl, struct mca_
         mca_pml_ob1_send_fin (recvreq->req_recv.req_base.req_proc,
                               bml_btl, frag->rdma_hdr.hdr_rget.hdr_frag,
                               frag->rdma_length, 0, 0);
-
-        recv_request_pml_complete_check(recvreq);
-
-        MCA_PML_OB1_RDMA_FRAG_RETURN(frag);
     }
+
+    recv_request_pml_complete_check(recvreq);
+
+    MCA_PML_OB1_RDMA_FRAG_RETURN(frag);
 
     MCA_PML_OB1_PROGRESS_PENDING(bml_btl);
 }

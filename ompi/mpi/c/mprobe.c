@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2011      Sandia National Laboratories. All rights reserved.
  * Copyright (c) 2012 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2012      Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2012      Oracle and/or its affiliates.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
@@ -68,6 +69,22 @@ int MPI_Mprobe(int source, int tag, MPI_Comm comm,
         *message = &ompi_message_no_proc.message;
         return MPI_SUCCESS;
     }
+
+#if OPAL_ENABLE_FT_MPI
+    /*
+     * Check here for issues with the peer, so we do not have to duplicate the
+     * functionality in the PML.
+     */
+    if( !ompi_comm_iface_p2p_check_proc(comm, source, &rc) ) {
+        if (MPI_STATUS_IGNORE != status) {
+            status->MPI_SOURCE = source;
+            status->MPI_TAG    = tag;
+            status->MPI_ERROR  = rc;
+        }
+        *message = &ompi_message_no_proc.message;
+        OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
+    }
+#endif
 
     OPAL_CR_ENTER_LIBRARY();
 

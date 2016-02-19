@@ -10,6 +10,7 @@
 #                         University of Stuttgart.  All rights reserved.
 # Copyright (c) 2004-2005 The Regents of the University of California.
 #                         All rights reserved.
+# Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
 # Copyright (c) 2013      Los Alamos National Security, LLC. All rights
 #                         reserved.
 # Copyright (c) 2014      Research Organization for Information Science
@@ -34,4 +35,9 @@ libmpi_la_SOURCES += \
 	communicator/comm_cid.c \
 	communicator/comm_request.c \
 	communicator/comm_helpers.c
+
+if WANT_FT_MPI
+libmpi_la_SOURCES += \
+	communicator/comm_ft.c communicator/comm_ft_reliable_bcast.c communicator/comm_ft_propagate.c communicator/comm_ft_revoke.c
+endif # WANT_FT_MPI
 

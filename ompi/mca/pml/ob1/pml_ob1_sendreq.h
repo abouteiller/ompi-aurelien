@@ -206,7 +206,6 @@ do {                                                                            
        (sendreq)->req_send.req_base.req_comm->c_my_rank;                             \
    (sendreq)->req_send.req_base.req_ompi.req_status.MPI_TAG =                        \
         (sendreq)->req_send.req_base.req_tag;                                        \
-   (sendreq)->req_send.req_base.req_ompi.req_status.MPI_ERROR = OMPI_SUCCESS;        \
    (sendreq)->req_send.req_base.req_ompi.req_status._ucount =                        \
         (sendreq)->req_send.req_bytes_packed;                                        \
    ompi_request_complete( &((sendreq)->req_send.req_base.req_ompi), (with_signal) ); \
