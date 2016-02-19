@@ -9,7 +9,7 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2012      Oak Rigde National Laboratory.
+ * Copyright (c) 2010-2012 Oak Ridge National Laboratory.
  *                         All rights reserved.
  * Copyright (c) 2013 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2014      Research Organization for Information Science
@@ -98,6 +98,11 @@ int mca_coll_base_comm_unselect(ompi_communicator_t * comm)
     CLOSE(comm, ineighbor_alltoallw);
 
     CLOSE(comm, reduce_local);
+
+#if OPAL_ENABLE_FT_MPI
+    CLOSE(comm, agreement);
+    CLOSE(comm, iagreement);
+#endif
 
     free(comm->c_coll);
     comm->c_coll = NULL;

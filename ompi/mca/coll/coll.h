@@ -12,7 +12,7 @@
  *                         All rights reserved.
  * Copyright (c) 2007-2008 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2007-2008 UT-Battelle, LLC
- * Copyright (c) 2012      Oak Rigde National Laboratory. All rights reserved.
+ * Copyright (c) 2010-2012 Oak Rigde National Laboratory. All rights reserved.
  * Copyright (c) 2013-2015 Los Alamos National Security, LLC. All rights
  *                         reserved.
  * Copyright (c) 2014-2015 Research Organization for Information Science
@@ -72,6 +72,13 @@
 #include "opal/mca/crs/base/base.h"
 #include "ompi/request/request.h"
 
+#if OPAL_ENABLE_FT_MPI
+#include "ompi/proc/proc.h"
+#include "ompi/request/request.h"
+#include "ompi/datatype/ompi_datatype.h"
+#include "ompi/op/op.h"
+#endif
+
 BEGIN_C_DECLS
 
 
@@ -81,7 +88,9 @@ BEGIN_C_DECLS
 struct ompi_communicator_t;
 struct ompi_datatype_t;
 struct ompi_op_t;
-
+#if OPAL_ENABLE_FT_MPI
+struct ompi_group_t;
+#endif /* OPAL_ENABLE_FT_MPI */
 
 /* ******************************************************************** */
 
@@ -179,6 +188,33 @@ typedef struct mca_coll_base_module_2_2_0_t *
 typedef int
 (*mca_coll_base_module_enable_1_1_0_fn_t)(struct mca_coll_base_module_2_2_0_t* module,
                                           struct ompi_communicator_t *comm);
+
+#if OPAL_ENABLE_FT_MPI
+/* Fault Tolerant Agreement - Consensus Protocol */
+
+/**
+ * @param comm: communicator on which to run the agreement
+ * @param group: as input: group of locally acknowledged dead processes
+ *               as output: group of globally acknowledged dead processes
+ *               NOTE: iagreement does not need to update group
+ *                     as only the blocking agreement function is used
+ *                     in shrink, and only in that case we need the group
+ *                     to be global at output.
+ * @param op: the operand to apply on contrib
+ * @param dt: the datatype of contrib
+ * @param dt_count: the number of dt in contrib
+ * @param contrib: a pointer to the contribution / output
+ * @param module: the MCA module that defines this agreement.
+ */
+typedef int (*mca_coll_base_module_agreement_fn_t)
+  (struct ompi_communicator_t* comm, struct ompi_group_t **group, ompi_op_t *op,
+     ompi_datatype_t *dt, int dt_count, void *contrib,
+     struct mca_coll_base_module_2_2_0_t *module);
+typedef int (*mca_coll_base_module_iagreement_fn_t)
+  (struct ompi_communicator_t* comm, struct ompi_group_t *group, ompi_op_t *op,
+   ompi_datatype_t *dt, int dt_count, void *contrib,
+   struct mca_coll_base_module_2_2_0_t *module, ompi_request_t **request);
+#endif /* OPAL_ENABLE_FT_MPI */
 
 
 /**
@@ -476,6 +512,11 @@ struct mca_coll_base_module_2_2_0_t {
     mca_coll_base_module_ialltoallv_fn_t coll_ineighbor_alltoallv;
     mca_coll_base_module_ineighbor_alltoallw_fn_t coll_ineighbor_alltoallw;
 
+#if OPAL_ENABLE_FT_MPI
+    mca_coll_base_module_agreement_fn_t coll_agreement;
+    mca_coll_base_module_iagreement_fn_t coll_iagreement;
+#endif
+
     /** Fault tolerance event trigger function */
     mca_coll_base_module_ft_event_fn_t ft_event;
 
@@ -602,6 +643,13 @@ struct mca_coll_base_comm_coll_t {
 
     mca_coll_base_module_reduce_local_fn_t coll_reduce_local;
     mca_coll_base_module_2_2_0_t *coll_reduce_local_module;
+
+#if OPAL_ENABLE_FT_MPI
+    mca_coll_base_module_agreement_fn_t coll_agreement;
+    mca_coll_base_module_2_2_0_t *coll_agreement_module;
+    mca_coll_base_module_iagreement_fn_t coll_iagreement;
+    mca_coll_base_module_2_2_0_t *coll_iagreement_module;
+#endif /* OPAL_ENABLE_FT_MPI */
 };
 typedef struct mca_coll_base_comm_coll_t mca_coll_base_comm_coll_t;
 

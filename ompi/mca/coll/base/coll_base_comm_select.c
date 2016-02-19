@@ -13,8 +13,8 @@
  * Copyright (c) 2007      Lawrence Livermore National Security, LLC.  All
  *                         rights reserved.
  * Copyright (c) 2008      Sun Microsystems, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Laboratory.  All rights reserved.
  * Copyright (c) 2008-2014 Cisco Systems, Inc.  All rights reserved.
- * Copyright (c) 2012      Oak Ridge National Laboratory.  All rights reserved.
  * Copyright (c) 2013      Los Alamos National Security, LLC. All rights
  *                         reserved.
  * Copyright (c) 2014      Research Organization for Information Science
@@ -205,6 +205,11 @@ int mca_coll_base_comm_select(ompi_communicator_t * comm)
             COPY(avail->ac_module, comm, ineighbor_alltoallw);
 
             COPY(avail->ac_module, comm, reduce_local);
+
+#if OPAL_ENABLE_FT_MPI
+            COPY(avail->ac_module, comm, agreement);
+            COPY(avail->ac_module, comm, iagreement);
+#endif
         }
         /* release the original module reference and the list item */
         OBJ_RELEASE(avail->ac_module);

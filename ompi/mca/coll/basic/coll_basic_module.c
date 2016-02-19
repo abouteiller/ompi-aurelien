@@ -10,6 +10,7 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2012      Sandia National Laboratories. All rights reserved.
  * Copyright (c) 2013      Los Alamos National Security, LLC. All rights
  *                         reserved.
@@ -69,6 +70,11 @@ mca_coll_basic_comm_query(struct ompi_communicator_t *comm,
      * algorithms. */
     basic_module->super.coll_module_enable = mca_coll_basic_module_enable;
     basic_module->super.ft_event = mca_coll_basic_ft_event;
+
+#if OPAL_ENABLE_FT_MPI
+    basic_module->super.coll_agreement   = NULL;
+    basic_module->super.coll_iagreement  = NULL;
+#endif
 
     if (OMPI_COMM_IS_INTER(comm)) {
         basic_module->super.coll_allgather  = mca_coll_basic_allgather_inter;
