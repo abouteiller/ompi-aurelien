@@ -10,6 +10,8 @@
  *
  * $HEADER$
  */
+#include "opal/mca/base/mca_base_var.h"
+
 #include "orte/util/name_fns.h"
 #include "orte/runtime/orte_globals.h"
 
@@ -258,10 +260,12 @@ static void ompi_rbcast_bml_send_complete_cb(
 static bool comm_rbcast_listener_started = false;
 
 int ompi_comm_init_rbcast(void) {
-    int ret, id, rbcast;
+    int ret, rbcast=1;
 
-    id = mca_base_param_register_int("ompi", "ft", "reliable_bcast", "Reliable Broadcast algorithm\n  1: Binomial Graph Diffusion (default)\n  2: N^2 full graph diffusion", 1);
-    mca_base_param_lookup_int(id, &rbcast);
+    (void) mca_base_var_register ("mpi", "ft", "ulfm", "reliable_bcast",
+                                  "Reliable Broadcast algorithm (1: Binomial Graph Diffusion; 2: N^2 full graph diffusion)",
+                                  MCA_BASE_VAR_TYPE_INT, NULL, 0, MCA_BASE_VAR_SCOPE_READONLY,
+                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_CONSTANT, &rbcast);
     switch( rbcast ) {
         case 0:
             return OMPI_SUCCESS;
