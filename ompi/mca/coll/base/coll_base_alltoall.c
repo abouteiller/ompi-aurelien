@@ -394,6 +394,7 @@ int ompi_coll_base_alltoall_intra_linear_sync(const void *sbuf, int scount,
                    (size - 1) : (max_outstanding_reqs));
     reqs = coll_base_comm_get_reqs(module->base_data, 2 * total_reqs);
     if (NULL == reqs) { error = -1; line = __LINE__; goto error_hndl; }
+    reqs[0] = reqs[1] = MPI_REQUEST_NULL;
 
     prcv = (char *) rbuf;
     psnd = (char *) sbuf;

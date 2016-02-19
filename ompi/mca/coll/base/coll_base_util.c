@@ -41,7 +41,8 @@ int ompi_coll_base_sendrecv_nonzero_actual( void* sendbuf, size_t scount,
 { /* post receive first, then send, then waitall... should be fast (I hope) */
     int err, line = 0, nreqs = 0;
     size_t typesize;
-    ompi_request_t* reqs[2], **req = reqs;
+    ompi_request_t* reqs[2] = {MPI_REQUEST_NULL, MPI_REQUEST_NULL};
+    ompi_request_t** req = reqs;
     ompi_status_public_t statuses[2];
 
     /* post new irecv */
@@ -104,6 +105,7 @@ int ompi_coll_base_sendrecv_nonzero_actual( void* sendbuf, size_t scount,
     if (MPI_STATUS_IGNORE != status) {
         status->MPI_ERROR = err;
     }
+    ompi_coll_base_free_reqs(reqs, 2);
     return (err);
 }
 

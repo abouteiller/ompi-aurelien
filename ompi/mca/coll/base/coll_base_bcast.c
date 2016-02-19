@@ -70,6 +70,9 @@ ompi_coll_base_bcast_intra_generic( void* buffer,
 #if !defined(COLL_BASE_BCAST_USE_BLOCKING)
     if( tree->tree_nextsize != 0 ) {
         send_reqs = coll_base_comm_get_reqs(module->base_data, tree->tree_nextsize);
+        for( i = 0; i < tree->tree_nextsize; i++ ) {
+            send_reqs[i] = MPI_REQUEST_NULL;
+        }
     }
 #endif
 
@@ -246,9 +249,12 @@ ompi_coll_base_bcast_intra_generic( void* buffer,
     (void)line;  // silence compiler warnings
     if( MPI_SUCCESS != err ) {
         ompi_coll_base_free_reqs( recv_reqs, 2);
+#if !defined(COLL_base_BCAST_USE_BLOCKING)
         if( NULL != send_reqs ) {
-            ompi_coll_base_free_reqs( send_reqs, tree->tree_nextsize);
+            ompi_coll_base_free_reqs(send_reqs, tree->tree_nextsize);
+            free(send_reqs);
         }
+#endif
     }
 
     return err;
