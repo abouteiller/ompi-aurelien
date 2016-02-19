@@ -83,7 +83,7 @@ mca_coll_basic_allreduce_inter(const void *sbuf, void *rbuf, int count,
     int err, i, rank, root = 0, rsize, line;
     ptrdiff_t extent, dsize, gap;
     char *tmpbuf = NULL, *pml_buffer = NULL;
-    ompi_request_t *req[2];
+    ompi_request_t *req[2] = {MPI_REQUEST_NULL, MPI_REQUEST_NULL};
     ompi_request_t **reqs = NULL;
 
     rank = ompi_comm_rank(comm);
