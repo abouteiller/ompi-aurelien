@@ -11,6 +11,7 @@
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
  * Copyright (c) 2006      Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2013-2015 Los Alamos National Security, LLC.  All rights
  *                         reserved.
  * Copyright (c) 2015      Research Organization for Information Science
@@ -75,6 +76,11 @@ int MPI_Put(const void *origin_addr, int origin_count, MPI_Datatype origin_datat
     }
 
     if (MPI_PROC_NULL == target_rank) return MPI_SUCCESS;
+
+#if OPAL_ENABLE_FT_MPI
+    OMPI_ERRHANDLER_RETURN(OMPI_ERR_NOT_SUPPORTED, win,
+                           OMPI_ERR_NOT_SUPPORTED, FUNC_NAME);
+#endif
 
     OPAL_CR_ENTER_LIBRARY();
 

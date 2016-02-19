@@ -10,6 +10,7 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2013      Los Alamos National Security, LLC.  All rights
  *                         reserved.
  * Copyright (c) 2015-2016 Intel, Inc. All rights reserved.
@@ -80,6 +81,11 @@ int MPI_Lookup_name(const char *service_name, MPI_Info info, char *port_name)
                                       OMPI_ERR_NOT_SUPPORTED,
                                       FUNC_NAME);
     }
+
+#if OPAL_ENABLE_FT_MPI
+    OMPI_ERRHANDLER_RETURN(OMPI_ERR_NOT_SUPPORTED, MPI_COMM_WORLD,
+                           OMPI_ERR_NOT_SUPPORTED, FUNC_NAME);
+#endif
 
     OPAL_CR_ENTER_LIBRARY();
 

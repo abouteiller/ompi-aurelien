@@ -16,6 +16,7 @@
  * Copyright (c) 2006      University of Houston. All rights reserved.
  * Copyright (c) 2009      Sun Microsystems, Inc.  All rights reserved.
  * Copyright (c) 2011      Sandia National Laboratories. All rights reserved.
+ * Copyright (c) 2012      Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2014-2017 Intel, Inc. All rights reserved.
  * Copyright (c) 2016      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
@@ -253,6 +254,27 @@ int ompi_mpi_finalize(void)
        del_procs behavior around May of 2014 (see
        https://svn.open-mpi.org/trac/ompi/ticket/4669#comment:4 for
        more details). */
+#if OPAL_ENABLE_FT_MPI
+    /* grpcomm barrier does not tolerate /new/ failures. Let's make sure
+     * we drain all preexisting failures before we proceed;
+     * TODO: when we have better failure support in the runtime, we can
+     * remove that agreement */
+    {
+        ompi_communicator_t* comm = &ompi_mpi_comm_world.comm;
+        ompi_group_t* acked;
+        ompi_comm_failure_get_acked_internal(comm, &acked);
+        do {
+            ret = comm->c_coll.coll_agreement(comm,
+                                              &acked,
+                                              &ompi_mpi_op_band.op,
+                                              &ompi_mpi_int.dt,
+                                              0,
+                                              NULL,
+                                              comm->c_coll.coll_agreement_module);
+        } while(ret != MPI_SUCCESS);
+        OBJ_RELEASE(acked);
+    }
+#endif
     if (!ompi_async_mpi_finalize) {
         if (NULL != opal_pmix.fence_nb) {
             active = true;
@@ -324,6 +346,17 @@ int ompi_mpi_finalize(void)
     if (OMPI_SUCCESS != (ret = ompi_osc_base_finalize())) {
         goto done;
     }
+
+#if OPAL_ENABLE_FT_MPI
+    /* finalize communicator 'revoke' handle */
+    if (OMPI_SUCCESS != (ret = ompi_comm_finalize_revoke())) {
+        goto done;
+    }
+    /* finalize communicator 'rbcast' handle */
+    if (OMPI_SUCCESS != (ret = ompi_comm_finalize_rbcast())) {
+        goto done;
+    }
+#endif /* OPAL_ENABLE_FT_MPI */
 
     /* free communicator resources. this MUST come before finalizing the PML
      * as this will call into the pml */

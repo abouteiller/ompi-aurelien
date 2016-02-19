@@ -3,13 +3,14 @@
 # Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
 #                         University Research and Technology
 #                         Corporation.  All rights reserved.
-# Copyright (c) 2004-2005 The University of Tennessee and The University
+# Copyright (c) 2004-2016 The University of Tennessee and The University
 #                         of Tennessee Research Foundation.  All rights
 #                         reserved.
 # Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
 #                         University of Stuttgart.  All rights reserved.
 # Copyright (c) 2004-2005 The Regents of the University of California.
 #                         All rights reserved.
+# Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
 # Copyright (c) 2013-2017 Los Alamos National Security, LLC. All rights
 #                         reserved.
 # Copyright (c) 2014      Research Organization for Information Science
@@ -33,4 +34,9 @@ lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
 	communicator/comm.c \
 	communicator/comm_cid.c \
 	communicator/comm_request.c
+
+if WANT_FT_MPI
+lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
+	communicator/comm_ft.c communicator/comm_ft_reliable_bcast.c communicator/comm_ft_propagate.c communicator/comm_ft_revoke.c
+endif # WANT_FT_MPI
 

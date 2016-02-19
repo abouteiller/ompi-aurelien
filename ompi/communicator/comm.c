@@ -13,6 +13,7 @@
  * Copyright (c) 2007-2011 University of Houston. All rights reserved.
  * Copyright (c) 2007-2012 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2009      Sun Microsystems, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2011-2013 Inria.  All rights reserved.
  * Copyright (c) 2011-2013 Universite Bordeaux 1
  * Copyright (c) 2012      Oak Ridge National Labs.  All rights reserved.
@@ -120,10 +121,10 @@ int ompi_comm_set ( ompi_communicator_t **ncomm,
     }
 
     if (NULL != req) {
-        ompi_request_wait( &req, MPI_STATUS_IGNORE);
+        rc = ompi_request_wait( &req, MPI_STATUS_IGNORE);
     }
 
-    return OMPI_SUCCESS;
+    return rc;
 }
 
 /*
@@ -207,6 +208,17 @@ int ompi_comm_set_nb ( ompi_communicator_t **ncomm,
         newcomm->c_remote_group = newcomm->c_local_group;
         OBJ_RETAIN(newcomm->c_remote_group);
     }
+
+#if OPAL_ENABLE_FT_MPI
+    newcomm->any_source_enabled  = true;
+    newcomm->any_source_offset   = 0;
+    newcomm->comm_revoked        = false;
+    newcomm->coll_revoked        = false;
+    newcomm->num_active_local    = newcomm->c_local_group->grp_proc_count;
+    newcomm->num_active_remote   = newcomm->c_remote_group->grp_proc_count;
+    newcomm->lleader             = 0;
+    newcomm->rleader             = 0;
+#endif /* OPAL_ENABLE_FT_MPI */
 
     /* Check how many different jobids are represented in this communicator.
        Necessary for the disconnect of dynamic communicators. */
@@ -1527,7 +1539,6 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
                                      int tag,
                                      int rsize)
 {
-
     MPI_Request req;
     int rc;
     int local_rank, local_size;
@@ -1537,7 +1548,7 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
     opal_buffer_t *sbuf=NULL, *rbuf=NULL;
     void *sendbuf=NULL;
     char *recvbuf;
-    ompi_proc_t **proc_list=NULL;
+    ompi_proc_t **proc_list = NULL;
     int i;
 
     local_rank = ompi_comm_rank (local_comm);
@@ -1572,6 +1583,14 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
         rc = MCA_PML_CALL(irecv (&rlen, 1, MPI_INT, remote_leader, tag,
                                  bridge_comm, &req ));
         if ( OMPI_SUCCESS != rc ) {
+#if OPAL_ENABLE_FT_MPI
+            //TODO: ENABLE_FT_MPI: irecv should never return Proc_failed per
+            //spec, check.
+            if( MPI_ERR_PROC_FAILED == rc ) {
+                rlen = 0;
+                goto skip_handshake;
+            }
+#endif  /* OPAL_ENABLE_FT_MPI */
             goto err_exit;
         }
         int_len = (int)size_len;
@@ -1579,12 +1598,15 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
         rc = MCA_PML_CALL(send (&int_len, 1, MPI_INT, remote_leader, tag,
                                 MCA_PML_BASE_SEND_STANDARD, bridge_comm ));
         if ( OMPI_SUCCESS != rc ) {
-            goto err_exit;
+            rlen = 0;  /* complete the recv and then the collectives */
         }
         rc = ompi_request_wait( &req, MPI_STATUS_IGNORE );
         if ( OMPI_SUCCESS != rc ) {
-            goto err_exit;
+            rlen = 0;  /* participate in the collective and then done */
         }
+#if OPAL_ENABLE_FT_MPI
+  skip_handshake:  /* nothing special */;
+#endif
     }
 
     /* broadcast buffer length to all processes in local_comm */
@@ -1592,7 +1614,14 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
                                         local_leader, local_comm,
                                         local_comm->c_coll->coll_bcast_module );
     if ( OMPI_SUCCESS != rc ) {
+#if OPAL_ENABLE_FT_MPI
+        if ( local_rank != local_leader ) {
+            goto err_exit;
+        }
+        /* the leaders must go on in order to avoid deadlocks */
+#else
         goto err_exit;
+#endif  /* OPAL_ENABLE_FT_MPI */
     }
 
     /* Allocate temporary buffer */
@@ -1606,17 +1635,39 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
         rc = MCA_PML_CALL(irecv (recvbuf, rlen, MPI_BYTE, remote_leader, tag,
                                  bridge_comm, &req ));
         if ( OMPI_SUCCESS != rc ) {
+#if OPAL_ENABLE_FT_MPI
+            // TODO: ENABLE_FT_MPI: same as above, should not return
+            // PROC_FAILED from irecv.
+            if( MPI_ERR_PROC_FAILED == rc ) {
+                goto skip_handshake2;
+            }
+#endif  /* OPAL_ENABLE_FT_MPI */
             goto err_exit;
         }
         rc = MCA_PML_CALL(send(sendbuf, int_len, MPI_BYTE, remote_leader, tag,
                                MCA_PML_BASE_SEND_STANDARD, bridge_comm ));
         if ( OMPI_SUCCESS != rc ) {
+#if OPAL_ENABLE_FT_MPI
+            if( MPI_ERR_PROC_FAILED == rc ) {
+                goto skip_handshake2;
+            }
+#endif  /* OPAL_ENABLE_FT_MPI */
             goto err_exit;
         }
+
+#if OPAL_ENABLE_FT_MPI
+  skip_handshake2:  /* nothing special */;
+#endif
         rc = ompi_request_wait( &req, MPI_STATUS_IGNORE );
+#if OPAL_ENABLE_FT_MPI
+        /* let it flow even if there are errors */
+        if ( OMPI_SUCCESS != rc || MPI_ERR_PROC_FAILED != rc ) {
+#else
         if ( OMPI_SUCCESS != rc ) {
+#endif
             goto err_exit;
         }
+        OBJ_RELEASE(sbuf);
     }
 
     /* broadcast name list to all proceses in local_comm */
@@ -1637,7 +1688,9 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
         goto err_exit;
     }
 
-    /* decode the names into a proc-list */
+    /* decode the names into a proc-list -- will never add a new proc
+       as the result of this operation, so no need to get the newprocs
+       list or call PML add_procs(). */
     rc = ompi_proc_unpack(rbuf, rsize, &rprocs, NULL, NULL);
     OBJ_RELEASE(rbuf);
     if (OMPI_SUCCESS != rc) {
@@ -1727,8 +1780,6 @@ int ompi_comm_determine_first ( ompi_communicator_t *intercomm, int high )
     int *rdisps;
     int scount=0;
     int rc;
-    ompi_proc_t *ourproc, *theirproc;
-    ompi_rte_cmp_bitmask_t mask;
 
     rank = ompi_comm_rank        (intercomm);
     rsize= ompi_comm_remote_size (intercomm);
@@ -1777,22 +1828,33 @@ int ompi_comm_determine_first ( ompi_communicator_t *intercomm, int high )
         flag = true;
     }
     else {
-        ourproc   = ompi_group_peer_lookup(intercomm->c_local_group,0);
-        theirproc = ompi_group_peer_lookup(intercomm->c_remote_group,0);
-
-        mask = OMPI_RTE_CMP_JOBID | OMPI_RTE_CMP_VPID;
-        rc = ompi_rte_compare_name_fields(mask, (const ompi_process_name_t*)&(ourproc->super.proc_name),
-                                                (const ompi_process_name_t*)&(theirproc->super.proc_name));
-        if ( 0 > rc ) {
-            flag = true;
-        }
-        else {
-            flag = false;
-        }
+        flag = ompi_comm_determine_first_auto(intercomm);
     }
 
     return flag;
 }
+
+int ompi_comm_determine_first_auto ( ompi_communicator_t* intercomm )
+{
+    ompi_proc_t *ourproc, *theirproc;
+    ompi_rte_cmp_bitmask_t mask;
+    int rc, flag;
+
+    ourproc   = ompi_group_peer_lookup(intercomm->c_local_group,0);
+    theirproc = ompi_group_peer_lookup(intercomm->c_remote_group,0);
+
+    mask = OMPI_RTE_CMP_JOBID | OMPI_RTE_CMP_VPID;
+    rc = ompi_rte_compare_name_fields(mask, (const ompi_process_name_t*)&(ourproc->super.proc_name),
+                                            (const ompi_process_name_t*)&(theirproc->super.proc_name));
+    if ( 0 > rc ) {
+        flag = true;
+    }
+    else {
+        flag = false;
+    }
+    return flag;
+}
+
 /********************************************************************************/
 /********************************************************************************/
 /********************************************************************************/

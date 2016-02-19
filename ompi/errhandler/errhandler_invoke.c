@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2005 The University of Tennessee and The University
+ * Copyright (c) 2004-2015 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -134,13 +134,30 @@ int ompi_errhandler_request_invoke(int count,
             MPI_SUCCESS != requests[i]->req_status.MPI_ERROR) {
             break;
         }
+#if OPAL_ENABLE_FT_MPI
+        /* Special case for MPI_ANY_SOURCE when marked as MPI_ERR_PROC_FAILED_PENDING */
+        if( requests[i]->req_any_source_pending ) {
+            break;
+        }
+#endif /* OPAL_ENABLE_FT_MPI */
     }
     /* If there were no errors, return SUCCESS */
     if (i >= count) {
         return MPI_SUCCESS;
     }
 
+#if OPAL_ENABLE_FT_MPI
+    /* Special case for MPI_ANY_SOURCE when marked as MPI_ERR_PROC_FAILED_PENDING
+     * We want to call the error handler below, but we have a special
+     * error value that we want to propagate. */
+    if( requests[i]->req_any_source_pending ) {
+        ec = MPI_ERR_PROC_FAILED_PENDING;
+    } else {
+        ec = ompi_errcode_get_mpi_code(requests[i]->req_status.MPI_ERROR);
+    }
+#else
     ec = ompi_errcode_get_mpi_code(requests[i]->req_status.MPI_ERROR);
+#endif /* OPAL_ENABLE_FT_MPI */
     mpi_object = requests[i]->req_mpi_object;
     type = requests[i]->req_type;
 
@@ -151,15 +168,25 @@ int ompi_errhandler_request_invoke(int count,
     for (; i < count; ++i) {
         if (MPI_REQUEST_NULL != requests[i] &&
             MPI_SUCCESS != requests[i]->req_status.MPI_ERROR) {
+#if OPAL_ENABLE_FT_MPI
+            /* Special case for MPI_ANY_SOURCE when marked as
+             * MPI_ERR_PROC_FAILED_PENDING,
+             * This request should not be freed since it is still active. */
+            if( !requests[i]->req_any_source_pending ) {
+                ompi_request_free(&(requests[i])); 
+            }
+#else
             /* Ignore the error -- what are we going to do?  We're
                already going to invoke an exception */
             ompi_request_free(&(requests[i]));
+#endif /* OPAL_ENABLE_FT_MPI */
         }
     }
 
     /* Invoke the exception */
     switch (type) {
     case OMPI_REQUEST_PML:
+    case OMPI_REQUEST_COLL:
         return ompi_errhandler_invoke(mpi_object.comm->error_handler,
                                       mpi_object.comm,
                                       mpi_object.comm->errhandler_type,

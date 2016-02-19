@@ -11,6 +11,7 @@
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
  * Copyright (c) 2007-2012 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2012-2013 Los Alamos National Security, LLC.  All rights
  *                         reserved.
  * Copyright (c) 2012-2013 Inria.  All rights reserved.
@@ -86,6 +87,11 @@ int MPI_Graph_create(MPI_Comm old_comm, int nnodes, const int indx[],
         return OMPI_ERRHANDLER_INVOKE (old_comm, MPI_ERR_ARG,
                                        FUNC_NAME);
     }
+
+#if OPAL_ENABLE_FT_MPI
+    OMPI_ERRHANDLER_RETURN(OMPI_ERR_NOT_SUPPORTED, old_comm,
+                           OMPI_ERR_NOT_SUPPORTED, FUNC_NAME);
+#endif
 
     OPAL_CR_ENTER_LIBRARY();
     /*

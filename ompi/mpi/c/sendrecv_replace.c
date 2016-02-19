@@ -9,6 +9,7 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2010-2012 Oracle and/or its affiliates.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
@@ -71,6 +72,32 @@ int MPI_Sendrecv_replace(void * buf, int count, MPI_Datatype datatype,
             rc = MPI_ERR_TAG;
         }
         OMPI_ERRHANDLER_CHECK(rc, comm, rc, FUNC_NAME);
+
+#if OPAL_ENABLE_FT_MPI
+        /*
+         * An early check, so as to return early if we are communicating with
+         * a failed process. This is not absolutely necessary since we will
+         * check for this, and other, error conditions during the completion
+         * call in the PML.
+         */
+        if( !ompi_comm_iface_p2p_check_proc(comm, dest, &rc) ) {
+            if( MPI_STATUS_IGNORE != status ) {
+                status->MPI_SOURCE = dest;
+                status->MPI_TAG    = recvtag;
+                status->MPI_ERROR  = rc;
+            }
+            OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
+        }
+
+        if( !ompi_comm_iface_p2p_check_proc(comm, source, &rc) ) {
+            if( MPI_STATUS_IGNORE != status ) {
+                status->MPI_SOURCE = source;
+                status->MPI_TAG    = recvtag;
+                status->MPI_ERROR  = rc;
+            }
+            OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
+        }
+#endif
     }
 
     OPAL_CR_ENTER_LIBRARY();

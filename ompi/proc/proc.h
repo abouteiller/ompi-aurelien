@@ -12,9 +12,11 @@
  * Copyright (c) 2006-2012 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2007-2012 Los Alamos National Security, LLC.  All rights
  *                         reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2013-2014 Intel, Inc. All rights reserved
  * Copyright (c) 2015-2016 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
+ *
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -35,6 +37,7 @@
 #define OMPI_PROC_PROC_H
 
 #include "ompi_config.h"
+#include "ompi/constants.h"
 #include "ompi/types.h"
 
 #include "opal/util/proc.h"
@@ -70,6 +73,10 @@ BEGIN_C_DECLS
 
 struct ompi_proc_t {
     opal_proc_t                     super;
+#if OPAL_ENABLE_FT_MPI
+    /** Is the process active? */
+    bool                            proc_active;
+#endif /* OPAL_ENABLE_FT_MPI */
 
     /* endpoint data */
     void *proc_endpoints[OMPI_PROC_ENDPOINT_TAG_MAX];
@@ -79,6 +86,18 @@ struct ompi_proc_t {
 typedef struct ompi_proc_t ompi_proc_t;
 OBJ_CLASS_DECLARATION(ompi_proc_t);
 
+#if OPAL_ENABLE_FT_MPI
+static inline bool ompi_proc_is_active(ompi_proc_t *proc)
+{
+    return (proc->proc_active);
+}
+
+/* Made a function, so we can do something smarter in the future */
+static inline void ompi_proc_mark_as_failed(ompi_proc_t *proc)
+{
+    proc->proc_active = false;
+}
+#endif /* OPAL_ENABLE_FT_MPI */
 
 /**
  * @private

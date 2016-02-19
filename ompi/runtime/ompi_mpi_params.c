@@ -13,6 +13,7 @@
  * Copyright (c) 2006-2016 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2007-2015 Los Alamos National Security, LLC.  All rights
  *                         reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2013      NVIDIA Corporation.  All rights reserved.
  * Copyright (c) 2013-2017 Intel, Inc.  All rights reserved.
  * Copyright (c) 2015      Mellanox Technologies, Inc.
@@ -80,9 +81,29 @@ static bool show_file_mca_params = false;
 static bool show_enviro_mca_params = false;
 static bool show_override_mca_params = false;
 
+#if OPAL_ENABLE_FT_MPI
+int ompi_ftmpi_output_handle = 0;
+bool ompi_ftmpi_enabled = false;
+#endif
+
 int ompi_mpi_register_params(void)
 {
     int value;
+
+#if OPAL_ENABLE_FT_MPI
+    mca_base_param_reg_int_name("ompi", "ftmpi_verbose",
+                                "Verbose level of FT MPI error path",
+                                false, false, 0, &value);
+    if( 0 < value ) {
+        ompi_ftmpi_output_handle = opal_output_open(NULL);
+        opal_output_set_verbosity(ompi_ftmpi_output_handle, value);
+    }
+
+    mca_base_param_reg_int_name("ompi", "ftmpi_enable",
+                                "Enable the FT MPI error path",
+                                false, false, (int)ompi_ftmpi_enabled, &value);
+    ompi_ftmpi_enabled = OPAL_INT_TO_BOOL(value);
+#endif
 
     /* Whether we want MPI API function parameter checking or not. Disable this by default if
        parameter checking is compiled out. */

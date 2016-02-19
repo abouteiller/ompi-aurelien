@@ -13,8 +13,10 @@
  * Copyright (c) 2007-2015 Los Alamos National Security, LLC.  All rights
  *                         reserved.
  * Copyright (c) 2006-2015 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2013      NVIDIA Corporation.  All rights reserved.
  * Copyright (c) 2013      Intel, Inc. All rights reserved
+ *
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -141,6 +143,10 @@ OMPI_DECLSPEC extern bool ompi_async_mpi_init;
 /* EXPERIMENTAL: do not perform an RTE barrier at the beginning of MPI_Finalize */
 OMPI_DECLSPEC extern bool ompi_async_mpi_finalize;
 
+#if OPAL_ENABLE_FT_MPI
+OMPI_DECLSPEC extern int ompi_ftmpi_output_handle;
+OMPI_DECLSPEC extern bool ompi_ftmpi_enabled;
+#endif
 
 /**
  * Register MCA parameters used by the MPI layer.

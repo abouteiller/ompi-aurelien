@@ -11,6 +11,7 @@
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
  * Copyright (c) 2006-2012 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2012-2013 Los Alamos National Security, LLC.  All rights
  *                         reserved.
  * Copyright (c) 2015      Research Organization for Information Science
@@ -107,6 +108,17 @@ int MPI_Reduce_scatter(const void *sendbuf, void *recvbuf, const int recvcounts[
           OMPI_CHECK_DATATYPE_FOR_SEND(err, datatype, recvcounts[i]);
           OMPI_ERRHANDLER_CHECK(err, comm, err, FUNC_NAME);
         }
+
+#if OPAL_ENABLE_FT_MPI
+        /*
+         * An early check, so as to return early if we are using a broken
+         * communicator. This is not absolutely necessary since we will
+         * check for this, and other, error conditions during the operation.
+         */
+        if( !ompi_comm_iface_coll_check(comm, &err) ) {
+            OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
+        }
+#endif
     }
 
     /* MPI-1, p114, says that each process must supply at least one

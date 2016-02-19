@@ -11,6 +11,7 @@
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
  * Copyright (c) 2006      Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2016      Los Alamos National Security, LLC. All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -71,6 +72,8 @@ OMPI_DECLSPEC OBJ_CLASS_DECLARATION(mca_pml_base_recv_request_t);
                                                                          \
     OMPI_REQUEST_INIT(&(request)->req_base.req_ompi, persistent);        \
     (request)->req_base.req_ompi.req_mpi_object.comm = comm;             \
+    (request)->req_base.req_ompi.req_peer = src;                         \
+    (request)->req_base.req_ompi.req_tag = tag;                          \
     (request)->req_bytes_packed = 0;                                     \
     (request)->req_base.req_addr = addr;                                 \
     (request)->req_base.req_count = count;                               \

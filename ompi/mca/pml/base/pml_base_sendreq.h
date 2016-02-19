@@ -11,6 +11,7 @@
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
  * Copyright (c) 2006      Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2016      Los Alamos National Security, LLC. All rights
@@ -83,6 +84,8 @@ OMPI_DECLSPEC OBJ_CLASS_DECLARATION( mca_pml_base_send_request_t );
                                                                           \
       OMPI_REQUEST_INIT(&(request)->req_base.req_ompi, persistent);       \
       (request)->req_base.req_ompi.req_mpi_object.comm = comm;            \
+      (request)->req_base.req_ompi.req_peer = peer;                       \
+      (request)->req_base.req_ompi.req_tag = tag;                         \
       (request)->req_addr = addr;                                         \
       (request)->req_send_mode = mode;                                    \
       (request)->req_base.req_addr = (void *)addr;                        \
@@ -133,6 +136,7 @@ OMPI_DECLSPEC OBJ_CLASS_DECLARATION( mca_pml_base_send_request_t );
         (request)->req_base.req_ompi.req_complete = REQUEST_PENDING;    \
         (request)->req_base.req_ompi.req_state = OMPI_REQUEST_ACTIVE;   \
         (request)->req_base.req_ompi.req_status._cancelled = 0;         \
+        (request)->req_base.req_ompi.req_status.MPI_ERROR = OMPI_SUCCESS; \
         MCA_PML_BASE_SEND_REQUEST_RESET(request);             \
     } while (0)
 

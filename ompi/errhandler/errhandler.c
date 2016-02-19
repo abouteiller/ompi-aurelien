@@ -12,6 +12,7 @@
  *                         All rights reserved.
  * Copyright (c) 2008-2012 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2009      Sun Microsystems, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2015-2016 Intel, Inc. All rights reserved.
@@ -32,7 +33,7 @@
 #include "ompi/errhandler/errhandler_predefined.h"
 #include "opal/class/opal_pointer_array.h"
 #include "opal/mca/pmix/pmix.h"
-
+#include "ompi/runtime/params.h"
 
 /*
  * Table for Fortran <-> C errhandler handle conversion
@@ -145,6 +146,13 @@ int ompi_errhandler_init(void)
   strncpy (ompi_mpi_errors_throw_exceptions.eh.eh_name, "MPI_ERRORS_THROW_EXCEPTIONS",
 	   strlen("MPI_ERRORS_THROW_EXCEPTIONS")+1 );
 
+#if OPAL_ENABLE_FT_MPI
+  /* Connect to the Runtime Environment Error Mgr */
+  if( ompi_ftmpi_enabled ) {
+      ompi_errhandler_internal_rte_init();
+  }
+#endif
+
   /* All done */
 
   return OMPI_SUCCESS;
@@ -156,6 +164,12 @@ int ompi_errhandler_init(void)
  */
 int ompi_errhandler_finalize(void)
 {
+#if OPAL_ENABLE_FT_MPI
+    if( ompi_ftmpi_enabled ) {
+        /* Disconnect to the Runtime Environment Error Mgr */
+        ompi_errhandler_internal_rte_finalize();
+    }
+#endif
     OBJ_DESTRUCT(&ompi_mpi_errhandler_null.eh);
     OBJ_DESTRUCT(&ompi_mpi_errors_return.eh);
     OBJ_DESTRUCT(&ompi_mpi_errors_throw_exceptions.eh);

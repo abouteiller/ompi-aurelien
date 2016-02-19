@@ -237,6 +237,7 @@ $constants->{MPI_WIN_SIZE} = 8;
 $constants->{MPI_WIN_DISP_UNIT} = 9;
 $constants->{MPI_WIN_CREATE_FLAVOR} = 10;
 $constants->{MPI_WIN_MODEL} = 11;
+$constants->{MPI_FT} = 12;
 $constants->{MPI_WIN_FLAVOR_CREATE} = 1;
 $constants->{MPI_WIN_FLAVOR_ALLOCATE} = 2;
 $constants->{MPI_WIN_FLAVOR_DYNAMIC} = 3;
@@ -321,6 +322,11 @@ $constants->{MPI_ERR_SPAWN} = 50;
 $constants->{MPI_ERR_UNSUPPORTED_DATAREP} = 51;
 $constants->{MPI_ERR_UNSUPPORTED_OPERATION} = 52;
 $constants->{MPI_ERR_WIN} = 53;
+# these errors are MPI, but we keep it with high values
+# until standardized so as to avoid changing the ABI
+$constants->{MPI_ERR_PROC_FAILED} = 74;
+$constants->{MPI_ERR_PROC_FAILED_PENDING} = 75;
+$constants->{MPI_ERR_REVOKED} = 76;
 # these error codes will never be returned by a fortran function
 # since there are no fortran bindings for MPI_T
 $constants->{MPI_T_ERR_MEMORY} = 54;
@@ -415,7 +421,7 @@ my $header = '! -*- fortran -*-
 ! Copyright (c) 2004-2006 The Trustees of Indiana University and Indiana
 !                         University Research and Technology
 !                         Corporation.  All rights reserved.
-! Copyright (c) 2004-2010 The University of Tennessee and The University
+! Copyright (c) 2004-2016 The University of Tennessee and The University
 !                         of Tennessee Research Foundation.  All rights
 !                         reserved.
 ! Copyright (c) 2004-2007 High Performance Computing Center Stuttgart,
@@ -423,7 +429,7 @@ my $header = '! -*- fortran -*-
 ! Copyright (c) 2004-2005 The Regents of the University of California.
 !                         All rights reserved.
 ! Copyright (c) 2006-2012 Cisco Systems, Inc.  All rights reserved.
-! Copyright (c) 2009      Oak Ridge National Labs.  All rights reserved.
+! Copyright (c) 2009-2012 Oak Ridge National Labs.  All rights reserved.
 ! Copyright (c) 2016      Research Organization for Information Science
 !                         and Technology (RIST). All rights reserved.
 ! $COPYRIGHT$
@@ -477,7 +483,7 @@ my $output = '/* WARNING! THIS IS A GENERATED FILE!!
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2006 The University of Tennessee and The University
+ * Copyright (c) 2004-2016 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2007 High Performance Computing Center Stuttgart,
@@ -486,7 +492,7 @@ my $output = '/* WARNING! THIS IS A GENERATED FILE!!
  *                         All rights reserved.
  * Copyright (c) 2007-2009 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2008-2009 Sun Microsystems, Inc.  All rights reserved.
- * Copyright (c) 2009      Oak Ridge National Labs.  All rights reserved.
+ * Copyright (c) 2009-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2009-2012 Los Alamos National Security, LLC.
  *                         All rights reserved.
  * Copyright (c) 2016      Research Organization for Information Science

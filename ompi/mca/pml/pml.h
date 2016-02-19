@@ -197,6 +197,19 @@ typedef int (*mca_pml_base_module_add_comm_fn_t)(struct ompi_communicator_t* com
 typedef int (*mca_pml_base_module_del_comm_fn_t)(struct ompi_communicator_t* comm);
 
 /**
+ * Downcall from MPI layer when a communicator is revoked.
+ * 
+ * @param comm (INOUT)      Communicator
+ * @param coll_only (IN)    Revoke only the collective operations, or all
+ *                              non-FT operations
+ * @return                  OMPI_SUCCESS or failure status.
+ *
+ * Provides the PML the opportunity to change unexpected fragments 
+ * handling and purge the queues associated with the communicator. 
+ */
+typedef int (*mca_pml_base_module_revoke_comm_fn_t)(struct ompi_communicator_t* comm, bool coll_only);
+
+/**
  *  Initialize a persistent receive request.
  *
  *  @param buf (IN)         User buffer.
@@ -499,6 +512,9 @@ struct mca_pml_base_module_1_0_1_t {
     /* downcalls from MPI to PML */
     mca_pml_base_module_add_comm_fn_t     pml_add_comm;
     mca_pml_base_module_del_comm_fn_t     pml_del_comm;
+#if OPAL_ENABLE_FT_MPI
+    mca_pml_base_module_revoke_comm_fn_t  pml_revoke_comm;
+#endif
     mca_pml_base_module_irecv_init_fn_t   pml_irecv_init;
     mca_pml_base_module_irecv_fn_t        pml_irecv;
     mca_pml_base_module_recv_fn_t         pml_recv;

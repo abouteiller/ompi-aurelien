@@ -2,7 +2,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2005 The University of Tennessee and The University
+ * Copyright (c) 2004-2016 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -50,6 +50,9 @@
  * MPI_IO is set to MPI_ANY_SOURCE.  We may need to revist this.
  *
  * MPI_WTIME_IS_GLOBAL is set to 0 (a conservative answer).
+ *
+ * MPI_FT is set to 0 or 1 (according to OPAL_ENABLE_FT_MPI and
+ * ompi_ftmpi_enabled)
  *
  * MPI_APPNUM is set as the result of a GPR subscription.
  *
@@ -129,6 +132,9 @@ int ompi_attr_create_predefined(void)
         OMPI_SUCCESS != (ret = create_win(MPI_WIN_DISP_UNIT)) ||
         OMPI_SUCCESS != (ret = create_win(MPI_WIN_CREATE_FLAVOR)) ||
         OMPI_SUCCESS != (ret = create_win(MPI_WIN_MODEL)) ||
+#if OPAL_ENABLE_FT_MPI
+        OMPI_SUCCESS != (ret = create_comm(MPI_FT, true)) ||
+#endif /* OPAL_ENABLE_FT_MPI */
 #if 0
         /* JMS For when we implement IMPI */
         OMPI_SUCCESS != (ret = create_comm(IMPI_CLIENT_SIZE, true)) ||
@@ -148,6 +154,12 @@ int ompi_attr_create_predefined(void)
         OMPI_SUCCESS != (ret = set_f(MPI_WTIME_IS_GLOBAL, 0)) ||
         OMPI_SUCCESS != (ret = set_f(MPI_LASTUSEDCODE,
                                      ompi_mpi_errcode_lastused)) ||
+#if OPAL_ENABLE_FT_MPI
+        /* Although we always define the key to ease fortran integration,
+         * lets not set a default value to the attribute if we do not 
+         * have fault tolerance built in. */
+        OMPI_SUCCESS != (ret = set_f(MPI_FT, ompi_ftmpi_enabled)) ||
+#endif /* OPAL_ENABLE_FT_MPI */
 #if 0
         /* JMS For when we implement IMPI */
         OMPI_SUCCESS != (ret = set(IMPI_CLIENT_SIZE,
@@ -189,6 +201,9 @@ int ompi_attr_free_predefined(void)
         OMPI_SUCCESS != (ret = free_comm(MPI_HOST)) ||
         OMPI_SUCCESS != (ret = free_comm(MPI_IO)) ||
         OMPI_SUCCESS != (ret = free_comm(MPI_WTIME_IS_GLOBAL)) ||
+#if OPAL_ENABLE_FT_MPI
+        OMPI_SUCCESS != (ret = free_comm(MPI_FT)) ||
+#endif /* OPAL_ENABLE_FT_MPI */
         OMPI_SUCCESS != (ret = free_comm(MPI_APPNUM)) ||
         OMPI_SUCCESS != (ret = free_comm(MPI_LASTUSEDCODE)) ||
         OMPI_SUCCESS != (ret = free_comm(MPI_UNIVERSE_SIZE)) ||

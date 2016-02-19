@@ -41,6 +41,7 @@
 #include "ompi/mca/pml/base/base.h"
 #include "ompi/mca/pml/base/base.h"
 #include "ompi/mca/bml/base/base.h"
+#include "ompi/errhandler/errhandler.h"
 #include "opal/mca/pmix/pmix.h"
 #include "ompi/runtime/ompi_cr.h"
 
@@ -61,6 +62,9 @@ mca_pml_ob1_t mca_pml_ob1 = {
         NULL,  /* mca_pml_ob1_progress, */
         mca_pml_ob1_add_comm,
         mca_pml_ob1_del_comm,
+#if OPAL_ENABLE_FT_MPI
+        mca_pml_ob1_revoke_comm,
+#endif
         mca_pml_ob1_irecv_init,
         mca_pml_ob1_irecv,
         mca_pml_ob1_recv,
@@ -773,6 +777,18 @@ void mca_pml_ob1_error_handler(
         return;
     }
 #endif /* OPAL_CUDA_SUPPORT */
+
+#if OPAL_ENABLE_FT_MPI
+    opal_output_verbose( 1, mca_pml_ob1_output,
+                         "PML:OB1: the error handler was invoked by the %s BTL for proc %s with info %s",
+                         btl->btl_component->btl_version.mca_component_name,
+                         (NULL == errproc ? "null" : ORTE_NAME_PRINT(&errproc->proc_name)), btlinfo);
+    if( NULL != errproc ) {
+        ompi_errmgr_mark_failed_peer_cause_comm(errproc);
+    }
+    return;
+#endif
+
     ompi_rte_abort(-1, btlinfo);
 }
 

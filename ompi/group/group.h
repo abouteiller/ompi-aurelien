@@ -142,6 +142,12 @@ OMPI_DECLSPEC extern struct opal_pointer_array_t ompi_group_f_to_c_table;
 OMPI_DECLSPEC extern struct ompi_predefined_group_t ompi_mpi_group_null;
 OMPI_DECLSPEC extern struct ompi_predefined_group_t *ompi_mpi_group_null_addr;
 
+#if OPAL_ENABLE_FT_MPI
+/*
+ * Global list of failed processes
+ */
+OMPI_DECLSPEC extern ompi_group_t *ompi_group_all_failed_procs;
+#endif /* OPAL_ENABLE_FT_MPI */
 
 /*
  * function prototypes

@@ -12,6 +12,7 @@
  *                         All rights reserved.
  * Copyright (c) 2006-2015 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2009      Sun Microsystems, Inc.  All rights reserved.
+ * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2012-2013 Los Alamos National Security, LLC.  All rights
  *                         reserved.
  * Copyright (c) 2015      Intel, Inc. All rights reserved.
@@ -78,6 +79,11 @@ int MPI_Comm_spawn_multiple(int count, char *array_of_commands[], char **array_o
         if ( NULL == intercomm ) {
             return OMPI_ERRHANDLER_INVOKE(comm, MPI_ERR_ARG, FUNC_NAME);
         }
+#if OPAL_ENABLE_FT_MPI
+        if( !ompi_comm_iface_coll_check(comm, &rc) ) {
+            return OMPI_ERRHANDLER_INVOKE(comm, rc, FUNC_NAME);
+        }
+#endif
     }
 
     rank = ompi_comm_rank ( comm );
