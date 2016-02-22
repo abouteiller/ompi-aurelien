@@ -10,6 +10,7 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
+ * Copyright (c) 2012      Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2014      Los Alamos National Security, LLC. All rights
  *                         reserved.
  * Copyright (c) 2015-2017 Research Organization for Information Science
@@ -43,10 +44,12 @@
 #endif  /* HAVE_UNISTD_H */
 
 #include "opal/opal_socket_errno.h"
+#include "opal/util/proc.h"
 #include "opal/mca/btl/base/btl_base_error.h"
 #include "opal/util/show_help.h"
 
 #include "btl_tcp_frag.h"
+#include "btl_tcp_proc.h"
 #include "btl_tcp_endpoint.h"
 #include "btl_tcp_proc.h"
 
@@ -125,23 +128,29 @@ bool mca_btl_tcp_frag_send(mca_btl_tcp_frag_t* frag, int sd)
             case EWOULDBLOCK:
                 return false;
             case EFAULT:
+#if OPAL_ENABLE_FT_MPI == 0
                 BTL_ERROR(("mca_btl_tcp_frag_send: writev error (%p, %lu)\n\t%s(%lu)\n",
                     frag->iov_ptr[0].iov_base, (unsigned long) frag->iov_ptr[0].iov_len,
                     strerror(opal_socket_errno), (unsigned long) frag->iov_cnt));
+#endif /* OPAL_ENABLE_FT_MPI */
                 frag->endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
                 mca_btl_tcp_endpoint_close(frag->endpoint);
                 return false;
             default:
+#if OPAL_ENABLE_FT_MPI == 0
                 BTL_ERROR(("mca_btl_tcp_frag_send: writev failed: %s (%d)",
                            strerror(opal_socket_errno),
                            opal_socket_errno));
+#endif /* OPAL_ENABLE_FT_MPI */
                 frag->endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
                 mca_btl_tcp_endpoint_close(frag->endpoint);
                 return false;
             }
         }
     }
-
+    opal_output_verbose(1, opal_btl_base_framework.framework_output,
+                        "mca_btl_tcp_frag_send: writev %d bytes to peer %s\n",
+                        cnt, OPAL_NAME_PRINT(frag->endpoint->endpoint_proc->proc_opal->proc_name));
     /* if the write didn't complete - update the iovec state */
     num_vecs = frag->iov_cnt;
     for(i=0; i<num_vecs; i++) {
@@ -213,7 +222,8 @@ bool mca_btl_tcp_frag_recv(mca_btl_tcp_frag_t* frag, int sd)
         cnt = readv(sd, frag->iov_ptr, num_vecs);
         if( 0 < cnt ) goto advance_iov_position;
         if( cnt == 0 ) {
-            btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
+            if(MCA_BTL_TCP_CONNECTED == btl_endpoint->endpoint_state)
+                btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
             mca_btl_tcp_endpoint_close(btl_endpoint);
             return false;
         }
@@ -223,26 +233,32 @@ bool mca_btl_tcp_frag_recv(mca_btl_tcp_frag_t* frag, int sd)
         case EWOULDBLOCK:
             return false;
         case EFAULT:
+#if OPAL_ENABLE_FT_MPI == 0
             BTL_ERROR(("mca_btl_tcp_frag_recv: readv error (%p, %lu)\n\t%s(%lu)\n",
                        frag->iov_ptr[0].iov_base, (unsigned long) frag->iov_ptr[0].iov_len,
                        strerror(opal_socket_errno), (unsigned long) frag->iov_cnt));
+#endif /* OPAL_ENABLE_FT_MPI */
             btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
             mca_btl_tcp_endpoint_close(btl_endpoint);
             return false;
 
         case ECONNRESET:
+#if OPAL_ENABLE_FT_MPI == 0
             opal_show_help("help-mpi-btl-tcp.txt", "peer hung up",
                            true, opal_process_info.nodename,
                            getpid(),
                            btl_endpoint->endpoint_proc->proc_opal->proc_hostname);
+#endif /* OPAL_ENABLE_FT_MPI */
             btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
             mca_btl_tcp_endpoint_close(btl_endpoint);
             return false;
 
         default:
+#if OPAL_ENABLE_FT_MPI == 0
             BTL_ERROR(("mca_btl_tcp_frag_recv: readv failed: %s (%d)",
                        strerror(opal_socket_errno),
                        opal_socket_errno));
+#endif /* OPAL_ENABLE_FT_MPI */
             btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
             mca_btl_tcp_endpoint_close(btl_endpoint);
             return false;
