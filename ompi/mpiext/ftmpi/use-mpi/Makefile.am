@@ -13,8 +13,6 @@
 headers = \
 	mpiext_ftmpi_usempi.h
 
-#AM_CPPFLAGS = -DOMPI_PROFILE_LAYER=0 -DOMPI_COMPILING_FORTRAN_WRAPPERS=1
+noinst_HEADERS = \
+        $(headers)
 
-#ompidir = $(includedir)/openmpi/ompi/mpiext/ftmpi
-#ompi_HEADERS = \
-#        $(headers)
