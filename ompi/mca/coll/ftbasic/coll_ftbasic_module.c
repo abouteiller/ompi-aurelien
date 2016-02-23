@@ -18,19 +18,12 @@
  */
 
 #include "ompi_config.h"
-#include "coll_ftbasic.h"
-#include "coll_ftbasic_agreement.h"
-
-#include <stdio.h>
-#include "orte/util/name_fns.h"
-#include "orte/mca/errmgr/errmgr.h"
-
-#include "mpi.h"
-#include "opal/mca/base/mca_base_param.h"
 #include "opal/util/bit_ops.h"
 #include "ompi/mca/coll/coll.h"
 #include "ompi/mca/coll/base/base.h"
+
 #include "coll_ftbasic.h"
+#include "coll_ftbasic_agreement.h"
 
 #if OPAL_ENABLE_FT_MPI
 static int
@@ -40,7 +33,7 @@ mca_coll_ftbasic_agreement(struct ompi_communicator_t* comm,
                            ompi_datatype_t *dt,
                            int dt_count,
                            void *contrib,
-                           struct mca_coll_base_module_2_0_0_t *module)
+                           struct mca_coll_base_module_2_1_0_t *module)
 {
     return comm->c_coll.coll_allreduce(MPI_IN_PLACE, contrib, dt_count, dt, op,
                                        comm, module);
@@ -53,7 +46,7 @@ mca_coll_ftbasic_iagreement(struct ompi_communicator_t* comm,
                             ompi_datatype_t *dt,
                             int dt_count,
                             void *contrib,
-                            struct mca_coll_base_module_2_0_0_t *module,
+                            struct mca_coll_base_module_2_1_0_t *module,
                             ompi_request_t **request)
 {
     *request = MPI_REQUEST_NULL;

@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2015 The University of Tennessee and The University
+ * Copyright (c) 2004-2016 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart, 
@@ -24,20 +24,16 @@
 
 #include "ompi_config.h"
 
-#include "mpi.h"
 #include "opal/mca/mca.h"
 
 #include "opal/class/opal_bitmap.h"
-#include "ompi/class/ompi_free_list.h"
+#include "opal/class/opal_free_list.h"
 
 #include "ompi/mca/coll/coll.h"
 #include "ompi/mca/coll/base/coll_tags.h"
 #include "ompi/request/request.h"
 #include "ompi/group/group.h"
 #include "ompi/communicator/communicator.h"
-#include "ompi/runtime/params.h"
-
-#include "orte/runtime/orte_globals.h"
 
 BEGIN_C_DECLS
 
@@ -48,11 +44,6 @@ BEGIN_C_DECLS
 #define MCA_COLL_FTBASIC_TAG_AGREEMENT_CATCH_UP     (MCA_COLL_BASE_TAG_AGREEMENT_CATCH_UP)
 #define MCA_COLL_FTBASIC_TAG_AGREEMENT_CATCH_UP_REQ (MCA_COLL_BASE_TAG_AGREEMENT_CATCH_UP_REQ)
 #define MCA_COLL_FTBASIC_TAG_AGREEMENT_UR_ELECTED   (MCA_COLL_BASE_TAG_AGREEMENT_UR_ELECTED)
-/* WBLAND 7/9/12 - This was causing hangs becuase leader was not incrementing
- * while paritipants were.
- #define MCA_COLL_FTBASIC_TAG_STEP  (MCA_COLL_BASE_TAG_AGREEMENT_UR_ELECTED - MCA_COLL_BASE_TAG_AGREEMENT)*/
-#define MCA_COLL_FTBASIC_TAG_STEP 0
-
 
 /* Globally exported variables */
 
