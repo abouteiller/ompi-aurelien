@@ -224,15 +224,15 @@ int ompi_errmgr_mark_failed_peer_fw(ompi_proc_t *ompi_proc, orte_proc_state_t st
  */
 static int ompi_errmgr_rte_callback(ompi_process_name_t proc_name, orte_proc_state_t state)
 {
-    bool isnew;
     ompi_proc_t *proc = NULL;
 
     /*
      * Find the ompi_proc_t, if not lazy allocated yet, create it so we can
      * mark it's active field to false.
      */
-    proc = ompi_proc_find_and_add(&proc_name, &isnew);
-
+    proc = ompi_proc_for_name(proc_name);
+    assert( NULL != proc );
+    assert( !ompi_proc_is_sentinel(proc) );
     return ompi_errmgr_mark_failed_peer(proc, state);
 }
 
