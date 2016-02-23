@@ -1,7 +1,7 @@
 /* -*- Mode: C; c-basic-offset:4 ; -*- */
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2014-2015 The University of Tennessee and The University
+ * Copyright (c) 2014-2016 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -13,27 +13,15 @@
  */
 #include "ompi_config.h"
 
-#include "coll_ftbasic.h"
-#include "coll_ftbasic_agreement.h"
-
-#include <unistd.h>
-#include "orte/util/name_fns.h"
-#include "orte/mca/plm/plm_types.h"
-#include "orte/mca/errmgr/errmgr.h"
-#include "orte/mca/rml/rml.h"
-#include "orte/mca/grpcomm/grpcomm.h"
-
-#include "mpi.h"
 #include "ompi/constants.h"
 #include "opal/util/bit_ops.h"
-#include "ompi/mca/pml/pml.h"
 #include "ompi/mca/coll/coll.h"
 #include "ompi/mca/coll/base/base.h"
 #include "ompi/mca/coll/base/coll_tags.h"
 #include "ompi/proc/proc.h"
-#include "ompi/mpiext/ftmpi/mpiext_ftmpi_c.h"
 
-#include MCA_timer_IMPLEMENTATION_HEADER
+#include "ompi/mca/coll/ftbasic/coll_ftbasic.h"
+#include "ompi/mca/coll/ftbasic/coll_ftbasic_agreement.h"
 
 int coll_ftbasic_debug_rank_may_fail = 0;
 

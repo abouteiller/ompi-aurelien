@@ -2,7 +2,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2015 The University of Tennessee and The University
+ * Copyright (c) 2004-2016 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart, 
@@ -25,16 +25,10 @@
  */
 
 #include "ompi_config.h"
-#include "coll_ftbasic.h"
-#include "coll_ftbasic_agreement.h"
-
-#include "mpi.h"
-
-#include "orte/util/name_fns.h"
-#include "orte/runtime/orte_globals.h"
-
 #include "ompi/mca/coll/coll.h"
-#include "coll_ftbasic.h"
+#include "ompi/mca/coll/ftbasic/coll_ftbasic.h"
+#include "ompi/mca/coll/ftbasic/coll_ftbasic_agreement.h"
+
 
 /*
  * Public string showing the coll ompi_ftbasic component version number
@@ -48,7 +42,7 @@ const char *mca_coll_ftbasic_component_version_string =
 int mca_coll_ftbasic_priority  = 0;
 mca_coll_ftbasic_agreement_method_t mca_coll_ftbasic_cur_agreement_method = COLL_FTBASIC_EARLY_RETURNING;
 int mca_coll_ftbasic_cur_era_topology = 1;
-int mca_coll_ftbasic_era_rebuild = 1;
+int mca_coll_ftbasic_era_rebuild = 0;
 
 /*
  * Local function
@@ -106,20 +100,21 @@ ftbasic_register(void)
     int value;
 
     /* Use a low priority, but allow other components to be lower */
-    mca_base_param_reg_int(&mca_coll_ftbasic_component.collm_version,
-                           "priority",
-                           "Priority of the ftbasic coll component",
-                           false, false, mca_coll_ftbasic_priority,
-                           &mca_coll_ftbasic_priority);
+    mca_coll_ftbasic_priority = 30;
+    (void) mca_base_component_var_register(&mca_coll_ftbasic_component.collm_version,
+                                           "priority", "Priority of the ftbasic coll component",
+                                           MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
+                                           OPAL_INFO_LVL_6,
+                                           MCA_BASE_VAR_SCOPE_READONLY,
+                                           &mca_coll_ftbasic_priority);
 
-    mca_base_param_reg_int(&mca_coll_ftbasic_component.collm_version,
-                           "method",
-                           "Agreement method"
-                           " 0 = Early Returning Consensus,"
-                           " 1 = Early Consensus Termination (default))",
-                           false, false,
-                           mca_coll_ftbasic_cur_agreement_method,
-                           &value);
+    value = 0;
+    (void) mca_base_component_var_register(&mca_coll_ftbasic_component.collm_version,
+                                           "agreement", "Agreement algorithm 0: Early Returning Concensus (era); 1: Early Concensus Termination (eta)",
+                                           MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
+                                           OPAL_INFO_LVL_6,
+                                           MCA_BASE_VAR_SCOPE_READONLY,
+                                           &value);
     switch(value) {
     case 0:
         mca_coll_ftbasic_cur_agreement_method = COLL_FTBASIC_EARLY_TERMINATION;
@@ -135,23 +130,22 @@ ftbasic_register(void)
         break;
     }
 
-    mca_base_param_reg_int(&mca_coll_ftbasic_component.collm_version,
-                           "era_topology",
-                           "Early Returned Agreement Topology ("
-                           "positive number -> network topology aware (default); negative number -> flat topology;"
-                           "1 -> binary tree (default);"
-                           "2 -> star tree;"
-                           "3 -> string tree)",
-                           false, false,
-                           mca_coll_ftbasic_cur_era_topology,
-                           &mca_coll_ftbasic_cur_era_topology);
+    mca_coll_ftbasic_cur_era_topology = 1;
+    (void) mca_base_component_var_register(&mca_coll_ftbasic_component.collm_version,
+                                           "era_topology", "ERA topology 1: binary tree; 2: star tree; 3: string tree",
+                                           MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
+                                           OPAL_INFO_LVL_6,
+                                           MCA_BASE_VAR_SCOPE_READONLY,
+                                           &mca_coll_ftbasic_cur_era_topology);
 
-    mca_base_param_reg_int(&mca_coll_ftbasic_component.collm_version,
-                           "era_rebuild",
-                           "ERA rebuild the tree after a post-failure agreement (default 0)",
-                           false, false,
-                           mca_coll_ftbasic_era_rebuild,
-                           &mca_coll_ftbasic_era_rebuild);
+    /* TODO: add an adaptative rebuilding strategy */
+    mca_coll_ftbasic_era_rebuild = 0; /* by default do not rebuild, master-worker application patterns can benefit greatly from rebuilding... */
+    (void) mca_base_component_var_register(&mca_coll_ftbasic_component.collm_version,
+                                           "era_rebuild", "ERA rebuild/rebalance the tree in a first post-failure agreement 0: no rebalancing; 1: rebalance all the time",
+                                           MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
+                                           OPAL_INFO_LVL_6,
+                                           MCA_BASE_VAR_SCOPE_READONLY,
+                                           &mca_coll_ftbasic_era_rebuild);
 
 
     return OMPI_SUCCESS;

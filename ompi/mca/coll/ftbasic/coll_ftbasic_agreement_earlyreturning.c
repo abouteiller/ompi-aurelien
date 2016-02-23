@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; -*- */
 /*
- * Copyright (c) 2014-2015 The University of Tennessee and The University
+ * Copyright (c) 2014-2016 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -12,26 +12,22 @@
  */
 
 #include "ompi_config.h"
-#include "coll_ftbasic.h"
-#include "coll_ftbasic_agreement.h"
+#include "opal/class/opal_free_list.h"
+#include "opal/mca/btl/btl.h"
 
-#include "mpi.h"
 #include "ompi/constants.h"
 #include "ompi/datatype/ompi_datatype.h"
 #include "ompi/datatype/ompi_datatype_internal.h"
 #include "ompi/mca/coll/coll.h"
 #include "ompi/mca/coll/base/coll_tags.h"
-#include "ompi/mca/pml/pml.h"
-#include "ompi/mca/btl/btl.h"
 #include "ompi/mca/bml/bml.h"
+#include "ompi/mca/rte/rte.h"
 #include "ompi/op/op.h"
 #include "ompi/mca/bml/base/base.h"
-#include "ompi/class/ompi_free_list.h"
-#include "orte/mca/errmgr/errmgr.h"
-#include "orte/mca/ess/ess.h"
 
-#include MCA_timer_IMPLEMENTATION_HEADER
 #include "coll_ftbasic.h"
+#include "coll_ftbasic_agreement.h"
+
 
 extern int mca_coll_ftbasic_cur_era_topology;
 
@@ -41,7 +37,7 @@ static opal_hash_table_t era_ongoing_agreements;
 static opal_hash_table_t era_incomplete_messages;
 static ompi_comm_rank_failure_callback_t *ompi_stacked_rank_failure_callback_fct = NULL;
 static uint64_t msg_seqnum = 1;
-static ompi_free_list_t era_iagree_requests = {{{0}}};
+static opal_free_list_t era_iagree_requests = {{{0}}};
 
 extern int coll_ftbasic_debug_rank_may_fail;
 
@@ -1091,6 +1087,7 @@ typedef struct {
 
 static void era_call_tree_fn(era_agreement_info_t *ci)
 {
+#if 0
     hierarch_tree_info_t *reps, *rep_p;
     int                   rep, r, rc;
     opal_hash_table_t *rep_table;
@@ -1109,15 +1106,15 @@ static void era_call_tree_fn(era_agreement_info_t *ci)
 
         rep = 0;
         for(r = 0; r < AGS(ci->comm)->tree_size; r++) {
-            proc = ompi_group_get_proc_ptr(ci->comm->c_local_group, AGS(ci->comm)->tree[r].rank_in_comm);
-            if( proc->proc_name.jobid != OMPI_PROC_MY_NAME->jobid ) {
+            if( ompi_group_get_proc_name(ci->comm->c_local_group, AGS(ci->comm)->tree[r].rank_in_comm).jobid !=
+                OMPI_PROC_MY_NAME->jobid ) {
                 /* I do not know how to make a hierarch tree after
                  * connect/accept or spawn, lets make a flat one then */
                 free(reps); OBJ_RELEASE(rep_table);
                 era_tree_fn(AGS(ci->comm)->tree, AGS(ci->comm)->tree_size);
                 return;
             }
-            daemon_id = orte_ess.proc_get_daemon( &proc->proc_name );
+            daemon_id = orte_ess.proc_get_daemon( &proc->super.proc_name );
             assert( ORTE_VPID_INVALID != daemon_id );
             if( opal_hash_table_get_value_uint32(rep_table, (uint32_t)daemon_id, (void**)&rep_p) != OPAL_SUCCESS ) {
                 assert(rep <= orte_process_info.num_daemons);
@@ -1141,8 +1138,8 @@ static void era_call_tree_fn(era_agreement_info_t *ci)
         rep_tree = &subtree[subtree_size];
 
         for(r = 0; r < AGS(ci->comm)->tree_size; r++) {
-            proc = ompi_group_get_proc_ptr(ci->comm->c_local_group, AGS(ci->comm)->tree[r].rank_in_comm);
-            daemon_id = orte_ess.proc_get_daemon( &proc->proc_name );
+            proc = ompi_group_peer_lookup(ci->comm->c_local_group, AGS(ci->comm)->tree[r].rank_in_comm);
+            daemon_id = orte_ess.proc_get_daemon( &proc->super.proc_name );
             assert( ORTE_VPID_INVALID != daemon_id );
             rc = opal_hash_table_get_value_uint32(rep_table, (uint32_t)daemon_id, (void**)&rep_p);
             assert( rc == OPAL_SUCCESS );
@@ -1229,6 +1226,11 @@ static void era_call_tree_fn(era_agreement_info_t *ci)
     } else {
         era_tree_fn(AGS(ci->comm)->tree, AGS(ci->comm)->tree_size);
     }
+#else
+    /* Hierarchical tree disabled for now. ESS does not give daemon names
+     * anymore. TODO: ENABLE_FT_MPI: restore hierarchical tree capabilitiy. */
+    era_tree_fn(AGS(ci->comm)->tree, AGS(ci->comm)->tree_size);
+#endif
 }
 
 #if OPAL_ENABLE_DEBUG
@@ -1985,6 +1987,7 @@ static void send_msg(ompi_communicator_t *comm,
     era_msg_header_t msg_header;
     era_frag_t *frag;
     ompi_proc_t *peer;
+    mca_bml_base_endpoint_t* endpoint;
     mca_bml_base_endpoint_t *proc_bml;
     mca_bml_base_btl_t *bml_btl;
     struct mca_btl_base_endpoint_t *btl_endpoint;
@@ -2061,10 +2064,9 @@ static void send_msg(ompi_communicator_t *comm,
         peer = ompi_comm_peer_lookup(comm, dst);
     }
     assert(NULL != peer);
-
-    proc_bml = peer->proc_bml;
-    assert(NULL != proc_bml);
-    bml_btl = mca_bml_base_btl_array_get_index(&proc_bml->btl_eager, 0);
+    endpoint = mca_bml_base_get_endpoint(peer);
+    assert(NULL != endpoint);
+    bml_btl = mca_bml_base_btl_array_get_index(&endpoint->btl_eager, 0);
     assert(NULL != bml_btl);
     btl_endpoint = bml_btl->btl_endpoint;
     assert(NULL != btl_endpoint);
@@ -2179,12 +2181,12 @@ static void send_msg(ompi_communicator_t *comm,
         /** Try to send everything in one go */
         des = btl->btl_alloc(btl, btl_endpoint, MCA_BTL_NO_ORDER, sizeof(era_frag_t) - 1 + to_send - sent,
                              MCA_BTL_DES_FLAGS_PRIORITY | MCA_BTL_DES_FLAGS_BTL_OWNERSHIP);
-        payload_size = des->des_src->seg_len - sizeof(era_frag_t) + 1;
+        payload_size = des->des_segments->seg_len - sizeof(era_frag_t) + 1;
         assert( payload_size > 0 ); /** We can send at least a byte */
 
         des->des_cbfunc = fragment_sent;
         des->des_cbdata = NULL;
-        frag = (era_frag_t*)des->des_src->seg_addr.pval;
+        frag = (era_frag_t*)des->des_segments->seg_addr.pval;
         frag->src = *OMPI_PROC_MY_NAME;
         frag->msg_seqnum  = my_seqnum;
         frag->frag_offset = sent;
@@ -2491,16 +2493,16 @@ static void era_cb_fn(struct mca_btl_base_module_t* btl,
     int *ack_failed;
 
     assert(MCA_BTL_TAG_FT_AGREE == tag);
-    assert(1 == descriptor->des_dst_cnt);
+    assert(1 == descriptor->des_segment_count);
     (void)cbdata;
 
-    frag = (era_frag_t*)descriptor->des_dst->seg_addr.pval;
+    frag = (era_frag_t*)descriptor->des_segments->seg_addr.pval;
 
     if( frag->msg_len == frag->frag_len ) {
         assert(frag->frag_offset == 0);
         msg_bytes = frag->bytes;
     } else {
-        src_hash = orte_util_hash_name(&frag->src);
+        src_hash = ompi_rte_hash_name(&frag->src);
         if( opal_hash_table_get_value_uint64(&era_incomplete_messages, src_hash, &value) == OMPI_SUCCESS ) {
             msg_table = (opal_hash_table_t*)value;
         } else {
@@ -2601,7 +2603,7 @@ static void era_on_comm_rank_failure(ompi_communicator_t *comm, int rank, bool r
     uint64_t key64, key64_2;
     int rc;
     era_identifier_t cid;
-    ompi_proc_t *ompi_proc;
+    opal_process_name_t proc_name;
     opal_hash_table_t *msg_table;
 
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
@@ -2616,9 +2618,8 @@ static void era_on_comm_rank_failure(ompi_communicator_t *comm, int rank, bool r
     }
 
     /** Discard incomplete messages, and remove the entry to store these messages */
-    ompi_proc = ompi_group_peer_lookup(remote ? comm->c_remote_group : comm->c_local_group, rank);
-    assert(NULL != ompi_proc);
-    key64 = orte_util_hash_name( &ompi_proc->proc_name );
+    proc_name = ompi_group_get_proc_name(remote ? comm->c_remote_group : comm->c_local_group, rank);
+    key64 = ompi_rte_hash_name( &proc_name );
     if( opal_hash_table_get_value_uint64(&era_incomplete_messages, key64, &value) == OPAL_SUCCESS ) {
         msg_table = (opal_hash_table_t*)value;
         if( opal_hash_table_get_first_key_uint64(msg_table, &key64_2, &value, &node) == OPAL_SUCCESS ) {
@@ -2698,16 +2699,18 @@ int mca_coll_ftbasic_agreement_era_init(void)
 
     mca_bml.bml_register(MCA_BTL_TAG_FT_AGREE, era_cb_fn, NULL);
 
-    OBJ_CONSTRUCT( &era_iagree_requests, ompi_free_list_t);
-    ompi_free_list_init_new( &era_iagree_requests,
-                             sizeof(era_iagree_request_t),
-                             opal_cache_line_size,
-                             OBJ_CLASS(era_iagree_request_t),
-                             0,opal_cache_line_size,
-                             /* initial number of elements to allocate */ 0,
-                             /* maximum number of elements */ INT_MAX,
-                             /* increment */ 1,
-                             NULL );
+    OBJ_CONSTRUCT( &era_iagree_requests, opal_free_list_t);
+    opal_free_list_init( &era_iagree_requests,
+                         sizeof(era_iagree_request_t),
+                         opal_cache_line_size,
+                         OBJ_CLASS(era_iagree_request_t),
+                         0, opal_cache_line_size,
+                         /* initial number of elements to allocate */ 0,
+                         /* maximum number of elements */ INT_MAX,
+                         /* increment */ 1,
+                         NULL, 0, /* mpool */
+                         NULL, /* unused */
+                         NULL, NULL /* elem_init */ );
 
     OBJ_CONSTRUCT( &era_passed_agreements, opal_hash_table_t);
     /* The garbage collection system relies on iterating over all
@@ -2971,7 +2974,7 @@ static int mca_coll_ftbasic_agreement_era_complete_agreement(era_identifier_t ag
 
     /* Update the group of failed processes */
     for(i = 0; i < AGS(comm)->afr_size; i++) {
-        ompi_proc_t *proc = ompi_group_get_proc_ptr(comm->c_local_group, AGS(comm)->agreed_failed_ranks[i]);
+        ompi_proc_t *proc = ompi_group_get_proc_ptr(comm->c_local_group, AGS(comm)->agreed_failed_ranks[i], true);
         ompi_errmgr_mark_failed_peer(proc, ORTE_PROC_STATE_TERMINATED);
     }
 
@@ -3089,8 +3092,8 @@ static int era_iagree_req_free(struct ompi_request_t** rptr)
     if( NULL != req->ci )
         req->ci->req = NULL;
     req->ci = NULL;
-    OMPI_FREE_LIST_RETURN( &era_iagree_requests,
-                           (ompi_free_list_item_t*)(req));
+    opal_free_list_return( &era_iagree_requests,
+                           (opal_free_list_item_t*)(req));
     *rptr = MPI_REQUEST_NULL;
     return OMPI_SUCCESS;
 }
@@ -3119,14 +3122,15 @@ int mca_coll_ftbasic_iagreement_era_intra(ompi_communicator_t* comm,
                                           mca_coll_base_module_t *module,
                                           ompi_request_t **request)
 {
-    ompi_free_list_item_t* item;
+    opal_free_list_item_t* item;
     era_iagree_request_t *req;
     int rc;
     era_identifier_t agreement_id;
     era_agreement_info_t *ci;
 
     rc = OMPI_SUCCESS;
-    OMPI_FREE_LIST_GET(&era_iagree_requests, item, rc);
+    item = opal_free_list_get(&era_iagree_requests);
+    if( NULL == item ) return OMPI_ERR_OUT_OF_RESOURCE;
     req = (era_iagree_request_t*)item;
 
     OMPI_REQUEST_INIT(&req->super, false);
