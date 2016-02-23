@@ -214,10 +214,10 @@ static void cid_redux_fn(void *_in, void *_out, int *dcount, struct ompi_datatyp
 int ompi_comm_cid_init (void)
 {
     cid_redux_size = 4;
-    (void) mca_base_var_register ("mpi", "coll", "cid", "redux_size",
+    (void) mca_base_var_register ("ompi", "mpi", "coll", "cid_redux_size",
                                   "Number of context IDs that are considered in a single allreduce for collective allocation (>=2)",
-                                  MCA_BASE_VAR_TYPE_INT, NULL, 0, MCA_BASE_VAR_SCOPE_READONLY, 
-                                  OPAL_INFO_LVL_4, MCA_BASE_VAR_SCOPE_CONSTANT, &cid_redux_size);
+                                  MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
+                                  OPAL_INFO_LVL_4, MCA_BASE_VAR_SCOPE_READONLY, &cid_redux_size);
     if( cid_redux_size < 2 ) cid_redux_size = 2;
     cid_lCIDs = (cid_redux_elem_t *)malloc(cid_redux_size * sizeof(cid_redux_elem_t));
     cid_gCIDs = (cid_redux_elem_t *)malloc(cid_redux_size * sizeof(cid_redux_elem_t));
@@ -281,11 +281,8 @@ int ompi_comm_nextcid ( ompi_communicator_t* newcomm,
         case OMPI_COMM_CID_INTER_FT:
             allredfnct=(ompi_comm_cid_allredfct*)ompi_comm_allreduce_inter_ft;
             break;
-        case OMPI_COMM_CID_INTRA_BRIDGE_FT:
-            allredfnct=(ompi_comm_cid_allredfct*)ompi_comm_allreduce_intra_bridge_ft;
-            break;
-        case OMPI_COMM_CID_INTRA_OOB_FT:
-            allredfnct=(ompi_comm_cid_allredfct*)ompi_comm_allreduce_intra_oob_ft;
+        case OMPI_COMM_CID_INTRA_PMIX_FT:
+            allredfnct=(ompi_comm_cid_allredfct*)ompi_comm_allreduce_intra_pmix_ft;
             break;
 #endif /* OPAL_ENABLE_FT_MPI */
         default:
@@ -730,11 +727,8 @@ int ompi_comm_activate ( ompi_communicator_t** newcomm,
         case OMPI_COMM_CID_INTER_FT:
             allredfnct=(ompi_comm_cid_allredfct*)ompi_comm_allreduce_inter_ft;
             break;
-        case OMPI_COMM_CID_INTRA_BRIDGE_FT:
-            allredfnct=(ompi_comm_cid_allredfct*)ompi_comm_allreduce_intra_bridge_ft;
-            break;
-        case OMPI_COMM_CID_INTRA_OOB_FT:
-            allredfnct=(ompi_comm_cid_allredfct*)ompi_comm_allreduce_intra_oob_ft;
+        case OMPI_COMM_CID_INTRA_PMIX_FT:
+            allredfnct=(ompi_comm_cid_allredfct*)ompi_comm_allreduce_intra_pmix_ft;
             break;
 #endif /* OPAL_ENABLE_FT_MPI */
         default:
@@ -1371,7 +1365,7 @@ static int ompi_comm_allreduce_intra_bridge (int *inbuf, int *outbuf,
 #if OPAL_ENABLE_FT_MPI
                 if( MPI_ERR_PROC_FAILED == rc ) {
                     /* The peer is dead, continue with the local decision */
-                    ompi_datatype_copy_content_same_ddt(MPI_INT, count, outbuf, tmpbuf);
+                    ompi_datatype_copy_content_same_ddt(MPI_INT, count, (void*)outbuf, (void*)tmpbuf);
                     goto skip_handshake;
                 }
 #endif  /* OPAL_ENABLE_FT_MPI */
@@ -1383,7 +1377,7 @@ static int ompi_comm_allreduce_intra_bridge (int *inbuf, int *outbuf,
 #if OPAL_ENABLE_FT_MPI
                 if( MPI_ERR_PROC_FAILED == rc ) {
                     /* The peer is dead, continue with the local decision */
-                    ompi_datatype_copy_content_same_ddt(MPI_INT, count, outbuf, tmpbuf);
+                    ompi_datatype_copy_content_same_ddt(MPI_INT, count, (void*)outbuf, (void*)tmpbuf);
                     /* Let it go don't break the leader execution flow here */
                 } else
 #endif  /* OPAL_ENABLE_FT_MPI */

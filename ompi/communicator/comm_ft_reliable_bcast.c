@@ -58,7 +58,7 @@ static int ompi_comm_rbcast_bmg(ompi_communicator_t* comm, ompi_comm_rbcast_mess
 
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
                          "%s %s: rbcast on communicator %3d:%d",
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, msg->cid, msg->epoch ));
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->cid, msg->epoch ));
 
     if( OMPI_COMM_IS_INTER(comm) ) {
         int first = ompi_comm_determine_first_auto(comm);
@@ -100,7 +100,7 @@ static int ompi_comm_rbcast_n2(ompi_communicator_t* comm, ompi_comm_rbcast_messa
 
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
                          "%s %s: rbcast on communicator %3d:%d",
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, msg->cid, msg->epoch ));
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->cid, msg->epoch ));
 
     /* send a message to all procs in local_group, then all procs in
      * remote_group (if distinct) */
@@ -166,33 +166,33 @@ static void ompi_comm_rbcast_bml_recv_cb(
 
     /* Parse the rbcast fragment */
     assert( MCA_BTL_TAG_FT_RBCAST == tag );
-    assert( 1 == descriptor->des_dst_cnt );
-    assert( sizeof(ompi_comm_rbcast_message_t) <= descriptor->des_dst->seg_len );
-    msg = (ompi_comm_rbcast_message_t*) descriptor->des_dst->seg_addr.pval;
+    assert( 1 == descriptor->des_segment_count );
+    assert( sizeof(ompi_comm_rbcast_message_t) <= descriptor->des_segments->seg_len );
+    msg = (ompi_comm_rbcast_message_t*) descriptor->des_segments->seg_addr.pval;
 
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s %s: Info: Recieved rbcast tag for communicator with CID %3d:%d",
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, msg->cid, msg->epoch));
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->cid, msg->epoch));
 
     /* Find the target comm */
     comm = (ompi_communicator_t *)ompi_comm_lookup(msg->cid);
     if(OPAL_UNLIKELY( NULL == comm )) {
         OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                              "%s %s: Info: Could not find the communicator with CID %3d:%d",
-                             ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, msg->cid, msg->epoch));
+                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->cid, msg->epoch));
         return;
     }
     if(OPAL_UNLIKELY( msg->cid != comm->c_contextid )) {
         OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                              "%s %s: Info: received a late rbcast message with CID %3d:%d during an MPI_COMM_DUP that is trying to reuse that CID (thus increasing the epoch) - ignoring, nothing to do",
-                             ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, msg->cid, msg->epoch));
+                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->cid, msg->epoch));
         return;
     }
     /* Check if this is a delayed rbcast for an old communicator whose CID has been reused */
     if(OPAL_UNLIKELY( comm->c_epoch != msg->epoch )) {
         OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                              "%s %s: Info: Received a late rbcast order for the communicator with CID %3d:%d when is is now at epoch %d - ignoring, nothing to do",
-                             ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, msg->cid, msg->epoch, comm->c_epoch));
+                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->cid, msg->epoch, comm->c_epoch));
         return;
     }
 
@@ -201,42 +201,41 @@ static void ompi_comm_rbcast_bml_recv_cb(
     assert( NULL != ompi_comm_rbcast_cb[msg->type] );
     if( ompi_comm_rbcast_cb[msg->type](comm, msg) ) {
         /* forward the rbcast */
-        ompi_comm_rbcast_fw(comm, msg, descriptor->des_dst->seg_len);
+        ompi_comm_rbcast_fw(comm, msg, descriptor->des_segments->seg_len);
     }
 }
 
 static int ompi_comm_rbcast_bml_send_msg(ompi_proc_t* proc, ompi_comm_rbcast_message_t* msg, size_t size) {
-    mca_bml_base_btl_t *bml_btl;
+    mca_bml_base_endpoint_t* endpoint = mca_bml_base_get_endpoint(proc);
+    mca_bml_base_btl_t *bml_btl = mca_bml_base_btl_array_get_index(&endpoint->btl_eager, 0);
     mca_btl_base_descriptor_t *des;
     int ret;
 
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
         "%s %s: preparing a fragment to %s to rbcast %3d:%d",
-        ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, ORTE_NAME_PRINT(&proc->proc_name), msg->cid, msg->epoch));
-    assert( proc->proc_bml );
-    bml_btl = mca_bml_base_btl_array_get_next(&proc->proc_bml->btl_send);
+        OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&proc->super.proc_name), msg->cid, msg->epoch));
     mca_bml_base_alloc(bml_btl, &des, MCA_BTL_NO_ORDER,
                        size,
                        MCA_BTL_DES_FLAGS_PRIORITY | MCA_BTL_DES_FLAGS_BTL_OWNERSHIP);
     if(OPAL_UNLIKELY(NULL == des)) {
         return OMPI_ERR_OUT_OF_RESOURCE;
     }
-    assert( des->des_src->seg_len == size ) ;
+    assert( des->des_segments->seg_len == size ) ;
     des->des_cbfunc = ompi_rbcast_bml_send_complete_cb;
-    memcpy(des->des_src->seg_addr.pval, msg, size);
+    memcpy(des->des_segments->seg_addr.pval, msg, size);
     ret = mca_bml_base_send(bml_btl, des, MCA_BTL_TAG_FT_RBCAST);
     if(OPAL_LIKELY( ret >= 0 )) {
         if(OPAL_LIKELY( 1 == ret )) {
             OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
                 "%s %s: fragment to %s to rbcast %3d:%d is on the wire",
-                ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, ORTE_NAME_PRINT(&proc->proc_name), msg->cid, msg->epoch));
+                OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&proc->super.proc_name), msg->cid, msg->epoch));
         }
     }
     else {
         mca_bml_base_free(bml_btl, des);
         OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
             "%s %s: could not send a fragment to %s to rbcast %3d (status %d)",
-            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, ORTE_NAME_PRINT(&proc->proc_name), msg->cid, ret));
+            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&proc->super.proc_name), msg->cid, ret));
             return ret;
     }
     return OMPI_SUCCESS;
@@ -249,7 +248,7 @@ static void ompi_rbcast_bml_send_complete_cb(
         int status)
 {
     OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
-        "%s %s: status %d", ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, status));
+        "%s %s: status %d", OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, status));
     return;
 }
 
@@ -262,7 +261,7 @@ static bool comm_rbcast_listener_started = false;
 int ompi_comm_init_rbcast(void) {
     int ret, rbcast=1;
 
-    (void) mca_base_var_register ("mpi", "ft", "ulfm", "reliable_bcast",
+    (void) mca_base_var_register ("ompi", "mpi", NULL, "ft_reliable_bcast",
                                   "Reliable Broadcast algorithm (1: Binomial Graph Diffusion; 2: N^2 full graph diffusion)",
                                   MCA_BASE_VAR_TYPE_INT, NULL, 0, MCA_BASE_VAR_SCOPE_READONLY,
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_CONSTANT, &rbcast);

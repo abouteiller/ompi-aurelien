@@ -115,9 +115,9 @@ static ompi_mpi_errcode_t ompi_err_rma_shared;
 static ompi_mpi_errcode_t ompi_t_err_invalid;
 static ompi_mpi_errcode_t ompi_t_err_invalid_name;
 #if OPAL_ENABLE_FT_MPI
-ompi_mpi_errcode_t ompi_err_proc_fail_stop;
-ompi_mpi_errcode_t ompi_err_proc_fail_pending;
-ompi_mpi_errcode_t ompi_err_revoked;
+static ompi_mpi_errcode_t ompi_err_proc_fail_stop;
+static ompi_mpi_errcode_t ompi_err_proc_fail_pending;
+static ompi_mpi_errcode_t ompi_err_revoked;
 #endif
 
 static void ompi_mpi_errcode_construct(ompi_mpi_errcode_t* errcode);
@@ -323,7 +323,7 @@ int ompi_mpi_errcode_finalize(void)
     OBJ_DESTRUCT(&ompi_t_err_invalid_name);
 #if OPAL_ENABLE_FT_MPI
     OBJ_DESTRUCT(&ompi_err_proc_fail_stop);
-    OBJ_DESTRUCT(&ompi_err_proc_failed_pending);
+    OBJ_DESTRUCT(&ompi_err_proc_fail_pending);
     OBJ_DESTRUCT(&ompi_err_revoked);
 #endif
 

@@ -28,6 +28,7 @@
 #include "ompi/communicator/communicator.h"
 #include "ompi/request/request.h"
 #include "ompi/runtime/params.h"
+#include "ompi/proc/proc.h"
 
 #include "ompi/errhandler/errhandler.h"
 #include "ompi/errhandler/errhandler_predefined.h"
@@ -46,6 +47,9 @@ int ompi_errhandler_internal_rte_init(void)
 {
     int ret, exit_status = OMPI_SUCCESS;
 
+#if 0
+    // TODO: ENABLE_FT_MPI: dependency to ORTE here. Needs to be replaced with
+    // something else
     /*
      * Register to get a callback when a process fails
      */
@@ -54,6 +58,7 @@ int ompi_errhandler_internal_rte_init(void)
         exit_status = ret;
         goto cleanup;
     }
+#endif
 
     if( OMPI_SUCCESS != (ret = ompi_comm_init_failure_propagate()) ) {
         ORTE_ERROR_LOG(ret);
@@ -69,6 +74,9 @@ int ompi_errhandler_internal_rte_finalize(void)
 {
     int ret, exit_status = OMPI_SUCCESS;
 
+#if 0
+    // TODO: ENABLE_FT_MPI: dependency to ORTE here. Needs to be replaced with
+    // something else
     /*
      * Deregister the process fail callback.
      */
@@ -77,6 +85,7 @@ int ompi_errhandler_internal_rte_finalize(void)
         exit_status = ret;
         goto cleanup;
     }
+#endif
 
     if( OMPI_SUCCESS != (ret = ompi_comm_finalize_failure_propagate()) ) {
         ORTE_ERROR_LOG(ret);
@@ -104,8 +113,8 @@ int ompi_errmgr_mark_failed_peer_fw(ompi_proc_t *ompi_proc, orte_proc_state_t st
 
     OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
                          "%s ompi: Process %s failed (state = %s).",
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
-                         ORTE_NAME_PRINT(&ompi_proc->proc_name),
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
+                         OMPI_NAME_PRINT(&ompi_proc->super.proc_name),
                          orte_proc_state_to_str(state) ));
 
     /*
@@ -128,12 +137,18 @@ int ompi_errmgr_mark_failed_peer_fw(ompi_proc_t *ompi_proc, orte_proc_state_t st
         /*
          * Look in both the local and remote group for this process
          */
+#if 0
+        // TODO: ENABLE_FT_MPI: find something better than ugly quadratic
+        // search!!
         proc_rank = ompi_group_peer_lookup_id(comm->c_local_group, ompi_proc);
         remote = false;
         if( (proc_rank < 0) && (comm->c_local_group != comm->c_remote_group) ) {
             proc_rank = ompi_group_peer_lookup_id(comm->c_remote_group, ompi_proc);
             remote = true;
         }
+#else
+        proc_rank = -1; // this does not work...
+#endif
         if( proc_rank < 0 )
             continue;  /* Not in this communicator, continue */
 
@@ -148,8 +163,8 @@ int ompi_errmgr_mark_failed_peer_fw(ompi_proc_t *ompi_proc, orte_proc_state_t st
         }
         OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                              "%s ompi: Process %s is in comm (%d) with rank %d. (%2d of %2d / %2d of %2d) [%s]",
-                             ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
-                             ORTE_NAME_PRINT(&ompi_proc->proc_name),
+                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
+                             OMPI_NAME_PRINT(&ompi_proc->super.proc_name),
                              comm->c_contextid,
                              proc_rank,
                              ompi_comm_num_active_local(comm),
@@ -186,8 +201,8 @@ int ompi_errmgr_mark_failed_peer_fw(ompi_proc_t *ompi_proc, orte_proc_state_t st
     if( forward ) {
         ompi_comm_failure_propagate(&ompi_mpi_comm_world.comm, ompi_proc, state);
 #if 0
-        orte_errmgr.update_state(ompi_proc->proc_name.jobid, ORTE_JOB_STATE_UNDEF,
-                                 &ompi_proc->proc_name, ORTE_PROC_STATE_ABORTED_BY_SIG, 0, 0);
+        orte_errmgr.update_state(ompi_proc->super.proc_name.jobid, ORTE_JOB_STATE_UNDEF,
+                                 &ompi_proc->super.proc_name, ORTE_PROC_STATE_ABORTED_BY_SIG, 0, 0);
 #endif
     }
 
@@ -207,25 +222,18 @@ int ompi_errmgr_mark_failed_peer_fw(ompi_proc_t *ompi_proc, orte_proc_state_t st
 /*
  * Local Functions
  */
-static int ompi_errmgr_rte_callback(orte_process_name_t proc, orte_proc_state_t state)
+static int ompi_errmgr_rte_callback(ompi_process_name_t proc_name, orte_proc_state_t state)
 {
-    int ret;
-    ompi_proc_t *ompi_proc = NULL;
+    bool isnew;
+    ompi_proc_t *proc = NULL;
 
     /*
-     * Find the ompi_proc_t
+     * Find the ompi_proc_t, if not lazy allocated yet, create it so we can
+     * mark it's active field to false.
      */
-    if( NULL == (ompi_proc = ompi_proc_find(&proc)) ) {
-        /** TODO: RACE CONDITION -- This may be the notification for a process we don't know about
-         *        yet -- We should keep this information for later notification / check when
-         *        adding this proc
-         */
-        return OMPI_SUCCESS; /** Ignore if this is an unknown processor: it can happen and should
-                              *   not interrupt the loop in caller
-                              */
-    }
+    proc = ompi_proc_find_and_add(&proc_name, &isnew);
 
-    return ompi_errmgr_mark_failed_peer(ompi_proc, state);
+    return ompi_errmgr_mark_failed_peer(proc, state);
 }
 
 #endif /* OPAL_ENABLE_FT_MPI */

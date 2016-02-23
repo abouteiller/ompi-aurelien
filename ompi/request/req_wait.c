@@ -51,7 +51,7 @@ int ompi_request_default_wait(
         if( MPI_STATUS_IGNORE != status ) {
             status->MPI_TAG    = req->req_status.MPI_TAG;
             status->MPI_SOURCE = req->req_status.MPI_SOURCE;
-            OMPI_STATUS_SET_COUNT(&status->_ucount, &req->req_status._ucount);
+            status->_ucount = req->req_status._ucount;
             status->_cancelled = req->req_status._cancelled;
         }
         return MPI_ERR_PROC_FAILED_PENDING;
@@ -178,7 +178,7 @@ int ompi_request_default_wait_any(
                         *index = i;
                         if (MPI_STATUS_IGNORE != status) {
                             int old_error = status->MPI_ERROR;
-                            OMPI_STATUS_SET(status, &request->req_status);
+                            *status = request->req_status;
                             status->MPI_ERROR = old_error;
                         }
                         return MPI_ERR_PROC_FAILED_PENDING;
@@ -642,7 +642,7 @@ finished:
             if( request->req_any_source_pending ) {
                 rc = MPI_ERR_IN_STATUS;
                 if (MPI_STATUSES_IGNORE != statuses) {
-                    OMPI_STATUS_SET(&statuses[i], &request->req_status);
+                    statuses[i] = request->req_status;
                     statuses[i].MPI_ERROR = MPI_ERR_PROC_FAILED_PENDING;
                 } else {
                     if( (MPI_ERR_PROC_FAILED == request->req_status.MPI_ERROR) ||

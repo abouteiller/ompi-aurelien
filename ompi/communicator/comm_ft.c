@@ -5,9 +5,9 @@
  *                         reserved.
  *
  * $COPYRIGHT$
- * 
+ *
  * Additional copyrights may follow
- * 
+ *
  * $HEADER$
  */
 
@@ -139,7 +139,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
     /* --------------------------------------------------------- */
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
                          "%s ompi: comm_shrink: Agreement on failed processes",
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME) ));
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
     failed_group = OBJ_NEW(ompi_group_t);
     start = MPI_Wtime();
     do {
@@ -158,7 +158,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
     stop = MPI_Wtime();
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s ompi: comm_shrink: AGREE: %g seconds",
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), stop-start));
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-start));
     if( (OMPI_SUCCESS != ret) && (MPI_ERR_PROC_FAILED != ret) ) {
         opal_output(0, "%s:%d Agreement failure: %d\n", __FILE__, __LINE__, ret);
         exit_status = ret;
@@ -171,7 +171,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
     /* --------------------------------------------------------- */
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
                          "%s ompi: comm_shrink: Determine ranking for new communicator",
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME) ));
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
     start = MPI_Wtime();
     comp = comm;
 
@@ -223,18 +223,18 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
         goto cleanup;
     }
     stop = MPI_Wtime();
-    OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle, 
-                         "%s ompi: comm_shrink: GRP COMPUTATION: %g seconds\n", 
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), stop-start));
+    OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
+                         "%s ompi: comm_shrink: GRP COMPUTATION: %g seconds\n",
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-start));
     /*
      * Step 3: Determine context id
      */
     /* --------------------------------------------------------- */
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
                          "%s ompi: comm_shrink: Determine context id",
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME) ));
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
     start = MPI_Wtime();
-    ret = ompi_comm_nextcid( newcomp,  /* new communicator */ 
+    ret = ompi_comm_nextcid( newcomp,  /* new communicator */
                              comp,     /* old comm */
                              NULL,     /* bridge comm */
                              NULL,     /* local leader */
@@ -246,34 +246,34 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
         goto cleanup;
     }
     stop = MPI_Wtime();
-    OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle, 
-                         "%s ompi: comm_shrink: NEXT CID: %g seconds\n", 
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), stop-start));
+    OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
+                         "%s ompi: comm_shrink: NEXT CID: %g seconds\n",
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-start));
     /*
      * Step 4: Activate the communicator
      */
     /* --------------------------------------------------------- */
     /* Set name for debugging purposes */
-    snprintf(newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMMUNICATOR %d SHRUNK FROM %d", 
+    snprintf(newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMMUNICATOR %d SHRUNK FROM %d",
              newcomp->c_contextid, comm->c_contextid );
     start = MPI_Wtime();
     /* activate communicator and init coll-module */
-    ret = ompi_comm_activate( &newcomp, /* new communicator */ 
+    ret = ompi_comm_activate( &newcomp, /* new communicator */
                               comp,
-                              NULL, 
-                              NULL, 
-                              NULL, 
-                              mode, 
-                              -1 );  
+                              NULL,
+                              NULL,
+                              NULL,
+                              mode,
+                              -1 );
     if( OMPI_SUCCESS != ret ) {
         exit_status = ret;
         goto cleanup;
     }
     stop = MPI_Wtime();
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
-                         "%s ompi: comm_shrink: COLL SELECT: %g seconds\n", 
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), stop-start));
-    
+                         "%s ompi: comm_shrink: COLL SELECT: %g seconds\n",
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-start));
+
     /** Step 5: assign the output communicator */
     *newcomm = newcomp;
 
@@ -316,8 +316,11 @@ bool ompi_comm_is_proc_active(ompi_communicator_t *comm, int peer_id, bool remot
     }
 #endif
     ompi_proc = ompi_group_get_proc_ptr((remote ? comm->c_remote_group : comm->c_local_group),
-                                        peer_id);
-    return (NULL == ompi_proc) ? false : ompi_proc_is_active(ompi_proc);
+                                        peer_id, false);
+    /* If the proc is not known yet (get_proc_ptr returns NULL for a valid
+     * peer_id), then we assume that the proc is alive. When it is dead, the
+     * proc will exist. */
+    return (NULL == ompi_proc) ? true : ompi_proc_is_active(ompi_proc);
 }
 
 int ompi_comm_set_rank_failed(ompi_communicator_t *comm, int peer_id, bool remote)
@@ -344,14 +347,13 @@ int ompi_comm_set_rank_failed(ompi_communicator_t *comm, int peer_id, bool remot
  * Reduction operation using an agreement, to ensure that all processes
  *  agree on the same list.
  */
-int ompi_comm_allreduce_intra_ft( int *inbuf, int *outbuf, 
-                                  int count, struct ompi_op_t *op, 
+int ompi_comm_allreduce_intra_ft( int *inbuf, int* outbuf,
+                                  int count, struct ompi_op_t *op,
                                   ompi_communicator_t *comm,
-                                  ompi_communicator_t *bridgecomm, 
-                                  void* local_leader, 
-                                  void* remote_leader, 
-                                  int send_first )
-{
+                                  ompi_communicator_t *bridgecomm,
+                                  void* local_leader,
+                                  void* remote_ledaer,
+                                  int send_first, char *tag, int iter ) {
     int ret;
     ompi_group_t *failed_group = NULL;
 
@@ -364,7 +366,7 @@ int ompi_comm_allreduce_intra_ft( int *inbuf, int *outbuf,
 
     failed_group = OBJ_NEW(ompi_group_t);
     do {
-        ret = comm->c_coll.coll_agreement( (ompi_communicator_t*)comm,
+        ret = comm->c_coll.coll_agreement( comm,
                                            &failed_group,
                                            op,
                                            &ompi_mpi_int.dt,
@@ -380,34 +382,35 @@ int ompi_comm_allreduce_intra_ft( int *inbuf, int *outbuf,
     return ret;
 }
 
-int ompi_comm_allreduce_inter_ft( int *inbuf, int *outbuf, 
-                                  int count, struct ompi_op_t *op, 
-                                  ompi_communicator_t *intercomm,
-                                  ompi_communicator_t *bridgecomm, 
-                                  void* local_leader, 
-                                  void* remote_leader, 
-                                  int send_first )
-{
+int ompi_comm_allreduce_inter_ft( int *inbuf, int* outbuf,
+                                  int count, struct ompi_op_t *op,
+                                  ompi_communicator_t *comm,
+                                  ompi_communicator_t *bridgecomm,
+                                  void* local_leader,
+                                  void* remote_ledaer,
+                                  int send_first, char *tag, int iter ) {
     return MPI_ERR_UNSUPPORTED_OPERATION;
 }
 
-int ompi_comm_allreduce_intra_bridge_ft(int *inbuf, int *outbuf, 
-                                        int count, struct ompi_op_t *op, 
-                                        ompi_communicator_t *comm,
-                                        ompi_communicator_t *bcomm, 
-                                        void* lleader, void* rleader,
-                                        int send_first )
-{
+#if 0
+int ompi_comm_allreduce_intra_bridge_ft( int *inbuf, int* outbuf,
+                                  int count, struct ompi_op_t *op,
+                                  ompi_communicator_t *comm,
+                                  ompi_communicator_t *bridgecomm,
+                                  void* local_leader,
+                                  void* remote_ledaer,
+                                  int send_first, char *tag, int iter ) {
     return MPI_ERR_UNSUPPORTED_OPERATION;
 }
+#endif
 
-int ompi_comm_allreduce_intra_oob_ft(int *inbuf, int *outbuf, 
-                                     int count, struct ompi_op_t *op, 
-                                     ompi_communicator_t *comm,
-                                     ompi_communicator_t *bridgecomm, 
-                                     void* lleader, void* rleader,
-                                     int send_first )
-{
+int ompi_comm_allreduce_intra_pmix_ft( int *inbuf, int* outbuf,
+                                  int count, struct ompi_op_t *op,
+                                  ompi_communicator_t *comm,
+                                  ompi_communicator_t *bridgecomm,
+                                  void* local_leader,
+                                  void* remote_ledaer,
+                                  int send_first, char *tag, int iter ) {
     return MPI_ERR_UNSUPPORTED_OPERATION;
 }
 

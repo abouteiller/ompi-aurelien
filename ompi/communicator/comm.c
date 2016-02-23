@@ -204,14 +204,8 @@ int ompi_comm_set_nb ( ompi_communicator_t **ncomm,
     }
 
 #if OPAL_ENABLE_FT_MPI
-    newcomm->any_source_enabled  = true;
-    newcomm->any_source_offset   = 0;
-    newcomm->comm_revoked        = false;
-    newcomm->coll_revoked        = false;
     newcomm->num_active_local    = newcomm->c_local_group->grp_proc_count;
     newcomm->num_active_remote   = newcomm->c_remote_group->grp_proc_count;
-    newcomm->lleader             = 0;
-    newcomm->rleader             = 0;
 #endif /* OPAL_ENABLE_FT_MPI */
 
     /* Check how many different jobids are represented in this communicator.
@@ -1879,8 +1873,8 @@ int ompi_comm_determine_first_auto ( ompi_communicator_t* intercomm )
     theirproc = ompi_group_peer_lookup(intercomm->c_remote_group,0);
 
     mask = OMPI_RTE_CMP_JOBID | OMPI_RTE_CMP_VPID;
-    rc = ompi_rte_compare_name_fields(mask, (const orte_process_name_t*)&(ourproc->super.proc_name),
-                                            (const orte_process_name_t*)&(theirproc->super.proc_name));
+    rc = ompi_rte_compare_name_fields(mask, &(ourproc->super.proc_name),
+                                            &(theirproc->super.proc_name));
     if ( 0 > rc ) {
         flag = true;
     }
