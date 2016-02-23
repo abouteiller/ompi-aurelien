@@ -1,5 +1,8 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
+ * Copyright (c) 2015-2016 The University of Tennessee and The University
+ *                         of Tennessee Research Foundation.  All rights
+ *                         reserved.
  * $COPYRIGHT$
  * 
  * Additional copyrights may follow
@@ -7,22 +10,21 @@
  * $HEADER$
  */
 #include "ompi_config.h"
-#include <stdio.h>
 
 #include "ompi/mpi/c/bindings.h"
 #include "ompi/runtime/params.h"
 #include "ompi/communicator/communicator.h"
 #include "ompi/proc/proc.h"
 
-#if OPAL_HAVE_WEAK_SYMBOLS && OMPI_PROFILING_DEFINES
+#if OPAL_HAVE_WEAK_SYMBOLS && OMPI_PROFILE_LAYER
 #pragma weak MPIX_Comm_failure_get_acked = PMPIX_Comm_failure_get_acked
 #endif
 
-#if OMPI_PROFILING_DEFINES
+#if OMPI_PROFILE_LAYER
 #include "ompi/mpiext/ftmpi/c/profile/defines.h"
 #endif
 
-#include "ompi/mpiext/ftmpi/mpiext_ftmpi_c.h"
+#include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
 
 static const char FUNC_NAME[] = "MPIX_Comm_failure_get_acked";
 

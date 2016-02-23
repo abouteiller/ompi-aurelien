@@ -1,12 +1,15 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
+ * Copyright (c) 2010-2016 The University of Tennessee and the University
+ *                         of Tennessee Research Foundation.  All rights
+ *                         reserved.
  * $COPYRIGHT$
  * 
  * Additional copyrights may follow
  * 
  * $HEADER$
  */
-#if OMPI_PROFILING_DEFINES
+#if OMPI_PROFILE_LAYER
 #define F77_STAMP_PROFILE_FN(fn_name_core, fn_name_lower, fn_name_upper, fn_args, pass_args) \
     static void fn_name_core fn_args;                                   \
                                                                         \
@@ -51,4 +54,4 @@
     void fn_name_lower##__ fn_args {                                    \
         fn_name_core pass_args;                                         \
     }
-#endif /* OMPI_PROFILING_DEFINES */
+#endif /* OMPI_PROFILE_LAYER */
