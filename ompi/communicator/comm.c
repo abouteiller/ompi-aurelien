@@ -210,14 +210,8 @@ int ompi_comm_set_nb ( ompi_communicator_t **ncomm,
     }
 
 #if OPAL_ENABLE_FT_MPI
-    newcomm->any_source_enabled  = true;
-    newcomm->any_source_offset   = 0;
-    newcomm->comm_revoked        = false;
-    newcomm->coll_revoked        = false;
     newcomm->num_active_local    = newcomm->c_local_group->grp_proc_count;
     newcomm->num_active_remote   = newcomm->c_remote_group->grp_proc_count;
-    newcomm->lleader             = 0;
-    newcomm->rleader             = 0;
 #endif /* OPAL_ENABLE_FT_MPI */
 
     /* Check how many different jobids are represented in this communicator.

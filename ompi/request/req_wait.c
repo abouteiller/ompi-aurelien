@@ -49,7 +49,7 @@ int ompi_request_default_wait(
         if( MPI_STATUS_IGNORE != status ) {
             status->MPI_TAG    = req->req_status.MPI_TAG;
             status->MPI_SOURCE = req->req_status.MPI_SOURCE;
-            OMPI_STATUS_SET_COUNT(&status->_ucount, &req->req_status._ucount);
+            status->_ucount = req->req_status._ucount;
             status->_cancelled = req->req_status._cancelled;
         }
         return MPI_ERR_PROC_FAILED_PENDING;

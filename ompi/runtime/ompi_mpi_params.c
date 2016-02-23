@@ -91,18 +91,21 @@ int ompi_mpi_register_params(void)
     int value;
 
 #if OPAL_ENABLE_FT_MPI
-    mca_base_param_reg_int_name("ompi", "ftmpi_verbose",
-                                "Verbose level of FT MPI error path",
-                                false, false, 0, &value);
+    value = 0;
+    (void) mca_base_var_register ("ompi", "mpi", NULL, "ft_verbose",
+                                  "Verbosity level of the ULFM MPI Fault Tolerance framework",
+                                  MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
+                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &value);
     if( 0 < value ) {
         ompi_ftmpi_output_handle = opal_output_open(NULL);
         opal_output_set_verbosity(ompi_ftmpi_output_handle, value);
     }
 
-    mca_base_param_reg_int_name("ompi", "ftmpi_enable",
-                                "Enable the FT MPI error path",
-                                false, false, (int)ompi_ftmpi_enabled, &value);
-    ompi_ftmpi_enabled = OPAL_INT_TO_BOOL(value);
+    ompi_ftmpi_enabled = true;
+    (void) mca_base_var_register ("ompi", "mpi", NULL, "ft_enable",
+                                  "Enable UFLM MPI Fault Tolerance framework",
+                                  MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
+                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &ompi_ftmpi_enabled);
 #endif
 
     /* Whether we want MPI API function parameter checking or not. Disable this by default if

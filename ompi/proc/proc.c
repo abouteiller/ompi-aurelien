@@ -67,6 +67,9 @@ OBJ_CLASS_INSTANCE(
 
 void ompi_proc_construct(ompi_proc_t* proc)
 {
+#if OPAL_ENABLE_FT_MPI
+    proc->proc_active = true;
+#endif
     bzero(proc->proc_endpoints, sizeof(proc->proc_endpoints));
 
     /* By default all processors are supposedly having the same architecture as me. Thus,
@@ -518,9 +521,6 @@ ompi_proc_t **ompi_proc_world (size_t *size)
          * called.
          */
         procs[i] = (ompi_proc_t*)ompi_proc_for_name (name);
-#if OPAL_ENABLE_FT_MPI
-        procs[i]->proc_active = true;
-#endif
     }
 
     *size = count;

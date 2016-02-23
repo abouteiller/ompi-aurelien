@@ -108,7 +108,7 @@ match_one(mca_btl_base_module_t *btl,
 #if OPAL_ENABLE_FT_MPI
 int mca_pml_ob1_revoke_comm( struct ompi_communicator_t* ompi_comm, bool coll_only ) {
     mca_pml_ob1_comm_t* comm = ompi_comm->c_pml_comm;
-    mca_pml_ob1_comm_proc_t* proc = comm->procs;
+    mca_pml_ob1_comm_proc_t* proc;
     size_t i;
     opal_list_t nack_list;
     opal_list_item_t *it;
@@ -120,6 +120,8 @@ int mca_pml_ob1_revoke_comm( struct ompi_communicator_t* ompi_comm, bool coll_on
     /* loop over all procs in that comm */
     OBJ_CONSTRUCT(&nack_list, opal_list_t);
     for (i = 0; i < comm->num_procs; i++) {
+        proc = comm->procs[i];
+        if( NULL == comm->procs[i] ) continue;
         opal_list_t* frags_list;
         /* loop over unexpected/cantmatch frags for this proc */
         for ( frags_list = &proc[i].unexpected_frags;
@@ -159,7 +161,8 @@ int mca_pml_ob1_revoke_comm( struct ompi_communicator_t* ompi_comm, bool coll_on
             OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                 "ob1_revoke_comm: sending NACK to %d", hdr->hdr_rndv.hdr_match.hdr_src));
             /* Send a ACK with a NULL request to signify revocation */
-            mca_pml_ob1_recv_request_ack_send(comm->procs[hdr->hdr_rndv.hdr_match.hdr_src].ompi_proc, hdr->hdr_rndv.hdr_src_req.lval, NULL, 0, false);
+            proc = mca_pml_ob1_peer_lookup(ompi_comm, hdr->hdr_rndv.hdr_match.hdr_src);
+            mca_pml_ob1_recv_request_ack_send(proc->ompi_proc, hdr->hdr_rndv.hdr_src_req.lval, NULL, 0, 0, false);
         }
         else {
             /* if it's a TYPE_MATCH, the sender is not expecting anything
@@ -795,7 +798,7 @@ static int mca_pml_ob1_recv_frag_match( mca_btl_base_module_t *btl,
                     MCA_PML_OB1_HDR_TYPE_RNDV == hdr->hdr_common.hdr_type );
             /* Send a ACK with a NULL request to signify revocation */
             mca_pml_ob1_rendezvous_hdr_t* hdr_rndv = (mca_pml_ob1_rendezvous_hdr_t*) hdr;
-            mca_pml_ob1_recv_request_ack_send(proc->ompi_proc, hdr_rndv->hdr_src_req.lval, NULL, 0, false);
+            mca_pml_ob1_recv_request_ack_send(proc->ompi_proc, hdr_rndv->hdr_src_req.lval, NULL, 0, 0, false);
             OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle, "Recvfrag: comm %d is revoked or collectives force errors, sending a NACK to the RDV/RGET match from %d\n", hdr->hdr_ctx, hdr->hdr_src));
         }
         else {

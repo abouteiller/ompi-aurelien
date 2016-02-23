@@ -415,12 +415,13 @@ static inline int ompi_request_free(ompi_request_t** request)
 OMPI_DECLSPEC bool ompi_request_state_ok(ompi_request_t *req);
 
 #include "ompi/mca/coll/base/coll_tags.h"
+
 static inline bool ompi_request_tag_is_ft(int tag) {
-    return (tag <= MCA_COLL_BASE_TAG_MIN_FT && tag >= MCA_COLL_BASE_TAG_MAX_FT);
+    return (tag <= MCA_COLL_BASE_TAG_FT_BASE && tag >= MCA_COLL_BASE_TAG_FT_END);
 }
 
 static inline bool ompi_request_tag_is_collective(int tag) {
-    return tag <= MCA_COLL_BASE_TAG_MIN && tag >= MCA_COLL_BASE_TAG_MAX;
+    return (tag <= MCA_COLL_BASE_TAG_BASE && tag >= MCA_COLL_BASE_TAG_END);
 }
 #endif /* OPAL_ENABLE_FT_MPI */
 

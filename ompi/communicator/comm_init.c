@@ -227,7 +227,7 @@ int ompi_comm_init(void)
     ompi_mpi_comm_null.comm.c_flags |= OMPI_COMM_INTRINSIC;
 #if OPAL_ENABLE_FT_MPI
     OMPI_COMM_SET_FT(&ompi_mpi_comm_null.comm, 0, 0);
-    opal_pointer_array_set_item (&ompi_mpi_comm_epoch, 2
+    opal_pointer_array_set_item (&ompi_mpi_comm_epoch, 2,
                                  (void*)(uintptr_t)(ompi_mpi_comm_null.comm.c_epoch));
 #endif  /* OPAL_ENABLE_FT_MPI */
 
@@ -244,8 +244,6 @@ int ompi_comm_init(void)
     return OMPI_SUCCESS;
 }
 
-#if 0
-//TODO: ENABLE_FT_MPI: removed in ULFM, still used in topo
 ompi_communicator_t *ompi_comm_allocate ( int local_size, int remote_size )
 {
     ompi_communicator_t *new_comm;
@@ -271,7 +269,6 @@ ompi_communicator_t *ompi_comm_allocate ( int local_size, int remote_size )
 
     return new_comm;
 }
-#endif
 
 int ompi_comm_finalize(void)
 {

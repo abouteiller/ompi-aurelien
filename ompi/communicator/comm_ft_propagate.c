@@ -24,7 +24,7 @@
 /* TODO: aggregation of multiple failures */
 typedef struct ompi_comm_failure_propagate_message_t {
     ompi_comm_rbcast_message_t rbcast_msg;
-    orte_process_name_t proc_name;
+    ompi_process_name_t proc_name;
     orte_proc_state_t proc_state;
 } ompi_comm_failure_propagate_message_t;
 
@@ -39,10 +39,10 @@ int ompi_comm_init_failure_propagate(void) {
     int ret;
     bool rbcast;
 
-    (void) mca_base_var_register ("mpi", "ft", "ulfm", "fd_propagate_with_rbcast",
+    (void) mca_base_var_register ("ompi", "mpi", NULL, "ft_propagate_with_rbcast",
                                   "Use the OMPI reliable broadcast failure propagator, or disable it and use only RTE propagation (slower)",
-                                  MCA_BASE_VAR_TYPE_BOOL, NULL, 0, MCA_BASE_VAR_SCOPE_READONLY,
-                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_CONSTANT, &rbcast);
+                                  MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
+                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &rbcast);
     if( !rbcast ) return OMPI_SUCCESS;
 
     ret = ompi_comm_init_rbcast();
@@ -74,14 +74,14 @@ int ompi_comm_failure_propagate(ompi_communicator_t* comm, ompi_proc_t* proc, or
 
     OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
                          "%s %s: Initiate a propagation for failure of %s (state %s) on communicator %3d:%d",
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, ORTE_NAME_PRINT(&proc->proc_name), orte_proc_state_to_str(state), comm->c_contextid, comm->c_epoch ));
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&proc->super.proc_name), orte_proc_state_to_str(state), comm->c_contextid, comm->c_epoch ));
 
     ompi_comm_failure_propagate_message_t msg;
     /* Broadcast the 'failure_propagate' signal to all other processes. */
     msg.rbcast_msg.cid   = comm->c_contextid;
     msg.rbcast_msg.epoch = comm->c_epoch;
     msg.rbcast_msg.type  = comm_failure_propagate_cb_type;
-    msg.proc_name        = proc->proc_name;
+    msg.proc_name        = proc->super.proc_name;
     msg.proc_state       = state;
     ret = ompi_comm_rbcast(comm, (ompi_comm_rbcast_message_t*)&msg, sizeof(msg));
     return ret;
@@ -96,12 +96,12 @@ static int ompi_comm_failure_propagate_local(ompi_communicator_t* comm, ompi_com
     if( !ompi_proc_is_active(proc) ) {
         OPAL_OUTPUT_VERBOSE((9, ompi_ftmpi_output_handle,
                 "%s %s: failure of %s has already been propagated on comm %3d:%d",
-                ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, ORTE_NAME_PRINT(&msg->proc_name), comm->c_contextid, comm->c_epoch));
+                OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&msg->proc_name), comm->c_contextid, comm->c_epoch));
         return false; /* already propagated, done. */
     }
     OPAL_OUTPUT_VERBOSE((9, ompi_ftmpi_output_handle,
             "%s %s: failure of %s needs to be propagated on comm %3d:%d",
-            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, ORTE_NAME_PRINT(&msg->proc_name), comm->c_contextid, comm->c_epoch));
+            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&msg->proc_name), comm->c_contextid, comm->c_epoch));
     ompi_errmgr_mark_failed_peer_fw(proc, msg->proc_state, false);
     return true;
 }

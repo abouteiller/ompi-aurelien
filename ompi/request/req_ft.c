@@ -25,12 +25,8 @@
 #include "ompi/request/request.h"
 #include "ompi/errhandler/errcode.h"
 
-#include "orte/util/name_fns.h"
-#include "orte/runtime/orte_globals.h"
 #include "ompi/runtime/params.h"
 
-#include "opal/runtime/opal_cr.h"
-#include "ompi/mca/crcp/crcp.h"
 #include "ompi/mca/coll/base/coll_tags.h"
 #include "ompi/mca/pml/base/pml_base_request.h"
 
@@ -47,7 +43,7 @@ bool ompi_request_state_ok(ompi_request_t *req)
     if( NULL == req->req_mpi_object.comm ) {
         opal_output(0,
                     "%s ompi_request_state_ok: Warning: Communicator is NULL - Should not happen!",
-                    ORTE_NAME_PRINT(ORTE_PROC_MY_NAME) );
+                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) );
         return true;
     }
 #endif /* OPAL_ENABLE_DEBUG */
@@ -80,7 +76,7 @@ bool ompi_request_state_ok(ompi_request_t *req)
 
         opal_output_verbose(10, ompi_ftmpi_output_handle,
                             "%s ompi_request_state_ok: %p Communicator %s(%d) has been revoked!",
-                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), (void*)req,
+                            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), (void*)req,
                             req->req_mpi_object.comm->c_name, req->req_mpi_object.comm->c_contextid);
         goto return_with_error;
     }
@@ -103,7 +99,7 @@ bool ompi_request_state_ok(ompi_request_t *req)
             req->req_any_source_pending = true;
             opal_output_verbose(10, ompi_ftmpi_output_handle,
                                 "%s ompi_request_state_ok: Request %p in comm %s(%d) peer ANY_SOURCE %s!",
-                                ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), (void*)req,
+                                OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), (void*)req,
                                 req->req_mpi_object.comm->c_name, req->req_mpi_object.comm->c_contextid,
                                 ompi_mpi_errnum_get_string(req->req_status.MPI_ERROR));
             goto return_with_error;
@@ -121,7 +117,7 @@ bool ompi_request_state_ok(ompi_request_t *req)
 
         opal_output_verbose(10, ompi_ftmpi_output_handle,
                             "%s ompi_request_state_ok: Request %p in comm %s(%d) peer %3d failed - Ret %s",
-                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), (void*)req,
+                            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), (void*)req,
                             req->req_mpi_object.comm->c_name, req->req_mpi_object.comm->c_contextid,
                             req->req_status.MPI_SOURCE,
                             ompi_mpi_errnum_get_string(req->req_status.MPI_ERROR));
@@ -143,7 +139,7 @@ bool ompi_request_state_ok(ompi_request_t *req)
 
         opal_output_verbose(10, ompi_ftmpi_output_handle,
                             "%s ompi_request_state_ok: Request is part of a collective, and some process died. (rank %3d)",
-                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), req->req_status.MPI_SOURCE );
+                            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), req->req_status.MPI_SOURCE );
         goto return_with_error;
     }
 
@@ -154,7 +150,7 @@ bool ompi_request_state_ok(ompi_request_t *req)
         int cancelled = req->req_status._cancelled;
         opal_output_verbose(10, ompi_ftmpi_output_handle,
                             "%s ompi_request_state_ok: Request %p cancelled due to completion with error %d\n", 
-                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), (void*)req, req->req_status.MPI_ERROR);
+                            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), (void*)req, req->req_status.MPI_ERROR);
 #if 0
         { int btsize=32; void*bt[32]={NULL}; btsize=backtrace(bt,btsize);
           backtrace_symbols_fd(bt,btsize, ompi_ftmpi_output_handle);

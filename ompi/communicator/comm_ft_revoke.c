@@ -53,7 +53,7 @@ int ompi_comm_revoke_internal(ompi_communicator_t* comm)
 
     OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
                          "%s %s: Initiate a revoke on communicator %3d:%d",
-                         ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, comm->c_contextid, comm->c_epoch ));
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, comm->c_contextid, comm->c_epoch ));
 
     /* Mark locally revoked */
     if( ompi_comm_revoke_local(comm, NULL) ) {
@@ -74,12 +74,12 @@ static int ompi_comm_revoke_local(ompi_communicator_t* comm, ompi_comm_rbcast_me
     if( comm->comm_revoked ) {
         OPAL_OUTPUT_VERBOSE((9, ompi_ftmpi_output_handle,
                 "%s %s: comm %3d:%d is already revoked, nothing to do",
-                ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, comm->c_contextid, comm->c_epoch));
+                OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, comm->c_contextid, comm->c_epoch));
         return false;
     }
     OPAL_OUTPUT_VERBOSE((9, ompi_ftmpi_output_handle,
             "%s %s: comm %3d:%d is marked revoked locally",
-            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), __func__, comm->c_contextid, comm->c_epoch));
+            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, comm->c_contextid, comm->c_epoch));
     /*
      * Locally revoke the communicator
      *

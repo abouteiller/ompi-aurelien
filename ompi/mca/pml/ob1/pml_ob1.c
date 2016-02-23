@@ -782,7 +782,7 @@ void mca_pml_ob1_error_handler(
     opal_output_verbose( 1, mca_pml_ob1_output,
                          "PML:OB1: the error handler was invoked by the %s BTL for proc %s with info %s",
                          btl->btl_component->btl_version.mca_component_name,
-                         (NULL == errproc ? "null" : ORTE_NAME_PRINT(&errproc->proc_name)), btlinfo);
+                         (NULL == errproc ? "null" : OMPI_NAME_PRINT(&errproc->proc_name)), btlinfo);
     if( NULL != errproc ) {
         ompi_errmgr_mark_failed_peer_cause_comm(errproc);
     }
