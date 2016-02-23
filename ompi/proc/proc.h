@@ -2,7 +2,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2011 The University of Tennessee and The University
+ * Copyright (c) 2004-2016 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -85,19 +85,6 @@ struct ompi_proc_t {
 };
 typedef struct ompi_proc_t ompi_proc_t;
 OBJ_CLASS_DECLARATION(ompi_proc_t);
-
-#if OPAL_ENABLE_FT_MPI
-static inline bool ompi_proc_is_active(ompi_proc_t *proc)
-{
-    return (proc->proc_active);
-}
-
-/* Made a function, so we can do something smarter in the future */
-static inline void ompi_proc_mark_as_failed(ompi_proc_t *proc)
-{
-    proc->proc_active = false;
-}
-#endif /* OPAL_ENABLE_FT_MPI */
 
 /**
  * @private
@@ -463,6 +450,21 @@ static inline opal_process_name_t ompi_proc_sentinel_to_name (uintptr_t sentinel
 #else
 #error unsupported pointer size
 #endif
+
+#if OPAL_ENABLE_FT_MPI
+static inline bool ompi_proc_is_active(ompi_proc_t *proc) {
+    assert( NULL != proc );
+    assert( !ompi_proc_is_sentinel(proc) );
+    return (proc->proc_active);
+}
+
+/* Made a function, so we can do something smarter in the future */
+static inline void ompi_proc_mark_as_failed(ompi_proc_t *proc) {
+    assert( NULL != proc );
+    assert( !ompi_proc_is_sentinel(proc) );
+    proc->proc_active = false;
+}
+#endif /* OPAL_ENABLE_FT_MPI */
 
 END_C_DECLS
 

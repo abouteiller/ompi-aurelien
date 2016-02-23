@@ -108,9 +108,9 @@ ftbasic_register(void)
                                            MCA_BASE_VAR_SCOPE_READONLY,
                                            &mca_coll_ftbasic_priority);
 
-    value = 0;
+    value = 1;
     (void) mca_base_component_var_register(&mca_coll_ftbasic_component.collm_version,
-                                           "agreement", "Agreement algorithm 0: Early Returning Concensus (era); 1: Early Concensus Termination (eta)",
+                                           "agreement", "Agreement algorithm 0: Early Terminating Concensus (eta); 1: Early Returning Concensus (era)",
                                            MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
                                            OPAL_INFO_LVL_6,
                                            MCA_BASE_VAR_SCOPE_READONLY,

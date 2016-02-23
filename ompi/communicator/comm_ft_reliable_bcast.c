@@ -12,9 +12,6 @@
  */
 #include "opal/mca/base/mca_base_var.h"
 
-#include "orte/util/name_fns.h"
-#include "orte/runtime/orte_globals.h"
-
 #include "ompi/runtime/params.h"
 #include "ompi/group/group.h"
 #include "ompi/communicator/communicator.h"
@@ -74,7 +71,7 @@ static int ompi_comm_rbcast_bmg(ompi_communicator_t* comm, ompi_comm_rbcast_mess
     }
 
     /* d is the direction, forward (1*2^i), then backward (-1*2^i) */
-    for(d=1; d >= -1; d-=2) for(i=1; i < np/2; i*=2) {
+    for(i=1; i <= np/2; i*=2) for(d=1; d >= -1; d-=2) {
         ompi_proc_t* proc;
         int idx = (np+me+d*i)%np;
         if(OPAL_LIKELY( idx < ompi_group_size(lgrp) )) {
@@ -261,10 +258,10 @@ static bool comm_rbcast_listener_started = false;
 int ompi_comm_init_rbcast(void) {
     int ret, rbcast=1;
 
-    (void) mca_base_var_register ("ompi", "mpi", NULL, "ft_reliable_bcast",
+    (void) mca_base_var_register ("ompi", "mpi", "ft", "reliable_bcast",
                                   "Reliable Broadcast algorithm (1: Binomial Graph Diffusion; 2: N^2 full graph diffusion)",
-                                  MCA_BASE_VAR_TYPE_INT, NULL, 0, MCA_BASE_VAR_SCOPE_READONLY,
-                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_CONSTANT, &rbcast);
+                                  MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
+                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &rbcast);
     switch( rbcast ) {
         case 0:
             return OMPI_SUCCESS;

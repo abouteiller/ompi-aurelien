@@ -37,13 +37,13 @@ static int comm_failure_propagate_cb_type = -1;
 
 int ompi_comm_init_failure_propagate(void) {
     int ret;
-    bool rbcast;
+    bool rbcast = true;
 
-    (void) mca_base_var_register ("ompi", "mpi", NULL, "ft_propagate_with_rbcast",
+    (void) mca_base_var_register ("ompi", "mpi", "ft", "propagate_with_rbcast",
                                   "Use the OMPI reliable broadcast failure propagator, or disable it and use only RTE propagation (slower)",
                                   MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &rbcast);
-    if( !rbcast ) return OMPI_SUCCESS;
+    if( !rbcast || !ompi_ftmpi_enabled ) return OMPI_SUCCESS;
 
     ret = ompi_comm_init_rbcast();
     if( ret != OMPI_SUCCESS ) return ret;
@@ -92,7 +92,7 @@ int ompi_comm_failure_propagate(ompi_communicator_t* comm, ompi_proc_t* proc, or
  * status
  */
 static int ompi_comm_failure_propagate_local(ompi_communicator_t* comm, ompi_comm_failure_propagate_message_t* msg) {
-    ompi_proc_t* proc = ompi_proc_find(&msg->proc_name); /* TODO: linear search, berk. */
+    ompi_proc_t* proc = ompi_proc_for_name(msg->proc_name);
     if( !ompi_proc_is_active(proc) ) {
         OPAL_OUTPUT_VERBOSE((9, ompi_ftmpi_output_handle,
                 "%s %s: failure of %s has already been propagated on comm %3d:%d",

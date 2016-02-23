@@ -121,17 +121,17 @@ int mca_pml_ob1_revoke_comm( struct ompi_communicator_t* ompi_comm, bool coll_on
     OBJ_CONSTRUCT(&nack_list, opal_list_t);
     for (i = 0; i < comm->num_procs; i++) {
         proc = comm->procs[i];
-        if( NULL == comm->procs[i] ) continue;
+        if( NULL == proc ) continue;
         opal_list_t* frags_list;
         /* loop over unexpected/cantmatch frags for this proc */
-        for ( frags_list = &proc[i].unexpected_frags;
+        for ( frags_list = &proc->unexpected_frags;
               frags_list != NULL;
-              frags_list = ((&proc[i].unexpected_frags == frags_list)? &proc[i].frags_cant_match: NULL) ) {
+              frags_list = ((&proc->unexpected_frags == frags_list)? &proc->frags_cant_match: NULL) ) {
 #if OPAL_ENABLE_DEBUG
             if( opal_list_get_size(frags_list) ) {
                 OPAL_OUTPUT_VERBOSE((15, ompi_ftmpi_output_handle,
                     "ob1_revoke_comm: purging %s for proc %d in comm %d (%s): it has %d frags",
-                    frags_list == &proc[i].frags_cant_match?"cantmatch":"unexpected",
+                    frags_list == &proc->frags_cant_match?"cantmatch":"unexpected",
                     i, ompi_comm->c_contextid, coll_only?"collective frags only":"all revoked",
                     opal_list_get_size(frags_list)));
             }
