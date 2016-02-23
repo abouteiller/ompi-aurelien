@@ -1,7 +1,8 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2010-2014 The Trustees of the University of Tennessee.
- *                         All rights reserved.
+ * Copyright (c) 2010-2016 The University of Tennessee and the University
+ *                         of Tennessee Research Foundation.  All rights
+ *                         reserved.
  * $COPYRIGHT$
  * 
  * Additional copyrights may follow
@@ -9,14 +10,8 @@
  * $HEADER$
  */
 #include "ompi_config.h"
-#include <stdio.h>
 
-#include "ompi/mpi/f77/bindings.h"
-#include "ompi/mpi/f77/constants.h"
-#include "ompi/group/group.h"
-#include "ompi/communicator/communicator.h"
-
-#include "ompi/mpiext/ftmpi/f77/ftmpi_f77_support.h"
+#include "ompi/mpiext/ftmpi/mpif-h/ftmpi_f77_support.h"
 
 F77_STAMP_FN(MPIX_Comm_revoke_f,
              mpix_comm_revoke,
@@ -29,11 +24,12 @@ F77_STAMP_FN(MPIX_Comm_revoke_f,
              (MPI_Fint *comm, MPI_Fint *ierr),
              (comm, ierr))
 
-#if OMPI_PROFILING_DEFINES && ! OPAL_HAVE_WEAK_SYMBOLS
-#include "ompi/mpiext/ftmpi/f77/profile/defines.h"
+#if OMPI_PROFILE_LAYER && ! OPAL_HAVE_WEAK_SYMBOLS
+#include "ompi/mpiext/ftmpi/mpif-h/profile/defines.h"
 #endif
 
-#include "ompi/mpiext/ftmpi/mpiext_ftmpi_c.h"
+#include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
+#include "ompi/communicator/communicator.h"
 
 static void MPIX_Comm_revoke_f(MPI_Fint *comm, MPI_Fint *ierr)
 {
