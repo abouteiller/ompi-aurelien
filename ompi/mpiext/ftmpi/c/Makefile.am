@@ -33,10 +33,8 @@ libmpiext_ftmpi_c_la_LDFLAGS = -module -avoid-version
 
 noinst_LTLIBRARIES = $(lib)
 
-if WANT_INSTALL_HEADERS
-ompidir = $(includedir)/openmpi/ompi/mpiext/ftmpi/c
+ompidir = $(ompiincludedir)/ompi/mpiext/ftmpi/c
 ompi_HEADERS = \
         $(headers)
-endif
 
 MAINTAINERCLEANFILES = $(nodist_libmpiext_ftmpi_c_la_SOURCES)

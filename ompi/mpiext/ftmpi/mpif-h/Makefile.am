@@ -46,7 +46,5 @@ endif
 noinst_LTLIBRARIES = $(f77_lib)
 
 # Conditionally install the header files
-if WANT_INSTALL_HEADERS
-ompidir = $(includedir)/openmpi/ompi/mpiext/ftmpi/mpif-h
+ompidir = $(ompiincludedir)/ompi/mpiext/ftmpi/mpif-h
 ompi_HEADERS = $(headers)
-endif

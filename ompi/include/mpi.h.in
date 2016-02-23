@@ -198,6 +198,9 @@
 /* Whether OMPI should provide MPI File interface */
 #undef OMPI_PROVIDE_MPI_FILE_INTERFACE
 
+/* Whether OMPI shoud define ULFM Fault Tolerant constants */
+#undef OPAL_ENABLE_FT_MPI
+
 #ifndef OMPI_DECLSPEC
 #  if defined(WIN32) || defined(_WIN32)
 #    if defined(OMPI_IMPORTS)
