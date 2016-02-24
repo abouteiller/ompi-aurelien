@@ -270,9 +270,6 @@ ompi_coll_base_gather_intra_linear_sync(const void *sbuf, int scount,
         ompi_request_t *first_segment_req;
         reqs = ompi_coll_base_comm_get_reqs(module->base_data, size);
         if (NULL == reqs) { ret = -1; line = __LINE__; goto error_hndl; }
-        for (i = 0; i < size; i++) {
-            reqs[i] = MPI_REQUEST_NULL;
-        }
 
         ompi_datatype_type_size(rdtype, &typelng);
         ompi_datatype_get_extent(rdtype, &lb, &extent);

@@ -399,7 +399,7 @@ static void ompi_comm_construct(ompi_communicator_t* comm)
     comm->c_peruse_handles = NULL;
 #endif
 
-#if OPAL_ENABLE_MPI_FT
+#if OPAL_ENABLE_FT_MPI
     OMPI_COMM_SET_FT(comm, -1, MPI_UNDEFINED);
 #endif
 }

@@ -173,7 +173,7 @@ int ompi_errhandler_request_invoke(int count,
              * MPI_ERR_PROC_FAILED_PENDING,
              * This request should not be freed since it is still active. */
             if( !requests[i]->req_any_source_pending ) {
-                ompi_request_free(&(requests[i])); 
+                ompi_request_free(&(requests[i]));
             }
 #else
             /* Ignore the error -- what are we going to do?  We're

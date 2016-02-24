@@ -54,6 +54,7 @@
 #include "opal/mca/event/event.h"
 #include "opal/util/net.h"
 #include "opal/util/show_help.h"
+#include "opal/util/proc.h"
 #include "opal/mca/btl/base/btl_base_error.h"
 
 #include "btl_tcp.h"
@@ -613,6 +614,7 @@ static int mca_btl_tcp_endpoint_recv_blocking(mca_btl_base_endpoint_t* btl_endpo
     }
     return cnt;
 }
+
 
 /*
  *  Receive the endpoints globally unique process identification from a newly

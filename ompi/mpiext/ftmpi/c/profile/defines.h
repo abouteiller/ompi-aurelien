@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * $COPYRIGHT$
- * 
+ *
  * Additional copyrights may follow
- * 
+ *
  * $HEADER$
  *
  */
 #ifndef OMPI_MPIEXT_FTMPI_C_PROFILE_DEFINES_H
 #define OMPI_MPIEXT_FTMPI_C_PROFILE_DEFINES_H
 /*
- * This file is included in the top directory only if 
+ * This file is included in the top directory only if
  * profiling is required. Once profiling is required,
- * this file will replace all MPI_* symbols with 
+ * this file will replace all MPI_* symbols with
  * PMPI_* symbols
  */
 

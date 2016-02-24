@@ -136,11 +136,12 @@ struct ompi_request_t {
     ompi_request_complete_fn_t req_complete_cb; /**< Called when the request is MPI completed */
     void *req_complete_cb_data;
     ompi_mpi_object_t req_mpi_object;           /**< Pointer to MPI object that created this request */
-#if OPAL_ENABLE_FT_MPI
+#if 1 || OPAL_ENABLE_FT_MPI
+    /* TODO: this is set in pml_base_sendreq/recvreq in a macro, add an
+     * initializer to enable conditional definition */
     /* FT Functionality uses the (req_peer) to return the peer that caused a
      * failure, and (req_tag) to identify which operations are collective in
-     * nature.
-     */
+     * nature. */
     int req_peer; /**< Peer rank that this request is associated with */
     int req_tag;  /**< Tag associated with this request */
     bool req_any_source_pending;

@@ -72,13 +72,6 @@
 #include "opal/mca/crs/base/base.h"
 #include "ompi/request/request.h"
 
-#if OPAL_ENABLE_FT_MPI
-#include "ompi/proc/proc.h"
-#include "ompi/request/request.h"
-#include "ompi/datatype/ompi_datatype.h"
-#include "ompi/op/op.h"
-#endif
-
 BEGIN_C_DECLS
 
 

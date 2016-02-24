@@ -16,7 +16,6 @@
  * Copyright (c) 2013-2014 Intel, Inc. All rights reserved
  * Copyright (c) 2015-2016 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
- *
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -37,7 +36,6 @@
 #define OMPI_PROC_PROC_H
 
 #include "ompi_config.h"
-#include "ompi/constants.h"
 #include "ompi/types.h"
 
 #include "opal/util/proc.h"
@@ -73,18 +71,20 @@ BEGIN_C_DECLS
 
 struct ompi_proc_t {
     opal_proc_t                     super;
+
+    /* endpoint data */
+    void *proc_endpoints[OMPI_PROC_ENDPOINT_TAG_MAX];
+
 #if OPAL_ENABLE_FT_MPI
     /** Is the process active? */
     bool                            proc_active;
 #endif /* OPAL_ENABLE_FT_MPI */
 
-    /* endpoint data */
-    void *proc_endpoints[OMPI_PROC_ENDPOINT_TAG_MAX];
-
     char padding[OMPI_PROC_PADDING_SIZE]; /* for future extensions (OSHMEM uses this area also)*/
 };
 typedef struct ompi_proc_t ompi_proc_t;
 OBJ_CLASS_DECLARATION(ompi_proc_t);
+
 
 /**
  * @private

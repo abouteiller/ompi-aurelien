@@ -4,9 +4,9 @@
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
- * 
+ *
  * Additional copyrights may follow
- * 
+ *
  * $HEADER$
  */
 #include "ompi_config.h"
@@ -33,7 +33,7 @@ static const char FUNC_NAME[] = "MPIX_Comm_iagree";
 int MPIX_Comm_iagree(MPI_Comm comm, int *flag, MPI_Request *request)
 {
     int rc = MPI_SUCCESS;
-    ompi_group_t* acked; 
+    ompi_group_t* acked;
 
     /* Argument checking */
     if (MPI_PARAM_CHECK) {

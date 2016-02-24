@@ -44,7 +44,6 @@
 #endif  /* HAVE_UNISTD_H */
 
 #include "opal/opal_socket_errno.h"
-#include "opal/util/proc.h"
 #include "opal/mca/btl/base/btl_base_error.h"
 #include "opal/util/show_help.h"
 

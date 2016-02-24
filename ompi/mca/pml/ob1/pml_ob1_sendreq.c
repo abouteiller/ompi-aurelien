@@ -350,6 +350,7 @@ mca_pml_ob1_rget_completion (mca_pml_ob1_rdma_frag_t *frag, int64_t rdma_length)
     }
 }
 
+
 /**
  * Completion of a control message - return resources.
  */

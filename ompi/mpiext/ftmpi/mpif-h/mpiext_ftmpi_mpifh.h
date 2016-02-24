@@ -3,9 +3,9 @@
 ! Copyright (c) 2010-2016 The Trustees of the University of Tennessee.
 !                         All rights reserved.
 ! $COPYRIGHT$
-! 
+!
 ! Additional copyrights may follow
-! 
+!
 ! $HEADER$
 !
 

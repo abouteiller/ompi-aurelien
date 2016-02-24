@@ -446,8 +446,12 @@ static inline void ompi_coll_base_free_reqs(ompi_request_t **reqs, int count)
 
     for (int i = 0; i < count; ++i) {
         if( MPI_REQUEST_NULL != reqs[i] ) {
+#if OPAL_ENABLE_FT_MPI
             ompi_request_cancel(reqs[i]);
             ompi_request_wait(&reqs[i], MPI_STATUS_IGNORE);
+#else
+            ompi_request_free(&reqs[i]);
+#endif
         }
     }
 }

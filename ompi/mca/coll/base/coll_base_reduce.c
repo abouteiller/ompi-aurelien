@@ -289,9 +289,6 @@ int ompi_coll_base_reduce_generic( const void* sendbuf, void* recvbuf, int origi
 
             sreq = ompi_coll_base_comm_get_reqs(module->base_data, max_outstanding_reqs);
             if (NULL == sreq) { line = __LINE__; ret = -1; goto error_hndl; }
-            for (i = 0; i < max_outstanding_reqs; i++ ) {
-                sreq[i] = MPI_REQUEST_NULL;
-            }
 
             /* post first group of requests */
             for (segindex = 0; segindex < max_outstanding_reqs; segindex++) {
