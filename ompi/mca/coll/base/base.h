@@ -2,14 +2,13 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2015 The University of Tennessee and The University
+ * Copyright (c) 2004-2005 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -37,9 +36,6 @@
 #include "mpi.h"
 #include "opal/class/opal_list.h"
 #include "opal/mca/base/base.h"
-#if OPAL_ENABLE_FT_MPI
-#include "ompi/mca/coll/coll.h"
-#endif
 
 /*
  * Global functions for MCA overall collective open and close

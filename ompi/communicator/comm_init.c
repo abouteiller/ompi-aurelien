@@ -417,7 +417,7 @@ static void ompi_comm_construct(ompi_communicator_t* comm)
        done this. */
     memset(&comm->c_coll, 0, sizeof(mca_coll_base_comm_coll_t));
 
-#if OPAL_ENABLE_MPI_FT
+#if OPAL_ENABLE_FT_MPI
     OMPI_COMM_SET_FT(comm, -1, MPI_UNDEFINED);
 #endif
 }

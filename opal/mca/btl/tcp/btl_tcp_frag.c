@@ -45,7 +45,6 @@
 #endif  /* HAVE_UNISTD_H */
 
 #include "opal/opal_socket_errno.h"
-#include "opal/util/proc.h"
 #include "opal/mca/btl/base/btl_base_error.h"
 #include "btl_tcp_frag.h"
 #include "btl_tcp_proc.h"
@@ -216,8 +215,8 @@ bool mca_btl_tcp_frag_recv(mca_btl_tcp_frag_t* frag, int sd)
         cnt = readv(sd, frag->iov_ptr, num_vecs);
 	if( 0 < cnt ) goto advance_iov_position;
 	if( cnt == 0 ) {
-        if(MCA_BTL_TCP_CONNECTED == btl_endpoint->endpoint_state)
-            btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
+            if(MCA_BTL_TCP_CONNECTED == btl_endpoint->endpoint_state)
+                btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
 	    mca_btl_tcp_endpoint_close(btl_endpoint);
 	    return false;
 	}

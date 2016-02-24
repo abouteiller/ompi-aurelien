@@ -4,9 +4,9 @@
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
- * 
+ *
  * Additional copyrights may follow
- * 
+ *
  * $HEADER$
  */
 #include "ompi_config.h"
@@ -40,7 +40,7 @@ int MPIX_Comm_shrink(MPI_Comm comm, MPI_Comm *newcomm)
             return OMPI_ERRHANDLER_INVOKE(MPI_COMM_WORLD, MPI_ERR_COMM, FUNC_NAME);
         }
         if( NULL == newcomm ) {
-            return OMPI_ERRHANDLER_INVOKE(comm, MPI_ERR_ARG, 
+            return OMPI_ERRHANDLER_INVOKE(comm, MPI_ERR_ARG,
                                           FUNC_NAME);
         }
         OMPI_ERRHANDLER_CHECK(rc, comm, rc, FUNC_NAME);

@@ -5,9 +5,9 @@
  *                         reserved.
  *
  * $COPYRIGHT$
- * 
+ *
  * Additional copyrights may follow
- * 
+ *
  * $HEADER$
  */
 
@@ -141,7 +141,7 @@ mca_coll_ftbasic_agreement_eta_intra(ompi_communicator_t* comm,
                 (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
                 OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
                                      "%s ftbasic:agreement (ETA) Killing myself just before posting message reception to/from %d\n",
-                                     OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), 
+                                     OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                      i));
                 raise(SIGKILL);
             }
@@ -149,8 +149,8 @@ mca_coll_ftbasic_agreement_eta_intra(ompi_communicator_t* comm,
 
             if( NEED_TO_RECV(i) ) {
                 /* Need to know more about this guy */
-                MCA_PML_CALL(irecv(((char*)in) + (i*msg_size), msg_size, MPI_BYTE, 
-                                   i, FTBASIC_ETA_TAG_AGREEMENT, comm, 
+                MCA_PML_CALL(irecv(((char*)in) + (i*msg_size), msg_size, MPI_BYTE,
+                                   i, FTBASIC_ETA_TAG_AGREEMENT, comm,
                                    &reqs[nr++]));
                 proc_status[i] &= ~STATUS_RECV_COMPLETE;
                 OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
@@ -161,9 +161,9 @@ mca_coll_ftbasic_agreement_eta_intra(ompi_communicator_t* comm,
             }
             if( NEED_TO_SEND(i) ) {
                 /* Need to communicate with this guy */
-                MCA_PML_CALL(isend(out, msg_size, MPI_BYTE, 
-                                   i, FTBASIC_ETA_TAG_AGREEMENT, 
-                                   MCA_PML_BASE_SEND_STANDARD, comm, 
+                MCA_PML_CALL(isend(out, msg_size, MPI_BYTE,
+                                   i, FTBASIC_ETA_TAG_AGREEMENT,
+                                   MCA_PML_BASE_SEND_STANDARD, comm,
                                    &reqs[nr++]));
                 proc_status[i] &= ~STATUS_SEND_COMPLETE;
                 OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
@@ -296,7 +296,7 @@ mca_coll_ftbasic_agreement_eta_intra(ompi_communicator_t* comm,
                                                  "%s ftbasic:agreement (ETA) Request %d(%p) for send of rank %d remains pending. Renaming it as Request %d\n",
                                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), ri, (void*)reqs[ri], i, nr));
                             reqs[nr] = reqs[ri];
-                            if( ri != nr ) 
+                            if( ri != nr )
                                 reqs[ri] = MPI_REQUEST_NULL;
                             nr++;
                         } else {
@@ -327,7 +327,7 @@ mca_coll_ftbasic_agreement_eta_intra(ompi_communicator_t* comm,
                              "%s ftbasic:agreement (ETA) end of Round %d: nbcrashed = %d, nbknow = %d, nbrecv = %d. out.knows = %d\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              round, nbcrashed, nbknow, nbrecv, out->knows));
-        
+
         if( (nbknow + nbcrashed >= np - 1) && (out->knows == 1) ) {
             break;
         }

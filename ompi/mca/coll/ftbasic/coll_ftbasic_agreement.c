@@ -6,9 +6,9 @@
  *                         reserved.
  *
  * $COPYRIGHT$
- * 
+ *
  * Additional copyrights may follow
- * 
+ *
  * $HEADER$
  */
 #include "ompi_config.h"

@@ -5,9 +5,9 @@
  *                         reserved.
  *
  * $COPYRIGHT$
- * 
+ *
  * Additional copyrights may follow
- * 
+ *
  * $HEADER$
  */
 #ifndef MCA_COLL_FTBASIC_AGREEMENT_EXPORT_H

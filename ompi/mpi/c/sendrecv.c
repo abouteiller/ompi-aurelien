@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2015 The University of Tennessee and The University
+ * Copyright (c) 2004-2016 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -48,7 +48,6 @@ int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 {
     ompi_request_t* req;
     int rc = MPI_SUCCESS, rcs = MPI_SUCCESS;
-    int zero = 0;
 
     MEMCHECKER(
         memchecker_datatype(sendtype);
@@ -89,12 +88,12 @@ int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
     if (dest != MPI_PROC_NULL) { /* send */
         rc = MCA_PML_CALL(send(sendbuf, sendcount, sendtype, dest,
                                sendtag, MCA_PML_BASE_SEND_STANDARD, comm));
-#if !OPAL_ENABLE_FT_MPI
-        /* If ULFM is enabled we need to wait for the posted receive to 
+#if OPAL_ENABLE_FT_MPI
+        /* If ULFM is enabled we need to wait for the posted receive to
          * complete, hence we cannot return here */
-        OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
-#else
         rcs = rc;
+#else
+        OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
 #endif  /* OPAL_ENABLE_FT_MPI */
     }
 
@@ -102,7 +101,7 @@ int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
         rc = ompi_request_wait(&req, status);
 #if OPAL_ENABLE_FT_MPI
         /* Sendrecv never returns ERR_PROC_FAILED_PENDING because it is
-         * blocking. Lets complete now that irecv and promote the error 
+         * blocking. Lets complete now that irecv and promote the error
          * to ERR_PROC_FAILED */
         if( OPAL_UNLIKELY(MPI_ERR_PROC_FAILED_PENDING == rc) ) {
             ompi_request_cancel(req);
