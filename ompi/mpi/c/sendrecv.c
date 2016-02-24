@@ -47,7 +47,10 @@ int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                  MPI_Comm comm,  MPI_Status *status)
 {
     ompi_request_t* req;
-    int rc = MPI_SUCCESS, rcs = MPI_SUCCESS;
+    int rc = MPI_SUCCESS;
+#if OPAL_ENABLE_FT_MPI
+    int rcs = MPI_SUCCESS;
+#endif
 
     MEMCHECKER(
         memchecker_datatype(sendtype);
@@ -93,7 +96,7 @@ int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
          * complete, hence we cannot return here */
         rcs = rc;
 #else
-        OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
+        OMPI_ERRHANDLER_CHECK(rc, comm, rc, FUNC_NAME);
 #endif  /* OPAL_ENABLE_FT_MPI */
     }
 
@@ -115,9 +118,11 @@ int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
         }
         rc = MPI_SUCCESS;
     }
+#if OPAL_ENABLE_FT_MPI
     if( OPAL_UNLIKELY(MPI_SUCCESS != rcs && MPI_SUCCESS == rc) ) {
         rc = rcs;
     }
+#endif
 
     OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
 }
