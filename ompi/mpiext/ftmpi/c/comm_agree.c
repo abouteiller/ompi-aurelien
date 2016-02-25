@@ -14,7 +14,9 @@
 
 #include "ompi/runtime/params.h"
 #include "ompi/communicator/communicator.h"
+#include "ompi/group/group.h"
 #include "ompi/proc/proc.h"
+#include "ompi/op/op.h"
 
 #if OPAL_HAVE_WEAK_SYMBOLS && OMPI_PROFILE_LAYER
 #pragma weak MPIX_Comm_agree = PMPIX_Comm_agree

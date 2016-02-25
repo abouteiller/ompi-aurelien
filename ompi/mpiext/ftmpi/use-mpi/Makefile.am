@@ -13,6 +13,12 @@
 headers = \
 	mpiext_ftmpi_usempi.h
 
+libmpiext_ftmpi_usempi_la_SOURCES =
+libmpiext_ftmpi_usempi_la_LIBADD  = $(lib_sources)
+libmpiext_ftmpi_usempi_la_LDFLAGS = -module -avoid-version
+
+
 noinst_HEADERS = \
         $(headers)
 
+noinst_LTLIBRARIES = libmpiext_ftmpi_usempi.la

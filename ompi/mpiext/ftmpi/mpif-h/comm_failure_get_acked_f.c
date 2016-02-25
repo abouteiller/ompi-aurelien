@@ -11,8 +11,10 @@
  */
 #include "ompi_config.h"
 
-#include "ompi/mpiext/ftmpi/mpif-h/ftmpi_f77_support.h"
+#include "ompi/communicator/communicator.h"
+#include "ompi/mpi/fortran/base/fint_2_int.h"
 
+#include "ompi/mpiext/ftmpi/mpif-h/f77_mangle.h"
 F77_STAMP_FN(MPIX_Comm_failure_get_acked_f,
              mpix_comm_failure_get_acked,
              MPIX_COMM_FAILURE_GET_ACKED,
@@ -29,7 +31,6 @@ F77_STAMP_FN(MPIX_Comm_failure_get_acked_f,
 #endif
 
 #include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
-#include "ompi/communicator/communicator.h"
 
 static void MPIX_Comm_failure_get_acked_f(MPI_Fint *comm, MPI_Fint *group, MPI_Fint *ierr)
 {
