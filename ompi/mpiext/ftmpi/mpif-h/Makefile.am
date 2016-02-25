@@ -16,8 +16,7 @@ headers =
 f77_sources =
 if OMPI_BUILD_FORTRAN_MPIFH_BINDINGS
 headers += \
-	mpiext_ftmpi_mpifh.h \
-	ftmpi_f77_support.h
+	mpiext_ftmpi_mpifh.h
 
 f77_sources += \
 	comm_revoke_f.c \

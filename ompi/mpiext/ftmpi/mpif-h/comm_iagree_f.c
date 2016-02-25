@@ -11,8 +11,11 @@
  */
 #include "ompi_config.h"
 
-#include "ompi/mpiext/ftmpi/mpif-h/ftmpi_f77_support.h"
+#include "ompi/communicator/communicator.h"
+#include "ompi/request/request.h"
+#include "ompi/mpi/fortran/base/fint_2_int.h"
 
+#include "ompi/mpiext/ftmpi/mpif-h/f77_mangle.h"
 F77_STAMP_FN(MPIX_Comm_iagree_f,
              mpix_comm_iagree,
              MPIX_COMM_IAGREE,
@@ -29,7 +32,6 @@ F77_STAMP_FN(MPIX_Comm_iagree_f,
 #endif
 
 #include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
-#include "ompi/communicator/communicator.h"
 
 static void MPIX_Comm_iagree_f(MPI_Fint *comm, ompi_fortran_logical_t *flag, MPI_Fint *request, MPI_Fint *ierr)
 {
