@@ -34,6 +34,8 @@
 #include "ompi/request/request.h"
 #include "ompi/group/group.h"
 #include "ompi/communicator/communicator.h"
+#include "ompi/op/op.h"
+#include "ompi/datatype/ompi_datatype.h"
 
 BEGIN_C_DECLS
 
