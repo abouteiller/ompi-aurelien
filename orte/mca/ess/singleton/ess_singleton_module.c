@@ -12,7 +12,7 @@
  *                         All rights reserved.
  * Copyright (c) 2010      Oracle and/or its affiliates.  All rights reserved.
  * Copyright (c) 2011      Cisco Systems, Inc.  All rights reserved.
- * Copyright (c) 2013-2015 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2013-2016 Intel, Inc.  All rights reserved.
  * Copyright (c) 2015      Los Alamos National Security, LLC. All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -155,7 +155,10 @@ static int rte_init(void)
 
         /* for convenience, push the pubsub version of this param into the environ */
         opal_setenv (OPAL_MCA_PREFIX"pubsub_orte_server", orte_process_info.my_hnp_uri, 1, &environ);
-    } else {
+    } else if (NULL != getenv("SINGULARITY_CONTAINER")) {
+         /* mark that we are in a container */
+        opal_setenv("OPAL_PROC_CONTAINER", "1", true, &environ);
+    } else if (NULL != getenv("OPAL_ISOLATED")) {
         /* spawn our very own HNP to support us */
         if (ORTE_SUCCESS != (rc = fork_hnp())) {
             ORTE_ERROR_LOG(rc);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015 Intel, Inc. All rights reserved
+ * Copyright (c) 2013-2016 Intel, Inc. All rights reserved
  *
  * $COPYRIGHT$
  *
@@ -262,6 +262,7 @@ ompi_mtl_ofi_send_start(struct mca_mtl_base_module_t *mtl,
             opal_output_verbose(1, ompi_mtl_base_framework.framework_output,
                                 "%s:%d: fi_trecv failed: %s(%zd)",
                                 __FILE__, __LINE__, fi_strerror(-ret), ret);
+            free(ack_req);
             return ompi_mtl_ofi_get_error(ret);
         }
     } else {
@@ -280,6 +281,10 @@ ompi_mtl_ofi_send_start(struct mca_mtl_base_module_t *mtl,
             opal_output_verbose(1, ompi_mtl_base_framework.framework_output,
                                 "%s:%d: fi_tinject failed: %s(%zd)",
                                 __FILE__, __LINE__, fi_strerror(-ret), ret);
+            if (ack_req) {
+                fi_cancel((fid_t)ompi_mtl_ofi.ep, &ack_req->ctx);
+                free(ack_req);
+            }
             return ompi_mtl_ofi_get_error(ret);
         }
 
@@ -860,11 +865,13 @@ ompi_mtl_ofi_improbe(struct mca_mtl_base_module_t *mtl,
          * The search request completed but no matching message was found.
          */
         *matched = 0;
+        free(ofi_req);
         return OMPI_SUCCESS;
     } else if (OPAL_UNLIKELY(0 > ret)) {
         opal_output_verbose(1, ompi_mtl_base_framework.framework_output,
                             "%s:%d: fi_trecvmsg failed: %s(%zd)",
                             __FILE__, __LINE__, fi_strerror(-ret), ret);
+        free(ofi_req);
         return ompi_mtl_ofi_get_error(ret);
     }
 
@@ -890,6 +897,7 @@ ompi_mtl_ofi_improbe(struct mca_mtl_base_module_t *mtl,
 
     } else {
         (*message) = MPI_MESSAGE_NULL;
+        free(ofi_req);
     }
 
     return OMPI_SUCCESS;

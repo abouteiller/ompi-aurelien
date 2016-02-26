@@ -13,7 +13,7 @@
  * Copyright (c) 2007-2012 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2011-2013 Los Alamos National Security, LLC.
  *                         All rights reserved.
- * Copyright (c) 2013-2015 Intel, Inc. All rights reserved
+ * Copyright (c) 2013-2016 Intel, Inc. All rights reserved
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -303,7 +303,7 @@ typedef struct {
     /** Base object so this can be put on a list */
     opal_list_item_t super;
     /* personality for this job */
-    char *personality;
+    char **personality;
     /* jobid for this job */
     orte_jobid_t jobid;
     /* offset to the total number of procs so shared memory
@@ -413,42 +413,6 @@ typedef struct {
 ORTE_DECLSPEC OBJ_CLASS_DECLARATION(orte_topology_t);
 
 /**
- * Global struct for catching orte command line options.
- */
-struct orte_cmd_line_t {
-    bool help;
-    bool version;
-    bool verbose;
-    char *report_pid;
-    char *report_uri;
-    bool exit;
-    bool debugger;
-    int num_procs;
-    char *env_val;
-    char *appfile;
-    char *wdir;
-    bool set_cwd_to_session_dir;
-    char *path;
-    char *preload_files;
-    bool sleep;
-    char *stdin_target;
-    char *prefix;
-    char *path_to_mpirun;
-#if OPAL_ENABLE_FT_CR == 1
-    char *sstore_load;
-#endif
-    bool disable_recovery;
-    bool preload_binaries;
-    bool index_argv;
-    bool run_as_root;
-    char *personality;
-    bool create_dvm;
-    bool terminate_dvm;
-};
-typedef struct orte_cmd_line_t orte_cmd_line_t;
-ORTE_DECLSPEC extern orte_cmd_line_t orte_cmd_line;
-
-/**
  * Get a job data object
  * We cannot just reference a job data object with its jobid as
  * the jobid is no longer an index into the array. This change
@@ -551,7 +515,7 @@ ORTE_DECLSPEC extern orte_timer_t *orte_mpiexec_timeout;
 ORTE_DECLSPEC extern opal_buffer_t *orte_tree_launch_cmd;
 
 /* global arrays for data storage */
-ORTE_DECLSPEC extern opal_pointer_array_t *orte_job_data;
+ORTE_DECLSPEC extern opal_hash_table_t *orte_job_data;
 ORTE_DECLSPEC extern opal_pointer_array_t *orte_node_pool;
 ORTE_DECLSPEC extern opal_pointer_array_t *orte_node_topologies;
 ORTE_DECLSPEC extern opal_pointer_array_t *orte_local_children;

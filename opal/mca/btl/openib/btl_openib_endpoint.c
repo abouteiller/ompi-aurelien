@@ -11,7 +11,7 @@
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
  * Copyright (c) 2006-2013 Cisco Systems, Inc.  All rights reserved.
- * Copyright (c) 2006-2015 Los Alamos National Security, LLC.  All rights
+ * Copyright (c) 2006-2016 Los Alamos National Security, LLC.  All rights
  *                         reserved.
  * Copyright (c) 2006-2007 Voltaire All rights reserved.
  * Copyright (c) 2006-2009 Mellanox Technologies, Inc.  All rights reserved.
@@ -583,7 +583,7 @@ void mca_btl_openib_endpoint_connected(mca_btl_openib_endpoint_t *endpoint)
     int rc;
 
     if (MCA_BTL_XRC_ENABLED) {
-        OPAL_THREAD_LOCK(&endpoint->ib_addr->addr_lock);
+        opal_mutex_lock (&endpoint->ib_addr->addr_lock);
         if (MCA_BTL_IB_ADDR_CONNECTED == endpoint->ib_addr->status) {
             /* We are not xrc master */
             /* set our qp pointer to master qp */
@@ -626,7 +626,7 @@ void mca_btl_openib_endpoint_connected(mca_btl_openib_endpoint_t *endpoint)
                 }
             }
         }
-        OPAL_THREAD_UNLOCK(&endpoint->ib_addr->addr_lock);
+        opal_mutex_unlock (&endpoint->ib_addr->addr_lock);
     }
 
 

@@ -104,14 +104,12 @@ void orte_plm_base_daemons_reported(int fd, short args, void *cbdata)
         if (NULL == (node = dmn1->node) ||
             NULL == (t = node->topology)) {
             /* something is wrong */
-            opal_output(0, "NODE IS %s T IS %s",
-                        (NULL == node) ? "NULL" : "NOT-NULL",
-                        (NULL == t) ? "NULL" : "NOT-NULL");
             ORTE_ERROR_LOG(ORTE_ERR_NOT_FOUND);
             ORTE_FORCED_TERMINATE(ORTE_ERR_NOT_FOUND);
             OBJ_RELEASE(caddy);
             return;
         }
+
         OPAL_OUTPUT_VERBOSE((5, orte_plm_base_framework.framework_output,
                              "%s plm:base:setting topo to that from node %s",
                              ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), node->name));
@@ -291,7 +289,7 @@ void orte_plm_base_setup_job(int fd, short args, void *cbdata)
          * the orte_rmaps_base_setup_virtual_machine routine to
          * search all apps for any hosts to be used by the vm
          */
-        opal_pointer_array_set_item(orte_job_data, ORTE_LOCAL_JOBID(caddy->jdata->jobid), caddy->jdata);
+        opal_hash_table_set_value_uint32(orte_job_data, caddy->jdata->jobid, caddy->jdata);
     }
 
     /* if job recovery is not enabled, set it to default */
@@ -542,6 +540,7 @@ void orte_plm_base_launch_apps(int fd, short args, void *cbdata)
     sig->signature = (orte_process_name_t*)malloc(sizeof(orte_process_name_t));
     sig->signature[0].jobid = ORTE_PROC_MY_NAME->jobid;
     sig->signature[0].vpid = ORTE_VPID_WILDCARD;
+    sig->sz = 1;
     if (ORTE_SUCCESS != (rc = orte_grpcomm.xcast(sig, ORTE_RML_TAG_DAEMON, buffer))) {
         ORTE_ERROR_LOG(rc);
         OBJ_RELEASE(buffer);
@@ -695,9 +694,6 @@ void orte_plm_base_post_launch(int fd, short args, void *cbdata)
     }
 
  cleanup:
-    /* need to init_after_spawn for debuggers */
-    ORTE_ACTIVATE_JOB_STATE(jdata, ORTE_JOB_STATE_READY_FOR_DEBUGGERS);
-
     /* cleanup */
     OBJ_RELEASE(caddy);
 }
@@ -1102,18 +1098,23 @@ void orte_plm_base_daemon_callback(int status, orte_process_name_t* sender,
                                  jdatorted->num_reported, jdatorted->num_procs));
             if (jdatorted->num_procs == jdatorted->num_reported) {
                 bool dvm = true;
+                uint32_t key;
+                void *nptr;
                 jdatorted->state = ORTE_JOB_STATE_DAEMONS_REPORTED;
                 /* activate the daemons_reported state for all jobs
                  * whose daemons were launched
                  */
-                for (idx=1; idx < orte_job_data->size; idx++) {
-                    if (NULL == (jdata = (orte_job_t*)opal_pointer_array_get_item(orte_job_data, idx))) {
-                        continue;
+                rc = opal_hash_table_get_first_key_uint32(orte_job_data, &key, (void **)&jdata, &nptr);
+                while (OPAL_SUCCESS == rc) {
+                    if (ORTE_PROC_MY_NAME->jobid == jdata->jobid) {
+                        goto next;
                     }
                     dvm = false;
                     if (ORTE_JOB_STATE_DAEMONS_LAUNCHED == jdata->state) {
                         ORTE_ACTIVATE_JOB_STATE(jdata, ORTE_JOB_STATE_DAEMONS_REPORTED);
                     }
+                  next:
+                    rc = opal_hash_table_get_next_key_uint32(orte_job_data, &key, (void **)&jdata, nptr, &nptr);
                 }
                 if (dvm) {
                     /* must be launching a DVM - activate the state */
@@ -1730,6 +1731,7 @@ int orte_plm_base_setup_virtual_machine(orte_job_t *jdata)
             /* if the app provided a dash-host, and we are not treating
              * them as requested or "soft" locations, then use those nodes
              */
+            hosts = NULL;
             if (!orte_soft_locations &&
                 orte_get_attribute(&app->attributes, ORTE_APP_DASH_HOST, (void**)&hosts, OPAL_STRING)) {
                 OPAL_OUTPUT_VERBOSE((5, orte_plm_base_framework.framework_output,

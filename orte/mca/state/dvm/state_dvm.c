@@ -381,6 +381,11 @@ static void check_complete(int fd, short args, void *cbdata)
         orte_iof.complete(jdata);
     }
 
+    /* tell the PMIx subsystem the job is complete */
+    if (NULL != opal_pmix.server_deregister_nspace) {
+        opal_pmix.server_deregister_nspace(jdata->jobid);
+    }
+
     /* Release the resources used by this job. Since some errmgrs may want
      * to continue using resources allocated to the job as part of their
      * fault recovery procedure, we only do this once the job is "complete".
@@ -427,21 +432,15 @@ static void check_complete(int fd, short args, void *cbdata)
         }
         OBJ_RELEASE(map);
         jdata->map = NULL;
-        /* tell the PMIx server to release its data */
-        if (NULL != opal_pmix.server_deregister_nspace) {
-            opal_pmix.server_deregister_nspace(jdata->jobid);
-        }
     }
 
     if (ORTE_FLAG_TEST(jdata, ORTE_JOB_FLAG_DEBUGGER_DAEMON)) {
         /* this was a debugger daemon. notify that a debugger has detached */
-        OBJ_RETAIN(jdata);
         ORTE_ACTIVATE_JOB_STATE(jdata, ORTE_JOB_STATE_DEBUGGER_DETACH);
     } else if (jdata->state != ORTE_JOB_STATE_NOTIFIED) {
         OPAL_OUTPUT_VERBOSE((2, orte_state_base_framework.framework_output,
                              "%s state:dvm:check_job_completed state is terminated - activating notify",
                              ORTE_NAME_PRINT(ORTE_PROC_MY_NAME)));
-        OBJ_RETAIN(jdata);
         ORTE_ACTIVATE_JOB_STATE(jdata, ORTE_JOB_STATE_NOTIFY_COMPLETED);
         /* mark the job as notified */
         jdata->state = ORTE_JOB_STATE_NOTIFIED;
