@@ -79,6 +79,29 @@ typedef struct {
     } u;
 } era_identifier_t;
 
+static inline uint64_t hash_name(opal_process_name_t name) {
+    /** Order is performance critical:
+      *   Hash tables (as of June 11, 2014) consider only the lower x bits for
+      *   hash value (key & mask). As a consequence, having mostly stable entries
+      *   like epoch or contextid at the low part of the 64bits key anihilates the
+      *   performance of the hash tables. The most varying 16 bits should be kept
+      *   first (assuming little endian).
+      */
+    union {
+        struct {
+            uint16_t vpidlo;
+            uint16_t vpidhi;
+            uint32_t jobid;
+        } fields;
+        uint64_t uint64;
+    } hash;
+
+    hash.fields.vpidlo = name.vpid;
+    hash.fields.vpidhi = name.vpid>>16;
+    hash.fields.jobid = name.jobid;
+    return hash.uint64;
+}
+
 #define ERAID_KEY    u.uint64
 #define ERAID_FIELDS u.fields
 
@@ -150,7 +173,7 @@ typedef struct {
      *  and it needs to answer.
      */
     int                 src_comm_rank;
-    orte_process_name_t src_proc_name;
+    opal_process_name_t src_proc_name;
     era_value_header_t  agreement_value_header;
     int                 nb_ack;         /**< Informs how many of these messages types
                                          *   will be sent upward (in case ack_failed must
@@ -164,7 +187,7 @@ typedef struct {
 } era_incomplete_msg_t;
 
 typedef struct {
-    orte_process_name_t       src;  /**< src + msg_seqnum build a unique (up to rotation on msg_seqnum) */
+    opal_process_name_t       src;  /**< src + msg_seqnum build a unique (up to rotation on msg_seqnum) */
     uint64_t           msg_seqnum;  /*   message identifier.*/
     unsigned int          msg_len;  /**< Length of the message */
     unsigned int      frag_offset;  /**< Offset (in bytes) of the fragment in the message */
@@ -893,7 +916,7 @@ int mca_coll_ftbasic_agreement_era_comm_finalize(mca_coll_ftbasic_module_t *modu
 
 static void send_msg(ompi_communicator_t *comm,
                      int dst,
-                     orte_process_name_t *proc_name,
+                     opal_process_name_t *proc_name,
                      era_identifier_t agreement_id,
                      era_msg_type_t type,
                      era_value_t *value,
@@ -1974,7 +1997,7 @@ static void fragment_sent(struct mca_btl_base_module_t* module,
 
 static void send_msg(ompi_communicator_t *comm,
                      int dst,
-                     orte_process_name_t *proc_name,
+                     opal_process_name_t *proc_name,
                      era_identifier_t agreement_id,
                      era_msg_type_t type,
                      era_value_t *value,
@@ -2502,7 +2525,7 @@ static void era_cb_fn(struct mca_btl_base_module_t* btl,
         assert(frag->frag_offset == 0);
         msg_bytes = frag->bytes;
     } else {
-        src_hash = ompi_rte_hash_name(&frag->src);
+        src_hash = hash_name(frag->src);
         if( opal_hash_table_get_value_uint64(&era_incomplete_messages, src_hash, &value) == OMPI_SUCCESS ) {
             msg_table = (opal_hash_table_t*)value;
         } else {
@@ -2619,7 +2642,7 @@ static void era_on_comm_rank_failure(ompi_communicator_t *comm, int rank, bool r
 
     /** Discard incomplete messages, and remove the entry to store these messages */
     proc_name = ompi_group_get_proc_name(remote ? comm->c_remote_group : comm->c_local_group, rank);
-    key64 = ompi_rte_hash_name( &proc_name );
+    key64 = hash_name( proc_name );
     if( opal_hash_table_get_value_uint64(&era_incomplete_messages, key64, &value) == OPAL_SUCCESS ) {
         msg_table = (opal_hash_table_t*)value;
         if( opal_hash_table_get_first_key_uint64(msg_table, &key64_2, &value, &node) == OPAL_SUCCESS ) {
