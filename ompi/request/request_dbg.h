@@ -32,9 +32,6 @@ typedef enum {
     OMPI_REQUEST_NULL,     /**< NULL request */
     OMPI_REQUEST_NOOP,     /**< A request that does nothing (e.g., to PROC_NULL) */
     OMPI_REQUEST_COMM,     /**< MPI-3 non-blocking communicator duplication */
-#ifdef OPAL_ENABLE_FT_MPI
-    OMPI_REQUEST_IAGREE,   /**< MPIX Immediate Agreement */
-#endif /* OPAL_ENABLE_FT_MPI */
     OMPI_REQUEST_MAX       /**< Maximum request type */
 } ompi_request_type_t;
 
