@@ -3115,6 +3115,7 @@ static int era_iagree_req_free(struct ompi_request_t** rptr)
     if( NULL != req->ci )
         req->ci->req = NULL;
     req->ci = NULL;
+    OMPI_REQUEST_FINI(&req->super);
     opal_free_list_return( &era_iagree_requests,
                            (opal_free_list_item_t*)(req));
     *rptr = MPI_REQUEST_NULL;
@@ -3162,7 +3163,7 @@ int mca_coll_ftbasic_iagreement_era_intra(ompi_communicator_t* comm,
     mca_coll_ftbasic_agreement_era_prepare_agreement(comm, group, op, dt, dt_count, contrib, module,
                                                      &agreement_id, &ci);
     req->super.req_state = OMPI_REQUEST_ACTIVE;
-    req->super.req_type = OMPI_REQUEST_IAGREE;
+    req->super.req_type = OMPI_REQUEST_COLL;
     req->super.req_status.MPI_SOURCE = MPI_ANY_SOURCE;
     req->super.req_status.MPI_ERROR = MPI_SUCCESS;
     req->super.req_status.MPI_TAG = MPI_ANY_TAG;
