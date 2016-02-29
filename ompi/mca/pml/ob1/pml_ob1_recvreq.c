@@ -150,7 +150,9 @@ static int mca_pml_ob1_recv_request_cancel(struct ompi_request_t* ompi_request, 
     OPAL_THREAD_LOCK(&ompi_request_lock);
     ompi_request->req_status._cancelled = true;
     OPAL_THREAD_UNLOCK(&ompi_request_lock);
-    recv_request_pml_complete(request);
+    if( false == request->req_recv.req_base.req_pml_complete ) {
+        recv_request_pml_complete(request);
+    } //TODO:ENABLE_FT_MPI: shoudl the following block go in the if?
     /*
      * Receive request cancelled, make user buffer accessible.
      */
