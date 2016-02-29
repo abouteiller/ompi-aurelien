@@ -425,6 +425,35 @@ static inline struct ompi_proc_t *ompi_group_peer_lookup_existing (ompi_group_t 
     return ompi_group_get_proc_ptr (group, peer_id, false);
 }
 
+#if OPAL_ENABLE_FT_MPI
+/* This function is for finding the rank of a proc in a group
+ * return -1 if the proc is not in the group, the rank otherwise.
+ * TODO: make it faster, it is linear now... */
+static inline int ompi_group_proc_lookup_rank (ompi_group_t* group, ompi_proc_t* proc)
+{
+    int i, np, v;
+    assert( NULL != proc );
+    assert( !ompi_proc_is_sentinel(proc) );
+    np = ompi_group_size(group);
+    if( 0 == np ) return -1;
+    /* heuristic: starting from vpid, so when working on comm_world, O(1)
+     * otherwise, wild guess: start from proportional position compared to
+     * comm_world position */
+    v = proc->super.proc_name.vpid;
+    v = (v<np)? v: v*ompi_proc_world_size()/np;
+    for( i = 0; i < np; i++ ) {
+        int rank = (i+v)%np;
+        ompi_proc_t* p = ompi_group_get_proc_ptr_raw(group, rank);
+        opal_process_name_t name = ompi_proc_is_sentinel(p)?
+            ompi_proc_sentinel_to_name((uintptr_t)p):
+            p->super.proc_name;
+        if( OPAL_EQUAL == ompi_rte_compare_name_fields(OMPI_RTE_CMP_ALL, &proc->super.proc_name, &name) )
+            return rank;
+    }
+    return -1;
+}
+#endif
+
 bool ompi_group_have_remote_peers (ompi_group_t *group);
 
 /**

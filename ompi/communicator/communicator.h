@@ -437,23 +437,6 @@ static inline struct ompi_proc_t* ompi_comm_peer_lookup(ompi_communicator_t* com
     return ompi_group_peer_lookup(comm->c_remote_group,peer_id);
 }
 
-#if 0
-/* Determine the rank of the specified process in this communicator
- * @return -1 If not in communicator
- * @return >=0 If in communicator
- */
-static inline int ompi_comm_peer_lookup_id(ompi_communicator_t* comm, ompi_proc_t *proc)
-{
-#if OPAL_ENABLE_DEBUG
-    if(NULL == proc ) {
-        opal_output(0, "ompi_comm_peer_lookup_id: invalid ompi_proc (NULL)");
-        return -1;
-    }
-#endif
-    return ompi_group_peer_lookup_id(comm->c_remote_group, proc);
-}
-#endif
-
 #if OPAL_ENABLE_FT_MPI
 #define OMPI_COMM_SET_FT(COMM, NPROCS, EPOCH)                           \
     do {                                                                \
