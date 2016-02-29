@@ -137,18 +137,12 @@ int ompi_errmgr_mark_failed_peer_fw(ompi_proc_t *ompi_proc, orte_proc_state_t st
         /*
          * Look in both the local and remote group for this process
          */
-#if 0
-        // TODO: ENABLE_FT_MPI: find something better than ugly quadratic
-        // search!!
-        proc_rank = ompi_group_peer_lookup_id(comm->c_local_group, ompi_proc);
+        proc_rank = ompi_group_proc_lookup_rank(comm->c_local_group, ompi_proc);
         remote = false;
         if( (proc_rank < 0) && (comm->c_local_group != comm->c_remote_group) ) {
-            proc_rank = ompi_group_peer_lookup_id(comm->c_remote_group, ompi_proc);
+            proc_rank = ompi_group_proc_lookup_rank(comm->c_remote_group, ompi_proc);
             remote = true;
         }
-#else
-        proc_rank = -1; // this does not work...
-#endif
         if( proc_rank < 0 )
             continue;  /* Not in this communicator, continue */
 
@@ -183,7 +177,7 @@ int ompi_errmgr_mark_failed_peer_fw(ompi_proc_t *ompi_proc, orte_proc_state_t st
      */
     if( group != NULL ) {
         ompi_group_t* old_failed = ompi_group_all_failed_procs;
-        (void)ompi_group_union(ompi_group_all_failed_procs,
+        (void)ompi_group_union(old_failed,
                                group,
                                &ompi_group_all_failed_procs);
         OBJ_RELEASE(old_failed);
