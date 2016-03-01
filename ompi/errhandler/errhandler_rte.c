@@ -156,15 +156,11 @@ int ompi_errmgr_mark_failed_peer_fw(ompi_proc_t *ompi_proc, orte_proc_state_t st
                                   &group);
         }
         OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
-                             "%s ompi: Process %s is in comm (%d) with rank %d. (%2d of %2d / %2d of %2d) [%s]",
+                             "%s ompi: Process %s is in comm (%d) with rank %d. [%s]",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              OMPI_NAME_PRINT(&ompi_proc->super.proc_name),
                              comm->c_contextid,
                              proc_rank,
-                             ompi_comm_num_active_local(comm),
-                             ompi_group_size(comm->c_local_group),
-                             ompi_comm_num_active_remote(comm),
-                             ompi_group_size(comm->c_remote_group),
                              (OMPI_ERRHANDLER_TYPE_PREDEFINED == comm->errhandler_type ? "P" :
                               (OMPI_ERRHANDLER_TYPE_COMM == comm->errhandler_type ? "C" :
                                (OMPI_ERRHANDLER_TYPE_WIN == comm->errhandler_type ? "W" :

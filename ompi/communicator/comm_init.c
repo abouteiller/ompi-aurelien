@@ -161,7 +161,7 @@ int ompi_comm_init(void)
     ompi_attr_hash_init(&ompi_mpi_comm_world.comm.c_keyhash);
 
 #if OPAL_ENABLE_FT_MPI
-    OMPI_COMM_SET_FT(&ompi_mpi_comm_world.comm, group->grp_proc_count, 0);
+    ompi_mpi_comm_world.comm.c_epoch = 0;
     opal_pointer_array_set_item (&ompi_mpi_comm_epoch, 0,
                                  (void*)(uintptr_t)(ompi_mpi_comm_world.comm.c_epoch));
 #endif  /* OPAL_ENABLE_FT_MPI */
@@ -199,7 +199,7 @@ int ompi_comm_init(void)
     ompi_mpi_comm_self.comm.c_keyhash = NULL;
 
 #if OPAL_ENABLE_FT_MPI
-    OMPI_COMM_SET_FT(&ompi_mpi_comm_self.comm, group->grp_proc_count, 0);
+    ompi_mpi_comm_world.comm.c_epoch = 0;
     opal_pointer_array_set_item (&ompi_mpi_comm_epoch, 1,
                                  (void*)(uintptr_t)(ompi_mpi_comm_self.comm.c_epoch));
 #endif  /* OPAL_ENABLE_FT_MPI */
@@ -224,7 +224,7 @@ int ompi_comm_init(void)
     ompi_mpi_comm_null.comm.c_flags |= OMPI_COMM_NAMEISSET;
     ompi_mpi_comm_null.comm.c_flags |= OMPI_COMM_INTRINSIC;
 #if OPAL_ENABLE_FT_MPI
-    OMPI_COMM_SET_FT(&ompi_mpi_comm_null.comm, 0, 0);
+    ompi_mpi_comm_null.comm.c_epoch = 0;
     opal_pointer_array_set_item (&ompi_mpi_comm_epoch, 2,
                                  (void*)(uintptr_t)(ompi_mpi_comm_null.comm.c_epoch));
 #endif  /* OPAL_ENABLE_FT_MPI */
@@ -418,7 +418,12 @@ static void ompi_comm_construct(ompi_communicator_t* comm)
     memset(&comm->c_coll, 0, sizeof(mca_coll_base_comm_coll_t));
 
 #if OPAL_ENABLE_FT_MPI
-    OMPI_COMM_SET_FT(comm, -1, MPI_UNDEFINED);
+    comm->any_source_enabled  = true;
+    comm->any_source_offset   = 0;
+    comm->comm_revoked        = false;
+    comm->coll_revoked        = false;
+    comm->c_epoch             = MPI_UNDEFINED;
+    comm->agreement_specific  = NULL;
 #endif
 }
 
