@@ -118,12 +118,11 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
     int ret, exit_status = OMPI_SUCCESS;
     int flag = 1;
     ompi_group_t *failed_group = NULL, *comm_group = NULL, *alive_group = NULL;
-    ompi_communicator_t *comp = NULL;
     ompi_communicator_t *newcomp = NULL;
-    int size, lsize, rsize, inrank;
-    int *rranks = NULL;
     int mode;
     double start, stop;
+
+    *newcomm = MPI_COMM_NULL;
 
     /*
      * JJH: Do not support intercommunicators (for now)
@@ -173,21 +172,10 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
                          "%s ompi: comm_shrink: Determine ranking for new communicator",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
     start = MPI_Wtime();
-    comp = comm;
 
-    if ( OMPI_COMM_IS_INTER(comp) ) {
-        exit_status = MPI_ERR_UNSUPPORTED_OPERATION;
-        goto cleanup;
-    } else {
-        rsize  = 0;
-        rranks = NULL;
-        mode   = OMPI_COMM_CID_INTRA_FT;
-    }
-
+    // TODO: handle intercomm case.
+    mode = OMPI_COMM_CID_INTRA_FT;
     /* Create 'alive' group */
-    size        = ompi_comm_size(comm);
-    lsize       = size - ompi_group_size(failed_group);
-    alive_group = OBJ_NEW(ompi_group_t);
     ompi_comm_group(comm, &comm_group);
     ret = ompi_group_difference(comm_group, failed_group, &alive_group);
     if( OMPI_SUCCESS != ret ) {
@@ -195,21 +183,14 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
         goto cleanup;
     }
 
-    /* Determine the collective leader - Lowest rank in the alive set */
-    inrank = 0;
-    ompi_group_translate_ranks(alive_group, 1, &inrank,
-                               comm_group, &comm->lleader);
-
-    *newcomm = MPI_COMM_NULL;
-
     ret = ompi_comm_set( &newcomp,                 /* new comm */
-                         comp,                     /* old comm */
-                         lsize,                    /* local_size */
+                         comm,                     /* old comm */
+                         0,                        /* local_size */
                          NULL,                     /* local_ranks */
-                         rsize,                    /* remote_size */
-                         rranks,                   /* remote_ranks */
-                         comp->c_keyhash,          /* attrs */
-                         comp->error_handler,      /* error handler */
+                         0,                        /* remote_size */
+                         NULL,                     /* remote_ranks */
+                         comm->c_keyhash,          /* attrs */
+                         comm->error_handler,      /* error handler */
                          NULL,                     /* topo component */
                          alive_group,              /* local group */
                          NULL                      /* remote group */
@@ -235,7 +216,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
     start = MPI_Wtime();
     ret = ompi_comm_nextcid( newcomp,  /* new communicator */
-                             comp,     /* old comm */
+                             comm,     /* old comm */
                              NULL,     /* bridge comm */
                              NULL,     /* local leader */
                              NULL,     /* remote_leader */
@@ -259,7 +240,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
     start = MPI_Wtime();
     /* activate communicator and init coll-module */
     ret = ompi_comm_activate( &newcomp, /* new communicator */
-                              comp,
+                              comm,
                               NULL,
                               NULL,
                               NULL,
@@ -329,12 +310,6 @@ int ompi_comm_set_rank_failed(ompi_communicator_t *comm, int peer_id, bool remot
     comm->any_source_enabled = false;
     /* Disable collectives */
     MCA_PML_CALL(revoke_comm(comm, true));
-
-    if( !remote ) {
-        comm->num_active_local -= 1;
-    } else {
-        comm->num_active_remote -= 1;
-    }
 
     if( NULL != ompi_rank_failure_cbfunc ) {
         (*ompi_rank_failure_cbfunc)(comm, peer_id, remote);

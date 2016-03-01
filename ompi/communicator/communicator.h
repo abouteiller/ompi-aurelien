@@ -225,12 +225,7 @@ struct ompi_communicator_t {
     bool                     comm_revoked;
     /** Force errors to collective pt2pt operations? */
     bool                     coll_revoked;
-    /** Quick lookup */
-    int                      num_active_local;
-    int                      num_active_remote;
-    int                      lleader;
-    int                      rleader;
-
+    /** agreement caching info for topology and previous returned decisions */
     opal_object_t           *agreement_specific;
 #endif /* OPAL_ENABLE_FT_MPI */
 };
@@ -438,20 +433,6 @@ static inline struct ompi_proc_t* ompi_comm_peer_lookup(ompi_communicator_t* com
 }
 
 #if OPAL_ENABLE_FT_MPI
-#define OMPI_COMM_SET_FT(COMM, NPROCS, EPOCH)                           \
-    do {                                                                \
-        (COMM)->any_source_enabled  = true;                             \
-        (COMM)->any_source_offset   = 0;                                \
-        (COMM)->comm_revoked        = false;                            \
-        (COMM)->coll_revoked        = false;                            \
-        (COMM)->num_active_local    = (NPROCS);                         \
-        (COMM)->num_active_remote   = (NPROCS);                         \
-        (COMM)->lleader             = 0;                                \
-        (COMM)->rleader             = 0;                                \
-        (COMM)->c_epoch             = (EPOCH);                          \
-        (COMM)->agreement_specific  = NULL;                             \
-    } while (0)
-
 /*
  * Support for MPI_ANY_SOURCE point-to-point operations
  */
@@ -497,18 +478,6 @@ OMPI_DECLSPEC int ompi_comm_revoke_internal(ompi_communicator_t* comm);
  * Shrink the communicator
  */
 OMPI_DECLSPEC int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** newcomm);
-
-/*
- * Process and Communicator State Accessors
- */
-static inline int ompi_comm_num_active_local(ompi_communicator_t* comm)
-{
-    return (comm->num_active_local);
-}
-static inline int ompi_comm_num_active_remote(ompi_communicator_t* comm)
-{
-    return (comm->num_active_remote);
-}
 
 /*
  * Check if the process is active
@@ -628,8 +597,6 @@ OMPI_DECLSPEC int ompi_comm_failure_propagate(ompi_communicator_t* comm, ompi_pr
 OMPI_DECLSPEC int ompi_comm_init_revoke(void);
 OMPI_DECLSPEC int ompi_comm_finalize_revoke(void);
 
-#else
-#define OMPI_COMM_SET_FT(COMM, NPROCS, EPOCH)
 #endif /* OPAL_ENABLE_FT_MPI */
 
 static inline bool ompi_comm_peer_invalid(ompi_communicator_t* comm, int peer_id)

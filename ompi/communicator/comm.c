@@ -209,11 +209,6 @@ int ompi_comm_set_nb ( ompi_communicator_t **ncomm,
         OBJ_RETAIN(newcomm->c_remote_group);
     }
 
-#if OPAL_ENABLE_FT_MPI
-    newcomm->num_active_local    = newcomm->c_local_group->grp_proc_count;
-    newcomm->num_active_remote   = newcomm->c_remote_group->grp_proc_count;
-#endif /* OPAL_ENABLE_FT_MPI */
-
     /* Check how many different jobids are represented in this communicator.
        Necessary for the disconnect of dynamic communicators. */
 
