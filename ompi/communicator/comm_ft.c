@@ -117,7 +117,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
 {
     int ret, exit_status = OMPI_SUCCESS;
     int flag = 1;
-    ompi_group_t *failed_group = NULL, *comm_group = NULL, *alive_group = NULL;
+    ompi_group_t *failed_group = NULL, *comm_group = NULL, *alive_group = NULL, *alive_rgroup = NULL;
     ompi_communicator_t *newcomp = NULL;
     int mode;
     double start, stop;
@@ -139,14 +139,15 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
                          "%s ompi: comm_shrink: Agreement on failed processes",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
-    failed_group = OBJ_NEW(ompi_group_t);
+    failed_group = MPI_GROUP_EMPTY;
+    OBJ_RETAIN(failed_group);
     start = MPI_Wtime();
     do {
         /* We need to create the list of alive processes. Thus, we don't care about
          * the value of flag, instead we are only using the globally consistent
          * return value.
          */
-        ret = comm->c_coll.coll_agreement( (ompi_communicator_t*)comm,
+        ret = comm->c_coll.coll_agreement( comm,
                                            &failed_group,
                                            &ompi_mpi_op_band.op,
                                            &ompi_mpi_int.dt,
@@ -173,16 +174,23 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
     start = MPI_Wtime();
 
-    // TODO: handle intercomm case.
+    /* Create 'alive' groups */
     mode = OMPI_COMM_CID_INTRA_FT;
-    /* Create 'alive' group */
-    ompi_comm_group(comm, &comm_group);
+    comm_group = comm->c_local_group;
     ret = ompi_group_difference(comm_group, failed_group, &alive_group);
     if( OMPI_SUCCESS != ret ) {
         exit_status = ret;
         goto cleanup;
     }
-
+    if( OMPI_COMM_IS_INTER(comm) ) {
+        mode = OMPI_COMM_CID_INTER_FT;
+        comm_group = comm->c_remote_group;
+        ret = ompi_group_difference(comm_group, failed_group, &alive_rgroup);
+        if( OMPI_SUCCESS != ret ) {
+            exit_status = ret;
+            goto cleanup;
+        }
+    }
     ret = ompi_comm_set( &newcomp,                 /* new comm */
                          comm,                     /* old comm */
                          0,                        /* local_size */
@@ -193,8 +201,8 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
                          comm->error_handler,      /* error handler */
                          NULL,                     /* topo component */
                          alive_group,              /* local group */
-                         NULL                      /* remote group */
-                         );
+                         alive_rgroup              /* remote group */
+                       );
     if( OMPI_SUCCESS != ret ) {
         exit_status = ret;
         goto cleanup;
@@ -267,9 +275,9 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
         OBJ_RELEASE(alive_group);
         alive_group = NULL;
     }
-    if( NULL != comm_group ) {
-        OBJ_RELEASE(comm_group);
-        comm_group = NULL;
+    if( NULL != alive_rgroup ) {
+        OBJ_RELEASE(alive_rgroup);
+        alive_rgroup = NULL;
     }
 
     return exit_status;
@@ -339,7 +347,8 @@ int ompi_comm_allreduce_intra_ft( int *inbuf, int* outbuf,
         memcpy(outbuf, inbuf, count * sizeof(int));
     }
 
-    failed_group = OBJ_NEW(ompi_group_t);
+    failed_group = MPI_GROUP_EMPTY;
+    OBJ_RETAIN(failed_group);
     do {
         ret = comm->c_coll.coll_agreement( comm,
                                            &failed_group,

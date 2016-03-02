@@ -3003,6 +3003,7 @@ static int mca_coll_ftbasic_agreement_era_complete_agreement(era_identifier_t ag
 
     /* User wants the group of new failures */
     if(NULL != group) {
+        OBJ_RELEASE(*group);
         ompi_group_incl(comm->c_local_group, AGS(comm)->afr_size,
                         AGS(comm)->agreed_failed_ranks, group);
         era_debug_print_group(1, *group, comm, "After Agreement");
