@@ -3075,7 +3075,7 @@ int mca_coll_ftbasic_agreement_era_inter(ompi_communicator_t* comm,
     if( OPAL_UNLIKELY(op != &ompi_mpi_op_band.op
                    || dt != &ompi_mpi_int.dt
                    || dt_count != 1) )
-        return  MPI_ERR_INTERN;
+        return MPI_ERR_UNSUPPORTED_OPERATION;
 
     first = ompi_comm_determine_first_auto(comm);
     if( first ) {

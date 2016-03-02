@@ -443,6 +443,7 @@ static void proc_errors(int fd, short args, void *cbdata)
                              "%s errmgr:hnp: proc %s aborted",
                              ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
                              ORTE_NAME_PRINT(proc)));
+#if !OPAL_ENABLE_FT_MPI
         if (!ORTE_FLAG_TEST(jdata, ORTE_JOB_FLAG_ABORTED)) {
             jdata->state = ORTE_JOB_STATE_ABORTED;
             /* point to the first rank to cause the problem */
@@ -455,6 +456,7 @@ static void proc_errors(int fd, short args, void *cbdata)
              * to avoid creating a lot of confusion */
             default_hnp_abort(jdata);
         }
+#endif /* !OPAL_ENABLE_FT_MPI */
         break;
 
     case ORTE_PROC_STATE_ABORTED_BY_SIG:
@@ -462,6 +464,7 @@ static void proc_errors(int fd, short args, void *cbdata)
                              "%s errmgr:hnp: proc %s aborted by signal",
                              ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
                              ORTE_NAME_PRINT(proc)));
+#if !OPAL_ENABLE_FT_MPI
         if (!ORTE_FLAG_TEST(jdata, ORTE_JOB_FLAG_ABORTED)) {
             jdata->state = ORTE_JOB_STATE_ABORTED_BY_SIG;
             /* point to the first rank to cause the problem */
@@ -474,6 +477,7 @@ static void proc_errors(int fd, short args, void *cbdata)
              * to avoid creating a lot of confusion */
             default_hnp_abort(jdata);
         }
+#endif /* !OPAL_ENABLE_FT_MPI */
         break;
 
     case ORTE_PROC_STATE_TERM_WO_SYNC:
@@ -589,6 +593,7 @@ static void proc_errors(int fd, short args, void *cbdata)
                              "%s errmgr:hnp: proc %s heartbeat failed",
                              ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
                              ORTE_NAME_PRINT(proc)));
+#if !OPAL_ENABLE_FT_MPI
         if (!ORTE_FLAG_TEST(jdata, ORTE_JOB_FLAG_ABORTED)) {
             jdata->state = ORTE_JOB_STATE_HEARTBEAT_FAILED;
             /* point to the first rank to cause the problem */
@@ -601,6 +606,7 @@ static void proc_errors(int fd, short args, void *cbdata)
              * to avoid creating a lot of confusion */
             default_hnp_abort(jdata);
         }
+#endif /* !OPAL_ENABLE_FT_MPI */
         /* remove from dependent routes, if it is one */
         orte_routed.route_lost(proc);
         break;
@@ -617,11 +623,13 @@ static void proc_errors(int fd, short args, void *cbdata)
             ORTE_ACTIVATE_JOB_STATE(NULL, ORTE_JOB_STATE_DAEMONS_TERMINATED);
             break;
         }
+#if !OPAL_ENABLE_FT_MPI
         if (!ORTE_FLAG_TEST(jdata, ORTE_JOB_FLAG_ABORTED)) {
             /* abnormal termination - abort, but only do it once
              * to avoid creating a lot of confusion */
             default_hnp_abort(jdata);
         }
+#endif /* !OPAL_ENABLE_FT_MPI */
         break;
 
     default:
