@@ -125,14 +125,6 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
     *newcomm = MPI_COMM_NULL;
 
     /*
-     * JJH: Do not support intercommunicators (for now)
-     */
-    if ( OMPI_COMM_IS_INTER(comm) ) {
-        exit_status = MPI_ERR_UNSUPPORTED_OPERATION;
-        goto cleanup;
-    }
-
-    /*
      * Step 1: Agreement on failed group in comm
      */
     /* --------------------------------------------------------- */
