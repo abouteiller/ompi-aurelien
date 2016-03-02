@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2010-2016 The University of Tennessee and the University
- *                         of Tennessee research fundation.  All rights
+ *                         of Tennessee research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
  *
