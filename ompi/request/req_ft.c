@@ -36,6 +36,10 @@
  **************************/
 bool ompi_request_state_ok(ompi_request_t *req)
 {
+    if( !ompi_ftmpi_enabled ) {
+        return true;
+    }
+
 #if OPAL_ENABLE_DEBUG
     /*
      * Sanity check
@@ -47,10 +51,6 @@ bool ompi_request_state_ok(ompi_request_t *req)
         return true;
     }
 #endif /* OPAL_ENABLE_DEBUG */
-
-    if( !ompi_ftmpi_enabled ) {
-        return true;
-    }
 
     /*
      * Toggle 'off' the MPI_ANY_SOURCE MPI_ERR_PROC_FAILED_PENDING flag

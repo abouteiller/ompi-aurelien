@@ -1081,6 +1081,8 @@ static int ompi_comm_idup_internal (ompi_communicator_t *comm, ompi_group_t *gro
     context->comm    = comm;
 
     request->context = &context->super;
+    request->super.req_mpi_object.comm = comm;
+    request->context = context;
 
     rc =  ompi_comm_set_nb (&context->newcomp,                      /* new comm */
                             comm,                                   /* old comm */
@@ -1521,15 +1523,17 @@ int ompi_comm_free( ompi_communicator_t **comm )
 /**********************************************************************/
 /**********************************************************************/
 /**********************************************************************/
-ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
-                                     ompi_communicator_t *bridge_comm,
-                                     int local_leader,
-                                     int remote_leader,
-                                     int tag,
-                                     int rsize)
+int ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
+                           ompi_communicator_t *bridge_comm,
+                           int local_leader,
+                           int remote_leader,
+                           int tag,
+                           int rsize,
+                           ompi_proc_t ***prprocs
+                          )
 {
     MPI_Request req;
-    int rc;
+    int rc = OMPI_SUCCESS;
     int local_rank, local_size;
     ompi_proc_t **rprocs=NULL;
     int32_t size_len;
@@ -1546,7 +1550,7 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
     if (local_rank == local_leader) {
         sbuf = OBJ_NEW(opal_buffer_t);
         if (NULL == sbuf) {
-            rc = OMPI_ERROR;
+            rc = OMPI_ERR_OUT_OF_RESOURCE;
             goto err_exit;
         }
         if(OMPI_GROUP_IS_DENSE(local_comm->c_local_group)) {
@@ -1650,7 +1654,7 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
         rc = ompi_request_wait( &req, MPI_STATUS_IGNORE );
 #if OPAL_ENABLE_FT_MPI
         /* let it flow even if there are errors */
-        if ( OMPI_SUCCESS != rc || MPI_ERR_PROC_FAILED != rc ) {
+        if ( OMPI_SUCCESS != rc && MPI_ERR_PROC_FAILED != rc ) {
 #else
         if ( OMPI_SUCCESS != rc ) {
 #endif
@@ -1731,7 +1735,8 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
         free ( sendbuf );
     }
 
-    return rprocs;
+    *prprocs = rprocs;
+    return rc;
 }
 /**********************************************************************/
 /**********************************************************************/

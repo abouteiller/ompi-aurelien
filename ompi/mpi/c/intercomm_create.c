@@ -174,9 +174,9 @@ int MPI_Intercomm_create(MPI_Comm local_comm, int local_leader,
 #endif  /* OPAL_ENABLE_FT_MPI */
     }
 
-    rprocs = ompi_comm_get_rprocs( local_comm, bridge_comm, lleader,
-                                   remote_leader, tag, rsize );
-    if ( NULL == rprocs ) {
+    rc = ompi_comm_get_rprocs( local_comm, bridge_comm, lleader,
+                               remote_leader, tag, rsize, &rprocs );
+    if ( OMPI_SUCCESS != rc ) {
         goto err_exit;
     }
 
