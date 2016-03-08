@@ -119,10 +119,10 @@ int ompi_comm_set ( ompi_communicator_t **ncomm,
     }
 
     if (NULL != req) {
-        ompi_request_wait( &req, MPI_STATUS_IGNORE);
+        rc = ompi_request_wait( &req, MPI_STATUS_IGNORE);
     }
 
-    return OMPI_SUCCESS;
+    return rc;
 }
 
 /*
@@ -1063,7 +1063,6 @@ int ompi_comm_dup_with_info ( ompi_communicator_t * comm, ompi_info_t *info, omp
 }
 
 struct ompi_comm_idup_with_info_context {
-    ompi_communicator_t *comm;
     ompi_communicator_t *newcomp;
 };
 
@@ -1107,8 +1106,7 @@ static int ompi_comm_idup_internal (ompi_communicator_t *comm, ompi_group_t *gro
         return OMPI_ERR_OUT_OF_RESOURCE;
     }
 
-    context->comm    = comm;
-
+    request->super.req_mpi_object.comm = comm;
     request->context = context;
 
     rc =  ompi_comm_set_nb (&context->newcomp,                      /* new comm */
@@ -1147,7 +1145,7 @@ static int ompi_comm_idup_getcid (ompi_comm_request_t *request)
     ompi_request_t *subreq[1];
     int rc, mode;
 
-    if (OMPI_COMM_IS_INTER(context->comm)){
+    if (OMPI_COMM_IS_INTER(request->super.req_mpi_object.comm)){
         mode  = OMPI_COMM_CID_INTER;
     } else {
         mode  = OMPI_COMM_CID_INTRA;
@@ -1155,7 +1153,7 @@ static int ompi_comm_idup_getcid (ompi_comm_request_t *request)
 
     /* Determine context id. It is identical to f_2_c_handle */
     rc = ompi_comm_nextcid_nb (context->newcomp,  /* new communicator */
-                               context->comm,     /* old comm */
+                               request->super.req_mpi_object.comm,     /* old comm */
                                NULL,              /* bridge comm */
                                mode,              /* mode */
                                subreq);           /* new subrequest */
@@ -1176,7 +1174,7 @@ static int ompi_comm_idup_with_info_activate (ompi_comm_request_t *request)
     ompi_request_t *subreq[1];
     int rc, mode;
 
-    if (OMPI_COMM_IS_INTER(context->comm)){
+    if (OMPI_COMM_IS_INTER(request->super.req_mpi_object.comm)){
         mode  = OMPI_COMM_CID_INTER;
     } else {
         mode  = OMPI_COMM_CID_INTRA;
@@ -1184,10 +1182,10 @@ static int ompi_comm_idup_with_info_activate (ompi_comm_request_t *request)
 
     /* Set name for debugging purposes */
     snprintf(context->newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMMUNICATOR %d DUP FROM %d",
-             context->newcomp->c_contextid, context->comm->c_contextid );
+             context->newcomp->c_contextid, request->super.req_mpi_object.comm->c_contextid );
 
     /* activate communicator and init coll-module */
-    rc = ompi_comm_activate_nb (&context->newcomp, context->comm, NULL, mode, subreq);
+    rc = ompi_comm_activate_nb (&context->newcomp, request->super.req_mpi_object.comm, NULL, mode, subreq);
     if ( OMPI_SUCCESS != rc ) {
         return rc;
     }
@@ -1556,15 +1554,17 @@ int ompi_comm_free( ompi_communicator_t **comm )
 /**********************************************************************/
 /**********************************************************************/
 /**********************************************************************/
-ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
-                                     ompi_communicator_t *bridge_comm,
-                                     int local_leader,
-                                     int remote_leader,
-                                     int tag,
-                                     int rsize)
+int ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
+                           ompi_communicator_t *bridge_comm,
+                           int local_leader,
+                           int remote_leader,
+                           int tag,
+                           int rsize,
+                           ompi_proc_t ***prprocs
+                          )
 {
     MPI_Request req;
-    int rc;
+    int rc = OMPI_SUCCESS;
     int local_rank, local_size;
     ompi_proc_t **rprocs=NULL;
     int32_t size_len;
@@ -1581,7 +1581,7 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
     if (local_rank == local_leader) {
         sbuf = OBJ_NEW(opal_buffer_t);
         if (NULL == sbuf) {
-            rc = OMPI_ERROR;
+            rc = OMPI_ERR_OUT_OF_RESOURCE;
             goto err_exit;
         }
         if(OMPI_GROUP_IS_DENSE(local_comm->c_local_group)) {
@@ -1685,7 +1685,7 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
         rc = ompi_request_wait( &req, MPI_STATUS_IGNORE );
 #if OPAL_ENABLE_FT_MPI
         /* let it flow even if there are errors */
-        if ( OMPI_SUCCESS != rc || MPI_ERR_PROC_FAILED != rc ) {
+        if ( OMPI_SUCCESS != rc && MPI_ERR_PROC_FAILED != rc ) {
 #else
         if ( OMPI_SUCCESS != rc ) {
 #endif
@@ -1766,7 +1766,8 @@ ompi_proc_t **ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
         free ( sendbuf );
     }
 
-    return rprocs;
+    *prprocs = rprocs;
+    return rc;
 }
 /**********************************************************************/
 /**********************************************************************/
