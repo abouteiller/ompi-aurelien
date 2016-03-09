@@ -398,9 +398,11 @@ mca_btl_tcp_endpoint_send_blocking(mca_btl_base_endpoint_t* btl_endpoint,
         int retval = send(btl_endpoint->endpoint_sd, (const char *)ptr+cnt, size-cnt, 0);
         if(retval < 0) {
             if(opal_socket_errno != EINTR && opal_socket_errno != EAGAIN && opal_socket_errno != EWOULDBLOCK) {
+#if OPAL_ENABLE_FT_MPI == 0
                 BTL_ERROR(("send(%d, %p, %lu/%lu) failed: %s (%d)",
                            btl_endpoint->endpoint_sd, data, cnt, size,
                            strerror(opal_socket_errno), opal_socket_errno));
+#endif /* OPAL_ENABLE_FT_MPI == 0 */
                 btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
                 mca_btl_tcp_endpoint_close(btl_endpoint);
                 return -1;
@@ -654,10 +656,12 @@ static int mca_btl_tcp_endpoint_recv_connect_ack(mca_btl_base_endpoint_t* btl_en
                upstream. */
             return OPAL_ERROR;
         }
+#if OPAL_ENABLE_FT_MPI == 0
         opal_show_help("help-mpi-btl-tcp.txt", "client handshake fail",
                        true, opal_process_info.nodename,
                        getpid(),
                        "did not receive entire connect ACK from peer");
+#endif
         return OPAL_ERR_UNREACH;
     }
     OPAL_PROCESS_NAME_NTOH(guid);
@@ -819,9 +823,11 @@ static void mca_btl_tcp_endpoint_complete_connect(mca_btl_base_endpoint_t* btl_e
         return;
     }
     if(so_error != 0) {
+#if OPAL_ENABLE_FT_MPI == 0
         BTL_ERROR(("connect() to %s failed: %s (%d)",
                    opal_net_get_hostname((struct sockaddr*) &endpoint_addr),
                    strerror(so_error), so_error));
+#endif /* OPAL_ENABLE_FT_MPI == 0 */
         btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
         mca_btl_tcp_endpoint_close(btl_endpoint);
         return;
