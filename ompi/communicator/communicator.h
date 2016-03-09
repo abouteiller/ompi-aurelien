@@ -81,13 +81,6 @@ OMPI_DECLSPEC OBJ_CLASS_DECLARATION(ompi_communicator_t);
 #define OMPI_COMM_SET_PML_ADDED(comm) ((comm)->c_flags |= OMPI_COMM_PML_ADDED)
 #define OMPI_COMM_SET_EXTRA_RETAIN(comm) ((comm)->c_flags |= OMPI_COMM_EXTRA_RETAIN)
 
-/* a set of special tags: */
-
-/*  to recognize an MPI_Comm_join in the comm_connect_accept routine. */
-#define OMPI_COMM_ALLGATHER_TAG -31078
-#define OMPI_COMM_BARRIER_TAG   -31079
-#define OMPI_COMM_ALLREDUCE_TAG -31080
-
 /**
  * Modes required for acquiring the new comm-id.
  * The first (INTER/INTRA) indicates whether the

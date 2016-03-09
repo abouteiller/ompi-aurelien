@@ -26,7 +26,13 @@
  * implementing collectives via point-to-point.
  */
 
-#define MCA_COLL_BASE_TAG_BLOCKING_BASE -10
+/* a set of special tags: */
+/*  to recognize an MPI_Comm_join in the comm_connect_accept routine. */
+#define OMPI_COMM_ALLGATHER_TAG -7
+#define OMPI_COMM_BARRIER_TAG   -8
+#define OMPI_COMM_ALLREDUCE_TAG -9
+
+#define MCA_COLL_BASE_TAG_BLOCKING_BASE -7
 #define MCA_COLL_BASE_TAG_ALLGATHER -10
 #define MCA_COLL_BASE_TAG_ALLGATHERV -11
 #define MCA_COLL_BASE_TAG_ALLREDUCE -12
