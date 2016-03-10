@@ -29,11 +29,6 @@ static int ompi_comm_rbcast_n2(ompi_communicator_t* comm, ompi_comm_rbcast_messa
 static int (*ompi_comm_rbcast_fw)   (ompi_communicator_t* comm, ompi_comm_rbcast_message_t* msg, size_t size) = ompi_comm_rbcast_null;
 
 
-static int ompi_comm_rbcast_bml_send_msg(
-        ompi_proc_t* proc,
-        ompi_comm_rbcast_message_t* msg,
-        size_t size);
-
 static void ompi_rbcast_bml_send_complete_cb(
         struct mca_btl_base_module_t* module,
         struct mca_btl_base_endpoint_t* endpoint,
@@ -80,7 +75,7 @@ static int ompi_comm_rbcast_bmg(ompi_communicator_t* comm, ompi_comm_rbcast_mess
         else {
             proc = ompi_group_peer_lookup(hgrp, idx-ompi_group_size(lgrp));
         }
-        ret = ompi_comm_rbcast_bml_send_msg(proc, msg, size);
+        ret = ompi_comm_rbcast_send_msg(proc, msg, size);
         if(OPAL_UNLIKELY( OMPI_SUCCESS != ret )) {
             if(OPAL_UNLIKELY( OMPI_ERR_UNREACH != ret )) {
                 return ret;
@@ -112,7 +107,7 @@ static int ompi_comm_rbcast_n2(ompi_communicator_t* comm, ompi_comm_rbcast_messa
 
         proc = ompi_group_peer_lookup(grp, i);
         if( ompi_proc_local_proc == proc ) continue;
-        ret = ompi_comm_rbcast_bml_send_msg(proc, msg, size);
+        ret = ompi_comm_rbcast_send_msg(proc, msg, size);
         if(OPAL_UNLIKELY( OMPI_SUCCESS != ret )) {
             if(OPAL_UNLIKELY( OMPI_ERR_UNREACH != ret )) {
                 return ret;
@@ -202,7 +197,7 @@ static void ompi_comm_rbcast_bml_recv_cb(
     }
 }
 
-static int ompi_comm_rbcast_bml_send_msg(ompi_proc_t* proc, ompi_comm_rbcast_message_t* msg, size_t size) {
+int ompi_comm_rbcast_send_msg(ompi_proc_t* proc, ompi_comm_rbcast_message_t* msg, size_t size) {
     mca_bml_base_endpoint_t* endpoint = mca_bml_base_get_endpoint(proc);
     mca_bml_base_btl_t *bml_btl = mca_bml_base_btl_array_get_index(&endpoint->btl_eager, 0);
     mca_btl_base_descriptor_t *des;

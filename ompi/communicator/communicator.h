@@ -576,13 +576,23 @@ OMPI_DECLSPEC int ompi_comm_rbcast_register_cb_type(ompi_comm_rbcast_cb_t callba
 OMPI_DECLSPEC int ompi_comm_rbcast_unregister_cb_type(int type);
 
 extern int (*ompi_comm_rbcast)(ompi_communicator_t* comm, ompi_comm_rbcast_message_t* msg, size_t size);
+int ompi_comm_rbcast_send_msg(
+        ompi_proc_t* proc,
+        ompi_comm_rbcast_message_t* msg,
+        size_t size);
 
 /*
- * Setup/Shutdown 'revoke' handler
+ * Setup/Shutdown 'failure propagator' handler
  */
-OMPI_DECLSPEC int ompi_comm_init_failure_propagate(void);
-OMPI_DECLSPEC int ompi_comm_finalize_failure_propagate(void);
+OMPI_DECLSPEC int ompi_comm_init_failure_propagator(void);
+OMPI_DECLSPEC int ompi_comm_finalize_failure_propagator(void);
 OMPI_DECLSPEC int ompi_comm_failure_propagate(ompi_communicator_t* comm, ompi_proc_t* proc, orte_proc_state_t state);
+
+/*
+ * Setup/Shutdown 'failure propagator' handler
+ */
+OMPI_DECLSPEC int ompi_comm_init_failure_detector(void);
+OMPI_DECLSPEC int ompi_comm_finalize_failure_detector(void);
 
 /*
  * Setup/Shutdown 'revoke' handler

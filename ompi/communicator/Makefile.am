@@ -37,6 +37,6 @@ lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
 
 if WANT_FT_MPI
 lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
-	communicator/comm_ft.c communicator/comm_ft_reliable_bcast.c communicator/comm_ft_propagate.c communicator/comm_ft_revoke.c
+	communicator/comm_ft.c communicator/comm_ft_reliable_bcast.c communicator/comm_ft_propagator.c communicator/comm_ft_detector.c communicator/comm_ft_revoke.c
 endif # WANT_FT_MPI
 

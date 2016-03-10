@@ -249,7 +249,9 @@ int ompi_comm_init(void)
     if( OMPI_SUCCESS != rc ) return rc;
     rc = ompi_comm_init_revoke();
     if( OMPI_SUCCESS != rc ) return rc;
-    rc = ompi_comm_init_failure_propagate();
+    rc = ompi_comm_init_failure_propagator();
+    if( OMPI_SUCCESS != rc ) return rc;
+    rc = ompi_comm_init_failure_detector();
     if( OMPI_SUCCESS != rc ) return rc;
 #endif
 
@@ -290,7 +292,8 @@ int ompi_comm_finalize(void)
 #if OPAL_ENABLE_FT_MPI
     /* finalize the fault tolerant infrastructure (revoke,
      * failure propagator, etc) */
-    ompi_comm_finalize_failure_propagate();
+    ompi_comm_finalize_failure_detector();
+    ompi_comm_finalize_failure_propagator();
     ompi_comm_finalize_revoke();
     ompi_comm_finalize_rbcast();
 #endif /* OPAL_ENABLE_FT_MPI */
