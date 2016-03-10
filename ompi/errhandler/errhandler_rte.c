@@ -60,12 +60,6 @@ int ompi_errhandler_internal_rte_init(void)
     }
 #endif
 
-    if( OMPI_SUCCESS != (ret = ompi_comm_init_failure_propagate()) ) {
-        ORTE_ERROR_LOG(ret);
-        exit_status = ret;
-        goto cleanup;
-    }
-
  cleanup:
     return exit_status;
 }
@@ -86,12 +80,6 @@ int ompi_errhandler_internal_rte_finalize(void)
         goto cleanup;
     }
 #endif
-
-    if( OMPI_SUCCESS != (ret = ompi_comm_finalize_failure_propagate()) ) {
-        ORTE_ERROR_LOG(ret);
-        exit_status = ret;
-        goto cleanup;
-    }
 
  cleanup:
     return exit_status;

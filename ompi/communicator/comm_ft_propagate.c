@@ -45,9 +45,6 @@ int ompi_comm_init_failure_propagate(void) {
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &rbcast);
     if( !rbcast || !ompi_ftmpi_enabled ) return OMPI_SUCCESS;
 
-    ret = ompi_comm_init_rbcast();
-    if( ret != OMPI_SUCCESS ) return ret;
-
     ret = ompi_comm_rbcast_register_cb_type((ompi_comm_rbcast_cb_t)ompi_comm_failure_propagate_local);
     if( 0 <= ret ) {
         comm_failure_propagate_cb_type = ret;
