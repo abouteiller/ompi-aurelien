@@ -347,17 +347,6 @@ int ompi_mpi_finalize(void)
         goto done;
     }
 
-#if OPAL_ENABLE_FT_MPI
-    /* finalize communicator 'revoke' handle */
-    if (OMPI_SUCCESS != (ret = ompi_comm_finalize_revoke())) {
-        goto done;
-    }
-    /* finalize communicator 'rbcast' handle */
-    if (OMPI_SUCCESS != (ret = ompi_comm_finalize_rbcast())) {
-        goto done;
-    }
-#endif /* OPAL_ENABLE_FT_MPI */
-
     /* free communicator resources. this MUST come before finalizing the PML
      * as this will call into the pml */
     if (OMPI_SUCCESS != (ret = ompi_comm_finalize())) {
