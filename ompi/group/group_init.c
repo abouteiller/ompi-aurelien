@@ -51,7 +51,7 @@ ompi_predefined_group_t *ompi_mpi_group_empty_addr = &ompi_mpi_group_empty;
 ompi_predefined_group_t *ompi_mpi_group_null_addr = &ompi_mpi_group_null;
 
 #if OPAL_ENABLE_FT_MPI
-ompi_group_t *ompi_group_all_failed_procs;
+ompi_group_t *ompi_group_all_failed_procs = NULL;
 #endif /* OPAL_ENABLE_FT_MPI */
 
 /*
