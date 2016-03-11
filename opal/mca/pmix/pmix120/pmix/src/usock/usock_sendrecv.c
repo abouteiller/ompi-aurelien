@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2014-2016 Intel, Inc.  All rights reserved.
  * Copyright (c) 2014      Artem Y. Polyakov <artpol84@gmail.com>.
  *                         All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
@@ -37,11 +37,43 @@
 #endif
 
 #include "src/include/pmix_globals.h"
+#include "src/server/pmix_server_ops.h"
 #include "src/util/error.h"
 
 #include "usock.h"
 
 static uint32_t current_tag = 1;  // 0 is reserved for system purposes
+
+static void lost_connection(pmix_peer_t *peer, pmix_status_t err)
+{
+    /* stop all events */
+    if (peer->recv_ev_active) {
+        event_del(&peer->recv_event);
+        peer->recv_ev_active = false;
+    }
+    if (peer->send_ev_active) {
+        event_del(&peer->send_event);
+        peer->send_ev_active = false;
+    }
+    if (NULL != peer->recv_msg) {
+        PMIX_RELEASE(peer->recv_msg);
+        peer->recv_msg = NULL;
+    }
+    CLOSE_THE_SOCKET(peer->sd);
+    if (pmix_globals.server) {
+        /* if I am a server, then we need to
+         * do some cleanup as the client has
+         * left us */
+         pmix_pointer_array_set_item(&pmix_server_globals.clients,
+                                     peer->index, NULL);
+         PMIX_RELEASE(peer);
+     } else {
+        /* if I am a client, there is only
+         * one connection we can have */
+        pmix_globals.connected = false;
+    }
+    PMIX_REPORT_ERROR(err);
+}
 
 static pmix_status_t send_bytes(int sd, char **buf, size_t *remain)
 {
@@ -69,9 +101,10 @@ static pmix_status_t send_bytes(int sd, char **buf, size_t *remain)
                 goto exit;
             }
             /* we hit an error and cannot progress this message */
-            pmix_output(0, "pmix_usock_msg_send_bytes: write failed: %s (%d) [sd = %d]",
-                        strerror(pmix_socket_errno),
-                        pmix_socket_errno, sd);
+            pmix_output_verbose(10, pmix_globals.debug_output,
+                                "pmix_usock_msg_send_bytes: write failed: %s (%d) [sd = %d]",
+                                strerror(pmix_socket_errno),
+                                pmix_socket_errno, sd);
             ret = PMIX_ERR_COMM_FAILURE;
             goto exit;
         }
@@ -115,7 +148,7 @@ static int read_bytes(int sd, char **buf, size_t *remain)
              * the error back to the RML and let the caller know
              * to abort this message
              */
-            pmix_output_verbose(2, pmix_globals.debug_output,
+            pmix_output_verbose(10, pmix_globals.debug_output,
                                 "pmix_usock_msg_recv: readv failed: %s (%d)",
                                 strerror(pmix_socket_errno),
                                 pmix_socket_errno);
@@ -183,8 +216,7 @@ void pmix_usock_send_handler(int sd, short flags, void *cbdata)
                 peer->send_ev_active = false;
                 PMIX_RELEASE(msg);
                 peer->send_msg = NULL;
-                CLOSE_THE_SOCKET(peer->sd);
-                PMIX_REPORT_ERROR(rc);
+                lost_connection(peer, rc);
                 return;
             }
         }
@@ -212,8 +244,7 @@ void pmix_usock_send_handler(int sd, short flags, void *cbdata)
                 peer->send_ev_active = false;
                 PMIX_RELEASE(msg);
                 peer->send_msg = NULL;
-                CLOSE_THE_SOCKET(peer->sd);
-                PMIX_REPORT_ERROR(rc);
+                lost_connection(peer, rc);
                 return;
             }
         }
@@ -357,8 +388,7 @@ void pmix_usock_recv_handler(int sd, short flags, void *cbdata)
         PMIX_RELEASE(peer->recv_msg);
         peer->recv_msg = NULL;
     }
-    CLOSE_THE_SOCKET(peer->sd);
-    PMIX_REPORT_ERROR(PMIX_ERR_UNREACH);
+    lost_connection(peer, PMIX_ERR_UNREACH);
 }
 
 void pmix_usock_send_recv(int fd, short args, void *cbdata)

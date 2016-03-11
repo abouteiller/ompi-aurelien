@@ -822,6 +822,8 @@ int orterun(int argc, char *argv[])
      * orterun
      */
     orte_launch_environ = opal_argv_copy(environ);
+    opal_unsetenv(OPAL_MCA_PREFIX"ess", &orte_launch_environ);
+    opal_unsetenv(OPAL_MCA_PREFIX"pmix", &orte_launch_environ);
 
     /* Intialize our Open RTE environment
      * Set the flag telling orte_init that I am NOT a
@@ -1064,6 +1066,14 @@ int orterun(int argc, char *argv[])
         }
     }
 
+    /* check for suicide test directives */
+    if (NULL != getenv("ORTE_TEST_HNP_SUICIDE") ||
+        NULL != getenv("ORTE_TEST_ORTED_SUICIDE")) {
+        /* don't forward IO from this process so we can
+         * see any debug after daemon termination */
+        ORTE_FLAG_UNSET(jdata, ORTE_JOB_FLAG_FORWARD_OUTPUT);
+    }
+
     /* check for a job timeout specification, to be provided in seconds
      * as that is what MPICH used
      */
@@ -1106,6 +1116,9 @@ int orterun(int argc, char *argv[])
     /* cleanup and leave */
     orte_finalize();
 
+    if (NULL != orte_launch_environ) {
+        opal_argv_free(orte_launch_environ);
+    }
     if (orte_debug_flag) {
         fprintf(stderr, "exiting with status %d\n", orte_exit_status);
     }
@@ -1245,6 +1258,9 @@ static int parse_locals(orte_job_t *jdata, int argc, char* argv[])
                     ++app_num;
                     opal_pointer_array_add(jdata->apps, app);
                     ++jdata->num_apps;
+                    if (ORTE_SUCCESS != (rc = orte_schizo.setup_app(jdata->personality, app))) {
+                        return rc;
+                    }
                 }
 
                 /* Reset the temps */
@@ -1271,6 +1287,9 @@ static int parse_locals(orte_job_t *jdata, int argc, char* argv[])
             ++app_num;
             opal_pointer_array_add(jdata->apps, app);
             ++jdata->num_apps;
+            if (ORTE_SUCCESS != (rc = orte_schizo.setup_app(jdata->personality, app))) {
+                return rc;
+            }
         }
     }
     if (NULL != env) {
@@ -1657,6 +1676,8 @@ static int create_app(int argc, char* argv[],
         rc = ORTE_ERR_NOT_FOUND;
         goto cleanup;
     }
+    free(app->argv[0]);
+    app->argv[0] = opal_basename(app->app);
 
     /* if this is a Java application, we have a bit more work to do. Such
      * applications actually need to be run under the Java virtual machine
@@ -2857,6 +2878,11 @@ void orte_timeout_wakeup(int sd, short args, void *cbdata)
     orte_show_help("help-orterun.txt", "orterun:timeout",
                    true, (NULL == tm) ? "NULL" : tm);
     ORTE_UPDATE_EXIT_STATUS(ORTE_ERROR_DEFAULT_EXIT_CODE);
+    /* if we are testing HNP suicide, then just exit */
+    if (NULL != getenv("ORTE_TEST_HNP_SUICIDE")) {
+        opal_output(0, "HNP exiting w/o cleanup");
+        exit(1);
+    }
     /* abort the job */
     ORTE_ACTIVATE_JOB_STATE(NULL, ORTE_JOB_STATE_ALL_JOBS_COMPLETE);
     /* set the global abnormal exit flag  */
