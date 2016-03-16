@@ -11,6 +11,7 @@
  */
 #include "opal/mca/base/mca_base_var.h"
 #include "opal/mca/timer/base/base.h"
+#include "opal/threads/threads.h"
 
 #include "ompi/runtime/params.h"
 #include "ompi/communicator/communicator.h"
@@ -45,6 +46,11 @@ static double comm_heartbeat_timeout = 1e-3;
 static opal_event_base_t* fd_event_base = NULL;
 static void fd_event_cb(int fd, short flags, void* pdetector);
 
+static bool comm_detector_use_thread = true;
+static bool fd_thread_active = false;
+static void* fd_progress(opal_object_t* obj);
+static opal_thread_t fd_thread;
+
 static int comm_heartbeat_recv_cb_type = -1;
 static int comm_heartbeat_request_cb_type = -1;
 
@@ -54,6 +60,7 @@ int ompi_comm_start_detector(ompi_communicator_t* comm);
 int ompi_comm_init_failure_detector(void) {
     int ret;
     bool detect = true;
+    fd_event_base = opal_sync_event_base;
 
     (void) mca_base_var_register ("ompi", "mpi", "ft", "detector",
                                   "Use the OMPI heartbeat based failure detector, or disable it and use only RTE and in-band detection (slower)",
@@ -67,6 +74,10 @@ int ompi_comm_init_failure_detector(void) {
                                   "Timeout before we start suspecting a process after the last heartbeat reception (must be larger than 3*ompi_mpi_ft_detector_period)",
                                   MCA_BASE_VAR_TYPE_DOUBLE, NULL, 0, 0,
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &comm_heartbeat_timeout);
+    (void) mca_base_var_register ("ompi", "mpi", "ft", "detector_thread",
+                                  "Delegate failure detector to a separate thread",
+                                  MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
+                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &comm_detector_use_thread);
     if( !detect || !ompi_ftmpi_enabled ) return OMPI_SUCCESS;
 
     /* using rbcast to transmit messages (cb must always return the noforward 'false' flag) */
@@ -78,11 +89,25 @@ int ompi_comm_init_failure_detector(void) {
     if( 0 > ret ) goto cleanup;
     comm_heartbeat_request_cb_type = ret;
 
-    // TODO: if using threads, change the event base
-    fd_event_base = opal_sync_event_base;
-    /* setting up the default detector on comm_world */
-    return ompi_comm_start_detector(&ompi_mpi_comm_world.comm);
-
+    if( comm_detector_use_thread ) {
+        fd_event_base = opal_event_base_create();
+        if( NULL == fd_event_base ) {
+            fd_event_base = opal_sync_event_base;
+            ret = OMPI_ERR_OUT_OF_RESOURCE;
+            goto cleanup;
+        }
+        OBJ_CONSTRUCT(&fd_thread, opal_thread_t);
+        fd_thread.t_run = fd_progress;
+        fd_thread.t_arg = NULL;
+        ret = opal_thread_start(&fd_thread);
+        if( OPAL_SUCCESS != ret ) goto cleanup;
+        fd_thread_active = true;
+        return OMPI_SUCCESS;
+    }
+    else {
+        /* setting up the default detector on comm_world */
+        return ompi_comm_start_detector(&ompi_mpi_comm_world.comm);
+    }
   cleanup:
     ompi_comm_finalize_failure_detector();
     return ret;
@@ -91,10 +116,16 @@ int ompi_comm_init_failure_detector(void) {
 int ompi_comm_finalize_failure_detector(void) {
     int ret;
 
+    if( fd_thread_active ) {
+        void* tret;
+        fd_thread_active = false;
+        opal_event_base_loopbreak(fd_event_base);
+        opal_thread_join(&fd_thread, &tret);
+    }
+    if( opal_sync_event_base != fd_event_base ) opal_event_base_free(fd_event_base);
     if( -1 != comm_heartbeat_recv_cb_type ) ompi_comm_rbcast_unregister_cb_type(comm_heartbeat_recv_cb_type);
     if( -1 != comm_heartbeat_request_cb_type ) ompi_comm_rbcast_unregister_cb_type(comm_heartbeat_request_cb_type);
     comm_heartbeat_recv_cb_type = comm_heartbeat_request_cb_type = -1;
-
     return OMPI_SUCCESS;
 }
 
@@ -110,7 +141,7 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
     comm_world_detector.hb_period = comm_heartbeat_period;
     comm_world_detector.hb_timeout = comm_heartbeat_timeout;
     comm_world_detector.hb_sstamp = 0;
-    comm_world_detector.hb_rstamp = PMPI_Wtime()+1e3*comm_heartbeat_timeout;
+    comm_world_detector.hb_rstamp = PMPI_Wtime()+1e3*comm_heartbeat_timeout; /* give some slack for MPI_Init */
 
     opal_event_evtimer_set(fd_event_base, &comm_world_detector.fd_event, fd_event_cb, &comm_world_detector);
     fd_event_cb(-1, 0, &comm_world_detector); /* start the events */
@@ -242,7 +273,7 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
                         detector->hb_period - (stamp - detector->hb_sstamp),
                         detector->hb_timeout - (stamp - detector->hb_rstamp)));
 
-    if( (stamp - detector->hb_sstamp) >= detector->hb_period) {
+    if( (stamp - detector->hb_sstamp) >= detector->hb_period ) {
         fd_heartbeat_send(detector);
     }
     else {
@@ -260,3 +291,16 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
         fd_heartbeat_request(detector);
     }
 }
+
+void* fd_progress(opal_object_t* obj) {
+    int ret;
+    if( OMPI_SUCCESS != ompi_comm_start_detector(&ompi_mpi_comm_world.comm)) {
+        fd_thread_active = false;
+        return OPAL_THREAD_CANCELLED;
+    }
+    while( fd_thread_active ) {
+        opal_event_loop(fd_event_base, OPAL_EVLOOP_ONCE);
+    }
+    return OPAL_THREAD_CANCELLED;
+}
+
