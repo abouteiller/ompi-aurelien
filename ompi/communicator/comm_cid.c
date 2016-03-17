@@ -260,6 +260,7 @@ static ompi_comm_cid_context_t *mca_comm_cid_context_alloc (ompi_communicator_t 
         return NULL;
     }
 
+<<<<<<< HEAD
     context->newcomm       = newcomm;
     context->comm          = comm;
     context->bridgecomm    = bridgecomm;
@@ -283,6 +284,39 @@ static ompi_comm_cid_context_t *mca_comm_cid_context_alloc (ompi_communicator_t 
         context->local_leader = ((int *) arg0)[0];
         if (arg1) {
             context->port_string = strdup ((char *) arg1);
+=======
+    do {
+        ret = ompi_comm_register_cid (comm->c_contextid);
+    } while (OMPI_SUCCESS != ret );
+    start = ompi_mpi_communicators.highest_taken + 1;
+
+    while (!done) {
+        OPAL_THREAD_LOCK(&ompi_cid_lock);
+        if (comm->c_contextid != ompi_comm_lowest_cid() ) {
+            /* if not lowest cid, we do not continue, but sleep and try again */
+            OPAL_THREAD_UNLOCK(&ompi_cid_lock);
+            continue;
+        }
+        OPAL_THREAD_UNLOCK(&ompi_cid_lock);
+        cid_redux_nb_it++;
+
+        nbredux = 1;
+        nextlocal_cid = mca_pml.pml_max_contextid;
+        flag = false;
+        for (i=start; i < mca_pml.pml_max_contextid ; i++) {
+            flag = opal_pointer_array_test_and_set_item(&ompi_mpi_communicators,
+                                                        i, comm);
+            if (true == flag) {
+                cid_lCIDs[nbredux].cid = i;
+#if OPAL_ENABLE_FT_MPI
+                location = opal_pointer_array_get_item(&ompi_mpi_comm_epoch, i);
+                cid_lCIDs[nbredux].epoch = (int)((uintptr_t)location);
+#endif  /* OPAL_ENABLE_FT_MPI */
+                nbredux++;
+                if( nbredux == cid_redux_size )
+                    break;
+            }
+>>>>>>> Fixing some issues in MPI_THREAD_MULTIPLE enabled builds
         }
         context->pmix_tag = strdup ((char *) pmix_tag);
         break;
