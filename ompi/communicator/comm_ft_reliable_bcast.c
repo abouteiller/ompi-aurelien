@@ -215,6 +215,9 @@ static int ompi_comm_rbcast_bml_send_msg(ompi_proc_t* proc, ompi_comm_rbcast_mes
                        size,
                        MCA_BTL_DES_FLAGS_PRIORITY | MCA_BTL_DES_FLAGS_BTL_OWNERSHIP);
     if(OPAL_UNLIKELY(NULL == des)) {
+        opal_output(ompi_ftmpi_output_handle,
+                    "%s %s: Error: bml_base_alloc failed.",
+                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__);
         return OMPI_ERR_OUT_OF_RESOURCE;
     }
     assert( des->des_segments->seg_len == size ) ;

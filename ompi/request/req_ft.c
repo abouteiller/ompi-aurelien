@@ -148,9 +148,6 @@ bool ompi_request_state_ok(ompi_request_t *req)
  return_with_error:
     if( MPI_ERR_PROC_FAILED_PENDING != req->req_status.MPI_ERROR ) {
         int cancelled = req->req_status._cancelled;
-        opal_output_verbose(10, ompi_ftmpi_output_handle,
-                            "%s ompi_request_state_ok: Request %p cancelled due to completion with error %d\n",
-                            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), (void*)req, req->req_status.MPI_ERROR);
 #if 0
         { int btsize=32; void*bt[32]={NULL}; btsize=backtrace(bt,btsize);
           backtrace_symbols_fd(bt,btsize, ompi_ftmpi_output_handle);

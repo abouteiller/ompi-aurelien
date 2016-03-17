@@ -291,12 +291,7 @@ int ompi_comm_nextcid ( ompi_communicator_t* newcomm,
         }
 
     do {
-        /* Only one communicator function allowed in same time on the
-         * same communicator.
-         */
-        OPAL_THREAD_LOCK(&ompi_cid_lock);
         ret = ompi_comm_register_cid (comm->c_contextid);
-        OPAL_THREAD_UNLOCK(&ompi_cid_lock);
     } while (OMPI_SUCCESS != ret );
     start = ompi_mpi_communicators.highest_taken + 1;
 

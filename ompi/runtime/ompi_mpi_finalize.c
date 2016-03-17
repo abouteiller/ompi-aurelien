@@ -260,9 +260,8 @@ int ompi_mpi_finalize(void)
         } while(ret != MPI_SUCCESS);
         OBJ_RELEASE(acked);
     }
-#else
-    opal_pmix.fence(NULL, 0);
 #endif
+    opal_pmix.fence(NULL, 0);
 
     /* check for timing request - get stop time and report elapsed
      time if so */
