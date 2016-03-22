@@ -977,6 +977,7 @@ int ompi_mpi_init(int argc, char **argv, int requested, int *provided)
         opal_progress_set_event_poll_rate(ompi_mpi_event_tick_rate);
     }
 
+
     /* At this point, we are fully configured and in MPI mode.  Any
        communication calls here will work exactly like they would in
        the user's code.  Setup the connections between procs and warm
@@ -986,6 +987,21 @@ int ompi_mpi_init(int argc, char **argv, int requested, int *provided)
         error = "ompi_mpiext_init";
         goto error;
     }
+
+#if OPAL_ENABLE_FT_MPI
+    /* initialize the fault tolerant infrastructure (revoke, detector,
+     * propagator) */
+    int rc;
+    rc = ompi_comm_init_rbcast();
+    if( OMPI_SUCCESS != rc ) return rc;
+    rc = ompi_comm_init_revoke();
+    if( OMPI_SUCCESS != rc ) return rc;
+    rc = ompi_comm_init_failure_propagator();
+    if( OMPI_SUCCESS != rc ) return rc;
+    rc = ompi_comm_init_failure_detector();
+    if( OMPI_SUCCESS != rc ) return rc;
+#endif
+
 
     /* Fall through */
  error:

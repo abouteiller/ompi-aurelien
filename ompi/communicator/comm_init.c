@@ -241,20 +241,6 @@ int ompi_comm_init(void)
     /* initialize communicator requests (for ompi_comm_idup) */
     ompi_comm_request_init ();
 
-#if OPAL_ENABLE_FT_MPI
-    /* initialize the fault tolerant infrastructure (revoke, detector,
-     * propagator) */
-    int rc;
-    rc = ompi_comm_init_rbcast();
-    if( OMPI_SUCCESS != rc ) return rc;
-    rc = ompi_comm_init_revoke();
-    if( OMPI_SUCCESS != rc ) return rc;
-    rc = ompi_comm_init_failure_propagator();
-    if( OMPI_SUCCESS != rc ) return rc;
-    rc = ompi_comm_init_failure_detector();
-    if( OMPI_SUCCESS != rc ) return rc;
-#endif
-
     return OMPI_SUCCESS;
 }
 
