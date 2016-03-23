@@ -114,7 +114,11 @@ OBJ_CLASS_INSTANCE(
 
 int ompi_request_init(void)
 {
+#if OPAL_ENABLE_FT_MPI
+    OBJ_CONSTRUCT(&ompi_request_lock, opal_recursive_mutex_t); /* TODO: fix request_state_ok so we don't need this */
+#else
     OBJ_CONSTRUCT(&ompi_request_lock, opal_mutex_t);
+#endif
     OBJ_CONSTRUCT(&ompi_request_cond, opal_condition_t);
 
     OBJ_CONSTRUCT(&ompi_request_null, ompi_request_t);
