@@ -60,14 +60,14 @@ static int fd_heartbeat_send(comm_detector_t* detector);
 static int fd_heartbeat_recv_cb(ompi_communicator_t* comm, ompi_comm_heartbeat_message_t* msg);
 
 static int comm_detector_use_rdma_hb = true;
-static double comm_heartbeat_period = 5e-3;
-static double comm_heartbeat_timeout = 15e-3;
+static double comm_heartbeat_period = 5e-1;
+static double comm_heartbeat_timeout = 15e-1;
 static opal_event_base_t* fd_event_base = NULL;
 static void fd_event_cb(int fd, short flags, void* pdetector);
 
 #if OMPI_ENABLE_THREAD_MULTIPLE
 static bool comm_detector_use_thread = true;
-static bool fd_thread_active = false;
+static uint32_t fd_thread_active = 0;
 static opal_thread_t fd_thread;
 static void* fd_progress(opal_object_t* obj);
 #endif /* OMPI_ENABLE_THREAD_MULTIPLE */
@@ -133,8 +133,9 @@ int ompi_comm_init_failure_detector(void) {
         fd_thread.t_arg = NULL;
         ret = opal_thread_start(&fd_thread);
         if( OPAL_SUCCESS != ret ) goto cleanup;
-        opal_atomic_rmb();
-        while(!fd_thread_active);
+        do {
+            opal_atomic_rmb();
+        } while( 0 == fd_thread_active ); /* wait for the fd thread initialization */
         return OMPI_SUCCESS;
     }
     else
@@ -154,9 +155,10 @@ int ompi_comm_finalize_failure_detector(void) {
     int ret;
 
 #if OMPI_ENABLE_THREAD_MULTIPLE
-    if( fd_thread_active ) {
+    opal_atomic_rmb();
+    if( 1 == fd_thread_active ) {
         void* tret;
-        fd_thread_active = false;
+        OPAL_THREAD_ADD32(&fd_thread_active, -1);
         opal_event_base_loopbreak(fd_event_base);
         opal_thread_join(&fd_thread, &tret);
     }
@@ -198,8 +200,8 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
 
     opal_event_set(fd_event_base, &detector->fd_event, -1, OPAL_EV_TIMEOUT | OPAL_EV_PERSIST, fd_event_cb, detector);
     struct timeval tv;
-    tv.tv_sec = (int)detector->hb_period;
-    tv.tv_usec = (-tv.tv_sec + detector->hb_period) * 1e6;
+    tv.tv_sec = (int)(detector->hb_period / 10.);
+    tv.tv_usec = (-tv.tv_sec + (detector->hb_period / 10.)) * 1e6;
     opal_event_add(&detector->fd_event, &tv);
     return OMPI_SUCCESS;
 }
@@ -335,7 +337,6 @@ static int fd_heartbeat_request_cb(ompi_communicator_t* comm, ompi_comm_heartbea
 static void fd_event_cb(int fd, short flags, void* pdetector) {
     double stamp = PMPI_Wtime();
     comm_detector_t* detector = pdetector;;
-    struct timeval tv;
 
     if( (stamp - detector->hb_sstamp) >= detector->hb_period ) {
         fd_heartbeat_send(detector);
@@ -389,12 +390,11 @@ void* fd_progress(opal_object_t* obj) {
     int ret;
     MPI_Request req;
     if( OMPI_SUCCESS != ompi_comm_start_detector(&ompi_mpi_comm_world.comm)) {
-        fd_thread_active = true;
+        OPAL_THREAD_ADD32(&fd_thread_active, -1);
         return OPAL_THREAD_CANCELLED;
     }
-    fd_thread_active = true;
+    OPAL_THREAD_ADD32(&fd_thread_active, 1);
     ret = MCA_PML_CALL(irecv(NULL, 0, MPI_BYTE, 0, MCA_COLL_BASE_TAG_FT_END, &ompi_mpi_comm_self.comm, &req));
-    opal_atomic_rmb();
     while( fd_thread_active ) {
         if( 0 == comm_world_detector.hb_rdma_raddr ) { /* if RDMA hb not setup yet */
             /* force rbcast recv to progress */
@@ -404,6 +404,7 @@ void* fd_progress(opal_object_t* obj) {
             assert( 0 == completed );
         }
         opal_event_loop(fd_event_base, OPAL_EVLOOP_ONCE);
+        opal_atomic_rmb();
     }
     ret = ompi_request_cancel(req);
     ret = ompi_request_wait(&req, MPI_STATUS_IGNORE);
