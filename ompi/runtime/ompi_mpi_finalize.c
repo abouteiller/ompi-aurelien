@@ -274,6 +274,15 @@ int ompi_mpi_finalize(void)
         } while(ret != MPI_SUCCESS);
         OBJ_RELEASE(acked);
     }
+
+    /* finalize the fault tolerant infrastructure (revoke,
+     * failure propagator, etc). From now-on we do not tolerate failures. */
+    ompi_comm_finalize_failure_detector();
+    ompi_comm_finalize_failure_propagator();
+    ompi_comm_finalize_revoke();
+    ompi_comm_finalize_rbcast();
+
+    if( 0 == ompi_mpi_comm_world.comm.c_my_rank ) opal_pmix.abort(0, "FT: forcing termination with abort until PMIX_Fence works", NULL);
 #endif
     if (!ompi_async_mpi_finalize) {
         if (NULL != opal_pmix.fence_nb) {
