@@ -199,7 +199,9 @@ static void ompi_comm_rbcast_bml_recv_cb(
 
 int ompi_comm_rbcast_send_msg(ompi_proc_t* proc, ompi_comm_rbcast_message_t* msg, size_t size) {
     mca_bml_base_endpoint_t* endpoint = mca_bml_base_get_endpoint(proc);
+    assert( NULL != endpoint );
     mca_bml_base_btl_t *bml_btl = mca_bml_base_btl_array_get_index(&endpoint->btl_eager, 0);
+    assert( NULL != bml_btl );
     mca_btl_base_descriptor_t *des;
     int ret;
 

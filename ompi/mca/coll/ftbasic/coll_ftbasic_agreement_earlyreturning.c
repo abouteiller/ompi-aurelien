@@ -1321,7 +1321,7 @@ static void era_build_tree_structure(era_agreement_info_t *ci)
     era_call_tree_fn(ci);
 
     if( ompi_comm_rank(ci->comm) == 0 ) {
-        OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
+        OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                              "%s ftbasic:agreement (ERA) Agreement (%d.%d).%d: re-built the tree structure with size %d: %s\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              ci->agreement_id.ERAID_FIELDS.contextid,
@@ -1592,7 +1592,7 @@ static void era_decide(era_value_t *decided_value, era_agreement_info_t *ci)
 
     OBJ_RETAIN(decided_value);
 
-    OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
+    OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                          "%s ftbasic:agreement (ERA) decide %08x.%d.%d.. on agreement (%d.%d).%d\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          ERA_VALUE_BYTES_COUNT(&decided_value->header)? *(int*)decided_value->bytes: 0,
@@ -2890,13 +2890,13 @@ static int mca_coll_ftbasic_agreement_era_prepare_agreement(ompi_communicator_t*
     agreement_id.ERAID_FIELDS.epoch       = comm->c_epoch;
     agreement_id.ERAID_FIELDS.agreementid = (uint16_t)ag_info->agreement_seq_num;
 
-    OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
+    OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                          "%s ftbasic:agreement (ERA) Entering Agreement ID = (%d.%d).%d\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          agreement_id.ERAID_FIELDS.contextid,
                          agreement_id.ERAID_FIELDS.epoch,
                          agreement_id.ERAID_FIELDS.agreementid));
-    era_debug_print_group(1, group, comm, "Before Agreement");
+    era_debug_print_group(2, group, comm, "Before Agreement");
 
 #if defined(PROGRESS_FAILURE_PROB)
 #pragma message("Hard coded probability of failure inside the agreement")
@@ -3006,10 +3006,10 @@ static int mca_coll_ftbasic_agreement_era_complete_agreement(era_identifier_t ag
         OBJ_RELEASE(*group);
         ompi_group_incl(comm->c_local_group, AGS(comm)->afr_size,
                         AGS(comm)->agreed_failed_ranks, group);
-        era_debug_print_group(1, *group, comm, "After Agreement");
+        era_debug_print_group(2, *group, comm, "After Agreement");
     }
 
-    OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
+    OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                          "%s ftbasic:agreement (ERA) Leaving Agreement ID = (%d.%d).%d with ret = %d, 4 first bytes of flag = 0x%08x\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          agreement_id.ERAID_FIELDS.contextid,
@@ -3201,7 +3201,7 @@ int mca_coll_ftbasic_agreement_era_free_comm(ompi_communicator_t* comm,
     era_identifier_t aid;
     int rc;
 
-    OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
+    OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                          "%s ftbasic:agreement (ERA) Freeing Communicator (%d.%d).\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          comm->c_contextid,

@@ -230,7 +230,7 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
         if( !ompi_proc_is_active(proc) ) continue;
 
         detector->hb_rstamp = PMPI_Wtime();
-        OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
+        OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                              "%s %s: Sending observe request to %d on communicator %3d:%d stamp %g",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, rank, comm->c_contextid, comm->c_epoch, detector->hb_rstamp ));
 
@@ -289,7 +289,7 @@ static int fd_heartbeat_request_cb(ompi_communicator_t* comm, ompi_comm_heartbea
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->from, comm->c_contextid, comm->c_epoch, detector->hb_observer );
         return false; /* never forward on the rbcast */
     }
-    OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
+    OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                          "%s %s: Recveived heartbeat request from %d on communicator %3d:%d",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->from, comm->c_contextid, comm->c_epoch));
 //  OPAL_MUTEX_LOCK(&detector_mutex);
