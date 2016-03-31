@@ -40,6 +40,8 @@
  */
 static int ompi_errmgr_rte_callback(orte_process_name_t proc, orte_proc_state_t state);
 
+static opal_mutex_t errmgr_lock;
+
 /*
  * Interface Functions
  */
@@ -60,6 +62,7 @@ int ompi_errhandler_internal_rte_init(void)
     }
 #endif
 
+    OBJ_CONSTRUCT(&errmgr_lock, opal_mutex_t);
  cleanup:
     return exit_status;
 }
@@ -81,6 +84,7 @@ int ompi_errhandler_internal_rte_finalize(void)
     }
 #endif
 
+    OBJ_DESTRUCT(&errmgr_lock);
  cleanup:
     return exit_status;
 }
@@ -92,10 +96,14 @@ int ompi_errmgr_mark_failed_peer_fw(ompi_proc_t *ompi_proc, orte_proc_state_t st
     ompi_group_t* group = NULL;
     bool remote = false;
 
+    /* mutual exclusion (we are going to manipulate global group objects etc) */
+    OPAL_THREAD_LOCK(&errmgr_lock);
+
     /*
      * If we have already detected this error, ignore
      */
     if( !ompi_proc_is_active(ompi_proc) ) {
+        OPAL_THREAD_UNLOCK(&errmgr_lock);
         goto cleanup;
     }
 
@@ -166,6 +174,9 @@ int ompi_errmgr_mark_failed_peer_fw(ompi_proc_t *ompi_proc, orte_proc_state_t st
                                &ompi_group_all_failed_procs);
         OBJ_RELEASE(old_failed);
     }
+
+    OPAL_THREAD_UNLOCK(&errmgr_lock);
+
     /*
      * Point-to-Point:
      * Let the active request know of the process state change.
