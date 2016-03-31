@@ -259,7 +259,7 @@ int ompi_mpi_finalize(void)
      * we drain all preexisting failures before we proceed;
      * TODO: when we have better failure support in the runtime, we can
      * remove that agreement */
-    {
+    if( ompi_ftmpi_enabled ) {
         ompi_communicator_t* comm = &ompi_mpi_comm_world.comm;
         ompi_group_t* acked;
         ompi_comm_failure_get_acked_internal(comm, &acked);
@@ -273,16 +273,16 @@ int ompi_mpi_finalize(void)
                                               comm->c_coll.coll_agreement_module);
         } while(ret != MPI_SUCCESS);
         OBJ_RELEASE(acked);
+
+        /* finalize the fault tolerant infrastructure (revoke,
+         * failure propagator, etc). From now-on we do not tolerate failures. */
+        ompi_comm_finalize_failure_detector();
+        ompi_comm_finalize_failure_propagator();
+        ompi_comm_finalize_revoke();
+        ompi_comm_finalize_rbcast();
+
+        if( 0 == ompi_mpi_comm_world.comm.c_my_rank ) opal_pmix.abort(0, "FT: forcing termination with abort until PMIX_Fence works", NULL);
     }
-
-    /* finalize the fault tolerant infrastructure (revoke,
-     * failure propagator, etc). From now-on we do not tolerate failures. */
-    ompi_comm_finalize_failure_detector();
-    ompi_comm_finalize_failure_propagator();
-    ompi_comm_finalize_revoke();
-    ompi_comm_finalize_rbcast();
-
-    if( 0 == ompi_mpi_comm_world.comm.c_my_rank ) opal_pmix.abort(0, "FT: forcing termination with abort until PMIX_Fence works", NULL);
 #endif
     if (!ompi_async_mpi_finalize) {
         if (NULL != opal_pmix.fence_nb) {

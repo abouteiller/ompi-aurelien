@@ -991,15 +991,17 @@ int ompi_mpi_init(int argc, char **argv, int requested, int *provided)
 #if OPAL_ENABLE_FT_MPI
     /* initialize the fault tolerant infrastructure (revoke, detector,
      * propagator) */
-    int rc;
-    rc = ompi_comm_init_rbcast();
-    if( OMPI_SUCCESS != rc ) return rc;
-    rc = ompi_comm_init_revoke();
-    if( OMPI_SUCCESS != rc ) return rc;
-    rc = ompi_comm_init_failure_propagator();
-    if( OMPI_SUCCESS != rc ) return rc;
-    rc = ompi_comm_init_failure_detector();
-    if( OMPI_SUCCESS != rc ) return rc;
+    if( ompi_ftmpi_enabled ) {
+        int rc;
+        rc = ompi_comm_init_rbcast();
+        if( OMPI_SUCCESS != rc ) return rc;
+        rc = ompi_comm_init_revoke();
+        if( OMPI_SUCCESS != rc ) return rc;
+        rc = ompi_comm_init_failure_propagator();
+        if( OMPI_SUCCESS != rc ) return rc;
+        rc = ompi_comm_init_failure_detector();
+        if( OMPI_SUCCESS != rc ) return rc;
+    }
 #endif
 
 
