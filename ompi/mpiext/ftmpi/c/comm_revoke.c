@@ -51,3 +51,15 @@ int OMPI_Comm_revoke(MPI_Comm comm)
     return MPIX_Comm_revoke(comm);
 }
 
+#include <signal.h>
+#include "ompi/errhandler/errhandler.h"
+
+int OMPI_Comm_failure_inject(MPI_Comm comm, bool notify) {
+    if( notify ) {
+        ompi_proc_t* proc = ompi_comm_peer_lookup(comm, ompi_comm_rank(comm));
+        ompi_errmgr_mark_failed_peer_cause_signal(proc);
+    }
+    raise(SIGKILL);
+    return OMPI_SUCCESS;
+}
+
