@@ -69,11 +69,21 @@ static int ompi_comm_rbcast_bmg(ompi_communicator_t* comm, ompi_comm_rbcast_mess
     for(i=1; i <= np/2; i*=2) for(d=1; d >= -1; d-=2) {
         ompi_proc_t* proc;
         int idx = (np+me+d*i)%np;
+      redo:
         if(OPAL_LIKELY( idx < ompi_group_size(lgrp) )) {
             proc = ompi_group_peer_lookup(lgrp, idx);
         }
         else {
             proc = ompi_group_peer_lookup(hgrp, idx-ompi_group_size(lgrp));
+        }
+        if( i == 1 && !ompi_proc_is_active(proc) ) {
+            /* The ring is cut, find the closest alive neighbor in that
+             * direction */
+            idx=(idx+d)%np;
+            /* TODO: find a way to not send twice the message if idx is one of
+             * my neighbors for i>1 */
+            if( idx == me ) return OMPI_SUCCESS; /* everybody else dead... */
+            goto redo;
         }
         ret = ompi_comm_rbcast_send_msg(proc, msg, size);
         if(OPAL_UNLIKELY( OMPI_SUCCESS != ret )) {
