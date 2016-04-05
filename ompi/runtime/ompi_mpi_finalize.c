@@ -261,6 +261,7 @@ int ompi_mpi_finalize(void)
      * remove that agreement */
     if( ompi_ftmpi_enabled ) {
         ompi_communicator_t* comm = &ompi_mpi_comm_world.comm;
+        opal_output_verbose(100, ompi_ftmpi_output_handle, "Rank %d entering finalize", ompi_comm_rank(comm));
         ompi_group_t* acked;
         ompi_comm_failure_get_acked_internal(comm, &acked);
         do {

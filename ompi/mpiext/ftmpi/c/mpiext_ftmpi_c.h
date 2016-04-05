@@ -30,6 +30,7 @@ OMPI_DECLSPEC int MPIX_Comm_failure_get_acked(MPI_Comm comm, MPI_Group *failedgr
 OMPI_DECLSPEC int MPIX_Comm_agree(MPI_Comm comm, int *flag);
 OMPI_DECLSPEC int MPIX_Comm_iagree(MPI_Comm comm, int *flag, MPI_Request *request);
 
+#include <stdbool.h>
 OMPI_DECLSPEC int OMPI_Comm_failure_inject(MPI_Comm comm, bool notify);
 
 /**
