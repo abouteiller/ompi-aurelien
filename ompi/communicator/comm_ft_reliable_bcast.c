@@ -70,28 +70,29 @@ static int ompi_comm_rbcast_bmg(ompi_communicator_t* comm, ompi_comm_rbcast_mess
         ompi_proc_t* proc;
         int idx = (np+me+d*i)%np;
       redo:
+        if( idx == me ) continue;
         if(OPAL_LIKELY( idx < ompi_group_size(lgrp) )) {
             proc = ompi_group_peer_lookup(lgrp, idx);
         }
         else {
             proc = ompi_group_peer_lookup(hgrp, idx-ompi_group_size(lgrp));
         }
-        if( i == 1 && !ompi_proc_is_active(proc) ) {
-            /* The ring is cut, find the closest alive neighbor in that
-             * direction */
-            idx=(idx+d)%np;
-            /* TODO: find a way to not send twice the message if idx is one of
-             * my neighbors for i>1 */
-            if( idx == me ) return OMPI_SUCCESS; /* everybody else dead... */
-            goto redo;
-        }
-        ret = ompi_comm_rbcast_send_msg(proc, msg, size);
-        if(OPAL_UNLIKELY( OMPI_SUCCESS != ret )) {
+        if( ompi_proc_is_active(proc) ) {
+            ret = ompi_comm_rbcast_send_msg(proc, msg, size);
+            if(OPAL_LIKELY( OMPI_SUCCESS == ret )) {
+                continue;
+            }
             if(OPAL_UNLIKELY( OMPI_ERR_UNREACH != ret )) {
                 return ret;
-            } else {
-                if( i == 1 ) goto redo;
             }
+        }
+        if( i == 1 ) {
+            /* The ring is cut, find the closest alive neighbor in that
+             * direction */
+            idx = (np+idx+d)%np;
+            /* TODO: find a way to not send twice the message if idx is one of
+             * my neighbors for i>1 */
+            goto redo;
         }
     }
     return OMPI_SUCCESS;
@@ -242,7 +243,7 @@ int ompi_comm_rbcast_send_msg(ompi_proc_t* proc, ompi_comm_rbcast_message_t* msg
     }
     else {
         mca_bml_base_free(bml_btl, des);
-        OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
+        OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
             "%s %s: could not send a fragment to %s to rbcast %3d (status %d)",
             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&proc->super.proc_name), msg->cid, ret));
             return ret;
@@ -256,8 +257,10 @@ static void ompi_rbcast_bml_send_complete_cb(
         struct mca_btl_base_descriptor_t* descriptor,
         int status)
 {
-    OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
-        "%s %s: status %d", OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, status));
+    if(OPAL_UNLIKELY( OMPI_SUCCESS != status )) {
+        opal_output_verbose(2, ompi_ftmpi_output_handle,
+            "%s %s: status %d", OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, status);
+    }
     return;
 }
 
