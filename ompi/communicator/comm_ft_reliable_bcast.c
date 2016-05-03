@@ -89,6 +89,8 @@ static int ompi_comm_rbcast_bmg(ompi_communicator_t* comm, ompi_comm_rbcast_mess
         if(OPAL_UNLIKELY( OMPI_SUCCESS != ret )) {
             if(OPAL_UNLIKELY( OMPI_ERR_UNREACH != ret )) {
                 return ret;
+            } else {
+                if( i == 1 ) goto redo;
             }
         }
     }
@@ -153,7 +155,7 @@ int ompi_comm_rbcast_unregister_cb_type(int type) {
     return OMPI_SUCCESS;
 }
 
-/* 
+/*
  * BML HELPERS
  */
 
