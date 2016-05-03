@@ -289,6 +289,9 @@ int ompi_mpi_finalize(void)
         ompi_comm_finalize_revoke();
         ompi_comm_finalize_rbcast();
         OBJ_RELEASE(acked);
+#if 1
+        if( 0 == ompi_mpi_comm_world.comm.c_my_rank ) opal_pmix.abort(0, "FT: forcing termination with abort until PMIX_Fence works", NULL);
+#endif
     }
 #endif
     if (!ompi_async_mpi_finalize) {
