@@ -61,17 +61,17 @@ static int fd_heartbeat_send(comm_detector_t* detector);
 static int fd_heartbeat_recv_cb(ompi_communicator_t* comm, ompi_comm_heartbeat_message_t* msg);
 
 static int comm_detector_use_rdma_hb = true;
-static double comm_heartbeat_period = 5e-1;
-static double comm_heartbeat_timeout = 15e-1;
+static double comm_heartbeat_period = 2e-1;
+static double comm_heartbeat_timeout = 5e-1;
 static opal_event_base_t* fd_event_base = NULL;
 static void fd_event_cb(int fd, short flags, void* pdetector);
 
-#if OMPI_ENABLE_THREAD_MULTIPLE
+#if OPAL_ENABLE_MULTI_THREADS
 static bool comm_detector_use_thread = true;
 static volatile uint32_t fd_thread_active = 0;
 static opal_thread_t fd_thread;
 static void* fd_progress(opal_object_t* obj);
-#endif /* OMPI_ENABLE_THREAD_MULTIPLE */
+#endif /* OPAL_ENABLE_MULTI_THREADS */
 
 static int comm_heartbeat_recv_cb_type = -1;
 static int comm_heartbeat_request_cb_type = -1;
@@ -102,12 +102,12 @@ int ompi_comm_init_failure_detector(void) {
                                   "Use rdma put to deposit heartbeats into the observer memory",
                                   MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &comm_detector_use_rdma_hb);
-#if OMPI_ENABLE_THREAD_MULTIPLE
+#if OPAL_ENABLE_MULTI_THREADS
     (void) mca_base_var_register ("ompi", "mpi", "ft", "detector_thread",
                                   "Delegate failure detector to a separate thread",
                                   MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &comm_detector_use_thread);
-#endif /* OMPI_ENABLE_THREAD_MULTIPLE */
+#endif /* OPAL_ENABLE_MULTI_THREADS */
     if( !detect || !ompi_ftmpi_enabled ) return OMPI_SUCCESS;
 
     /* using rbcast to transmit messages (cb must always return the noforward 'false' flag) */
@@ -119,7 +119,7 @@ int ompi_comm_init_failure_detector(void) {
     if( 0 > ret ) goto cleanup;
     comm_heartbeat_request_cb_type = ret;
 
-#if OMPI_ENABLE_THREAD_MULTIPLE
+#if OPAL_ENABLE_MULTI_THREADS
     if( comm_detector_use_thread ) {
         fd_event_base = opal_event_base_create();
         if( NULL == fd_event_base ) {
@@ -134,19 +134,15 @@ int ompi_comm_init_failure_detector(void) {
         fd_thread.t_arg = NULL;
         ret = opal_thread_start(&fd_thread);
         if( OPAL_SUCCESS != ret ) goto cleanup;
-        do {
-            opal_atomic_rmb();
-        } while( 0 == fd_thread_active ); /* wait for the fd thread initialization */
+        while( 0 == fd_thread_active ); /* wait for the fd thread initialization */
         return OMPI_SUCCESS;
     }
-    else
-#endif /* OMPI_ENABLE_THREAD_MULTIPLE*/
-    {
-        opal_progress_event_users_increment();
+#endif /* OPAL_ENABLE_MULTI_THREADS */
+    opal_progress_event_users_increment();
 
-        /* setting up the default detector on comm_world */
-        return ompi_comm_start_detector(&ompi_mpi_comm_world.comm);
-    }
+    /* setting up the default detector on comm_world */
+    return ompi_comm_start_detector(&ompi_mpi_comm_world.comm);
+
   cleanup:
     ompi_comm_finalize_failure_detector();
     return ret;
@@ -155,18 +151,17 @@ int ompi_comm_init_failure_detector(void) {
 int ompi_comm_finalize_failure_detector(void) {
     int ret;
 
-    opal_event_del(&comm_world_detector.fd_event);
-#if OMPI_ENABLE_THREAD_MULTIPLE
-    opal_atomic_rmb();
+#if OPAL_ENABLE_MULTI_THREADS
     if( 1 == fd_thread_active ) {
         void* tret;
         OPAL_THREAD_ADD32(&fd_thread_active, -1);
         opal_event_base_loopbreak(fd_event_base);
         opal_thread_join(&fd_thread, &tret);
     }
+#endif /* OPAL_ENABLE_MULTI_THREADS */
 
+    opal_event_del(&comm_world_detector.fd_event);
     if( opal_sync_event_base != fd_event_base ) opal_event_base_free(fd_event_base);
-#endif /* MPI_ENABLE_THREAD_MULTIPLE */
     if( -1 != comm_heartbeat_recv_cb_type ) ompi_comm_rbcast_unregister_cb_type(comm_heartbeat_recv_cb_type);
     if( -1 != comm_heartbeat_request_cb_type ) ompi_comm_rbcast_unregister_cb_type(comm_heartbeat_request_cb_type);
     comm_heartbeat_recv_cb_type = comm_heartbeat_request_cb_type = -1;
@@ -396,7 +391,7 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
     }
 }
 
-#if OMPI_ENABLE_THREAD_MULTIPLE
+#if OPAL_ENABLE_MULTI_THREADS
 void* fd_progress(opal_object_t* obj) {
     int ret;
     MPI_Request req;
@@ -415,14 +410,12 @@ void* fd_progress(opal_object_t* obj) {
             assert( 0 == completed );
         }
         opal_event_loop(fd_event_base, OPAL_EVLOOP_ONCE);
-        opal_atomic_rmb();
     }
     ret = ompi_request_cancel(req);
     ret = ompi_request_wait(&req, MPI_STATUS_IGNORE);
     return OPAL_THREAD_CANCELLED;
 }
-#endif /* OMPI_ENABLE_THREAD_MULTIPLE */
-
+#endif /* OPAL_ENABLE_MULTI_THREADS */
 
 static int sendseq = 0;
 
@@ -455,7 +448,6 @@ static int fd_heartbeat_rdma_put(comm_detector_t* detector) {
                         sendseq++, ret));
     } while( OMPI_ERR_OUT_OF_RESOURCE == ret && retry < 512); /* never give up... */
     OPAL_THREAD_UNLOCK(&detector->fd_mutex);
-    assert( (OMPI_SUCCESS == ret) || (1 == ret) ); // TODO: fallback to sendi
     return ret;
 }
 
