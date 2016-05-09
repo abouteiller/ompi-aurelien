@@ -198,4 +198,5 @@ AC_DEFUN([OPAL_SETUP_FT],[
     AC_DEFINE_UNQUOTED([OPAL_ENABLE_FT_THREAD], [$opal_want_ft_thread],
                        [Enable fault tolerance thread in Open PAL])
     AM_CONDITIONAL(WANT_FT_THREAD, test "$opal_want_ft_thread" = "1")
+    OPAL_SUMMARY_ADD([[Miscellaneous]],[[Fault Tolerance support]],[unnecessary], [$with_ft])
 ])
