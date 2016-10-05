@@ -40,17 +40,10 @@ bool ompi_request_state_ok(ompi_request_t *req)
         return true;
     }
 
-#if OPAL_ENABLE_DEBUG
     /*
      * Sanity check
      */
-    if( NULL == req->req_mpi_object.comm ) {
-        opal_output(0,
-                    "%s ompi_request_state_ok: Warning: Communicator is NULL - Should not happen!",
-                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) );
-        return true;
-    }
-#endif /* OPAL_ENABLE_DEBUG */
+    assert( NULL != req->req_mpi_object.comm );
 
     /*
      * Toggle 'off' the MPI_ANY_SOURCE MPI_ERR_PROC_FAILED_PENDING flag

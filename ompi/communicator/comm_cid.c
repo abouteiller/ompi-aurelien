@@ -289,6 +289,7 @@ int ompi_comm_nextcid_nb (ompi_communicator_t *newcomm, ompi_communicator_t *com
     }
 
     request->context = &context->super;
+    request->super.req_mpi_object.comm = context->comm;
 
     ompi_comm_request_schedule_append (request, ompi_comm_allreduce_getnextcid, NULL, 0);
     ompi_comm_request_start (request);
