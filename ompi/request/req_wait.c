@@ -540,7 +540,7 @@ int ompi_request_default_wait_some(size_t count,
         if( request->req_any_source_pending ) {
             rc = MPI_ERR_IN_STATUS;
             if (MPI_STATUSES_IGNORE != statuses) {
-                OMPI_STATUS_SET(&statuses[i], &request->req_status);
+                statuses[i] = request->req_status;
                 statuses[i].MPI_ERROR = MPI_ERR_PROC_FAILED_PENDING;
             } else {
                 if( (MPI_ERR_PROC_FAILED == request->req_status.MPI_ERROR) ||

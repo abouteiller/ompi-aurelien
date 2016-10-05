@@ -231,7 +231,7 @@ int ompi_request_default_test_all(
         if( !ompi_request_state_ok(request) &&
             request->req_any_source_pending ) {
             if (MPI_STATUSES_IGNORE != statuses) {
-                OMPI_STATUS_SET(&statuses[i], &request->req_status);
+                statuses[i] = request->req_status;
                 statuses[i].MPI_ERROR = MPI_ERR_PROC_FAILED_PENDING;
             }
             *completed = false;
