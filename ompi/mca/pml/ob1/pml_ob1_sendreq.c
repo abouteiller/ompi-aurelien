@@ -128,7 +128,7 @@ static int mca_pml_ob1_send_request_cancel(struct ompi_request_t* request, int c
 #if OPAL_ENABLE_FT_MPI
     ompi_communicator_t* comm = request->req_mpi_object.comm;
 
-    if( true == request->req_complete ) { /* way to late to cancel this one */
+    if( REQUEST_COMPLETE(request) ) { /* way to late to cancel this one */
         return OMPI_SUCCESS;
     }
     /* If FT is enabled then we allow canceling requests with a dead process.
