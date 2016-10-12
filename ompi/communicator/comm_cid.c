@@ -67,7 +67,7 @@ struct ompi_comm_cid_context_t {
     int nextcid;
     int nextlocal_cid;
 #if OPAL_ENABLE_FT_MPI
-    int nextepoch;
+    int nextcid_epoch;
 #endif /* OPAL_ENABLE_FT_MPI */
     int start;
     int flag, rflag;
@@ -266,6 +266,9 @@ static int ompi_comm_checkcid (ompi_comm_request_t *request);
 static int ompi_comm_nextcid_check_flag (ompi_comm_request_t *request);
 
 static volatile int64_t ompi_comm_cid_lowest_id = INT64_MAX;
+#if OPAL_ENABLE_FT_MPI
+static int ompi_comm_cid_epoch = INT_MAX;
+#endif /* OPAL_ENABLE_FT_MPI */
 
 int ompi_comm_nextcid_nb (ompi_communicator_t *newcomm, ompi_communicator_t *comm,
                           ompi_communicator_t *bridgecomm, const void *arg0, const void *arg1,
@@ -345,6 +348,13 @@ static int ompi_comm_allreduce_getnextcid (ompi_comm_request_t *request)
     if( participate ){
         flag = false;
         context->nextlocal_cid = mca_pml.pml_max_contextid;
+#if OPAL_ENABLE_FT_MPI
+        context->nextcid_epoch = ompi_comm_cid_epoch - 1;
+        if (0 == context->nextcid_epoch) {
+            /* out of epochs, force an error by setting nextlocalcid */
+            context->nextlocal_cid = mca_pml.pml_max_contextid;
+        }
+#endif /* OPAL_ENABLE_FT_MPI */
         for (unsigned int i = context->start ; i < mca_pml.pml_max_contextid ; ++i) {
             flag = opal_pointer_array_test_and_set_item (&ompi_mpi_communicators, i,
                                                          context->comm);
@@ -408,6 +418,12 @@ static int ompi_comm_checkcid (ompi_comm_request_t *request)
         }
     }
 
+#if OPAL_ENABLE_FT_MPI
+    if (context->flag) {
+        context->flag = context->nextcid_epoch;
+    }
+#endif /* OPAL_ENABLE_FT_MPI */
+
     ++context->iter;
 
     ret = context->allreduce_fn (&context->flag, &context->rflag, 1, MPI_MIN, context, &subreq);
@@ -433,7 +449,7 @@ static int ompi_comm_nextcid_check_flag (ompi_comm_request_t *request)
         return ompi_comm_request_schedule_append (request, ompi_comm_nextcid_check_flag, NULL, 0);
     }
 
-    if (1 == context->rflag) {
+    if (0 != context->rflag) {
         if( !participate ) {
             /* we need to provide something sane here
              * but we cannot use `nextcid` as we may have it
@@ -454,6 +470,10 @@ static int ompi_comm_nextcid_check_flag (ompi_comm_request_t *request)
 
         /* set the according values to the newcomm */
         context->newcomm->c_contextid = context->nextcid;
+#if OPAL_ENABLE_FT_MPI
+        context->newcomm->c_epoch = INT_MAX - context->rflag; /* reorder for simpler debugging */
+        ompi_comm_cid_epoch -= 1; /* protected by the cid_lock */
+#endif /* OPAL_ENABLE_FT_MPI */
         opal_pointer_array_set_item (&ompi_mpi_communicators, context->nextcid, context->newcomm);
 
         /* unlock the cid generator */
@@ -464,7 +484,7 @@ static int ompi_comm_nextcid_check_flag (ompi_comm_request_t *request)
         return OMPI_SUCCESS;
     }
 
-    if (participate && (1 == context->flag)) {
+    if (participate && (0 != context->flag)) {
         /* we could use this cid, but other don't agree */
         opal_pointer_array_set_item (&ompi_mpi_communicators, context->nextcid, NULL);
         context->start = context->nextcid + 1; /* that's where we can start the next round */
