@@ -78,6 +78,7 @@ int ompi_coll_base_sendrecv_actual( const void* sendbuf, size_t scount,
 #if OPAL_ENABLE_FT_MPI
     /* need to complete the recv in any case; otherwise the recv buffer is
      * not safe to reuse */
+    ompi_request_cancel(req);
     ompi_request_wait(&req, MPI_STATUS_IGNORE);
 #endif
     return (err);
