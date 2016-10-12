@@ -235,7 +235,7 @@ int ompi_request_default_test_all(
                 statuses[i].MPI_ERROR = MPI_ERR_PROC_FAILED_PENDING;
             }
             *completed = false;
-            return MPI_ERR_IN_STATUS;
+            return MPI_ERR_PROC_FAILED_PENDING;
         }
 #endif /* OPAL_ENABLE_FT_MPI */
     }
@@ -286,6 +286,12 @@ int ompi_request_default_test_all(
                 }
             } else {
                 rc = MPI_ERR_IN_STATUS;
+#if OPAL_ENABLE_FT_MPI
+                if (MPI_ERR_PROC_FAILED == request->req_status.MPI_ERROR
+                 || MPI_ERR_REVOKED == request->req_status.MPI_ERROR) {
+                    rc = request->req_status.MPI_ERROR;
+                }
+#endif /* OPAL_ENABLE_FT_MPI */
             }
         }
     } else {
@@ -318,6 +324,12 @@ int ompi_request_default_test_all(
                 }
             } else {
                 rc = MPI_ERR_IN_STATUS;
+#if OPAL_ENABLE_FT_MPI
+                if (MPI_ERR_PROC_FAILED == request->req_status.MPI_ERROR
+                 || MPI_ERR_REVOKED == request->req_status.MPI_ERROR) {
+                    rc = request->req_status.MPI_ERROR;
+                }
+#endif /* OPAL_ENABLE_FT_MPI */
             }
         }
     }
@@ -392,7 +404,7 @@ int ompi_request_default_test_some(
                 statuses[i] = request->req_status;
                 statuses[i].MPI_ERROR = MPI_ERR_PROC_FAILED_PENDING;
             }
-            rc = MPI_ERR_IN_STATUS;
+            rc = MPI_ERR_PROC_FAILED_PENDING;
             continue;
         }
 #endif /* OPAL_ENABLE_FT_MPI */
@@ -409,6 +421,12 @@ int ompi_request_default_test_some(
 
         if (MPI_SUCCESS != request->req_status.MPI_ERROR) {
             rc = MPI_ERR_IN_STATUS;
+#if OPAL_ENABLE_FT_MPI
+            if (MPI_ERR_PROC_FAILED == request->req_status.MPI_ERROR
+             || MPI_ERR_REVOKED == request->req_status.MPI_ERROR) {
+                rc = request->req_status.MPI_ERROR;
+            }
+#endif /* OPAL_ENABLE_FT_MPI */
         }
 
         if( request->req_persistent ) {
