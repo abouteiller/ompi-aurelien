@@ -53,7 +53,7 @@ bool ompi_request_state_ok(ompi_request_t *req)
     /*
      * If the request is complete, then just skip it
      */
-    if( req->req_complete ) {
+    if( REQUEST_COMPLETE(req) ) {
         return true;
     }
 
@@ -154,7 +154,7 @@ bool ompi_request_state_ok(ompi_request_t *req)
          */
         ompi_request_cancel(req);
         req->req_status._cancelled = cancelled; /* This request is not user cancelled here, it is completed in error */
-        return !req->req_complete; /* If this request is not complete yet, it is stil ok and needs more spinning */
+        return !REQUEST_COMPLETE(req); /* If this request is not complete yet, it is stil ok and needs more spinning */
     }
     return (MPI_SUCCESS == req->req_status.MPI_ERROR);
 }
