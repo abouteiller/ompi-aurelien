@@ -21,6 +21,7 @@
  */
 #include "nbc_internal.h"
 #include "ompi/mca/coll/base/coll_tags.h"
+#include "ompi/mca/coll/base/coll_base_functions.h"
 #include "ompi/op/op.h"
 #include "ompi/mca/pml/pml.h"
 
@@ -328,7 +329,15 @@ int NBC_Progress(NBC_Handle *handle) {
 #endif
     res = ompi_request_test_all(handle->req_count, handle->req_array, &flag, MPI_STATUSES_IGNORE);
     if(res != OMPI_SUCCESS) {
-      // Attempt to cancel outstanding requests
+#if OPAL_ENABLE_FT_MPI
+      if( MPI_ERR_PROC_FAILED == res
+       || MPI_ERR_REVOKED == res ) {
+        ompi_coll_base_free_reqs(handle->req_array, handle->req_count);
+        NBC_Free(handle);
+        return res;
+      }
+#endif /* OPAL_ENABLE_FT_MPI */
+       // Attempt to cancel outstanding requests
       for(i = 0; i < handle->req_count; ++i ) {
         // If the request is complete, then try to report the error code
         if( handle->req_array[i]->req_complete ) {

@@ -119,6 +119,11 @@ static int ompi_comm_request_progress (void)
             while (request_item->subreq_count) {
                 ompi_request_t *subreq = request_item->subreqs[request_item->subreq_count-1];
                 if( REQUEST_COMPLETE(subreq) ) {
+                    if (OMPI_SUCCESS != subreq->req_status.MPI_ERROR) {
+                        /* Let it continue without executing the callbacks, so
+                         * that it does some subreqs cleanup */
+                        rc = subreq->req_status.MPI_ERROR;
+                    }
                     ompi_request_free (&subreq);
                     request_item->subreq_count--;
                 } else {
@@ -128,7 +133,7 @@ static int ompi_comm_request_progress (void)
             }
 
             if (item_complete) {
-                if (request_item->callback) {
+                if (OMPI_SUCCESS == rc && request_item->callback) {
                     opal_mutex_unlock (&ompi_comm_request_mutex);
                     rc = request_item->callback (request);
                     opal_mutex_lock (&ompi_comm_request_mutex);
@@ -142,7 +147,7 @@ static int ompi_comm_request_progress (void)
         /* if the request schedule is empty then the request is complete */
         if (0 == opal_list_get_size (&request->schedule)) {
             opal_list_remove_item (&ompi_comm_requests_active, (opal_list_item_t *) request);
-            request->super.req_status.MPI_ERROR = (OMPI_SUCCESS == rc) ? MPI_SUCCESS : MPI_ERR_INTERN;
+            request->super.req_status.MPI_ERROR = (OMPI_SUCCESS == rc) ? MPI_SUCCESS : rc;
             ompi_request_complete (&request->super, true);
         }
     }
