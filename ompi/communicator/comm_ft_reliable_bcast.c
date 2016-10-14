@@ -203,10 +203,18 @@ static void ompi_comm_rbcast_bml_recv_cb(
 
     /* invoke the local registered callback for the type */
     assert( 0 <= msg->type && RBCAST_CB_TYPE_MAX >= msg->type );
-    assert( NULL != ompi_comm_rbcast_cb[msg->type] );
-    if( ompi_comm_rbcast_cb[msg->type](comm, msg) ) {
-        /* forward the rbcast */
-        ompi_comm_rbcast_fw(comm, msg, descriptor->des_segments->seg_len);
+    if( NULL != ompi_comm_rbcast_cb[msg->type] ) {
+        if( ompi_comm_rbcast_cb[msg->type](comm, msg) ) {
+            /* forward the rbcast */
+            ompi_comm_rbcast_fw(comm, msg, descriptor->des_segments->seg_len);
+        }
+    }
+    else {
+        /* During finalize, we loosly synchronize so it may happen 
+         * that we keep receiving messages after we deregistered the type.
+         * Any other time, this is indicative of a problem.
+         */
+        assert(ompi_mpi_finalize_started);
     }
 }
 

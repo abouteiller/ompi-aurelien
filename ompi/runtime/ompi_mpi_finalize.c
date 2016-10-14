@@ -278,17 +278,11 @@ int ompi_mpi_finalize(void)
          * failure propagator, etc). From now-on we do not tolerate failures. */
         ompi_comm_finalize_failure_detector();
         ompi_comm_finalize_failure_propagator();
-        /* TODO: remove the need for this sync */
-        comm->c_coll.coll_agreement(comm,
-                                    &acked,
-                                    &ompi_mpi_op_band.op,
-                                    &ompi_mpi_int.dt,
-                                    0,
-                                    NULL,
-                                    comm->c_coll.coll_agreement_module);
         ompi_comm_finalize_revoke();
         ompi_comm_finalize_rbcast();
+
 #if 1
+        opal_output(0, "FT: ABORT IN FINALIZE");
         if( ompi_group_size(acked) && 0 == ompi_mpi_comm_world.comm.c_my_rank ) opal_pmix.abort(0, "FT: forcing termination with abort until PMIX_Fence works", NULL);
 #endif
         OBJ_RELEASE(acked);
