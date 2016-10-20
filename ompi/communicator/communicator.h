@@ -592,6 +592,7 @@ OMPI_DECLSPEC int ompi_comm_failure_propagate(ompi_communicator_t* comm, ompi_pr
  * Setup/Shutdown 'failure propagator' handler
  */
 OMPI_DECLSPEC int ompi_comm_init_failure_detector(void);
+OMPI_DECLSPEC int ompi_comm_start_failure_detector(void);
 OMPI_DECLSPEC int ompi_comm_finalize_failure_detector(void);
 
 /*

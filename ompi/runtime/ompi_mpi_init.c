@@ -852,6 +852,22 @@ int ompi_mpi_init(int argc, char **argv, int requested, int *provided)
     MCA_PML_CALL(add_comm(&ompi_mpi_comm_world.comm));
     MCA_PML_CALL(add_comm(&ompi_mpi_comm_self.comm));
 
+#if OPAL_ENABLE_FT_MPI
+    /* initialize the fault tolerant infrastructure (revoke, detector,
+     * propagator) */
+    if( ompi_ftmpi_enabled ) {
+        int rc;
+        rc = ompi_comm_init_rbcast();
+        if( OMPI_SUCCESS != rc ) return rc;
+        rc = ompi_comm_init_revoke();
+        if( OMPI_SUCCESS != rc ) return rc;
+        rc = ompi_comm_init_failure_propagator();
+        if( OMPI_SUCCESS != rc ) return rc;
+        rc = ompi_comm_init_failure_detector();
+        if( OMPI_SUCCESS != rc ) return rc;
+    }
+#endif
+
     /*
      * Dump all MCA parameters if requested
      */
@@ -989,21 +1005,13 @@ int ompi_mpi_init(int argc, char **argv, int requested, int *provided)
     }
 
 #if OPAL_ENABLE_FT_MPI
-    /* initialize the fault tolerant infrastructure (revoke, detector,
-     * propagator) */
+    /* start the failure detector */
     if( ompi_ftmpi_enabled ) {
         int rc;
-        rc = ompi_comm_init_rbcast();
-        if( OMPI_SUCCESS != rc ) return rc;
-        rc = ompi_comm_init_revoke();
-        if( OMPI_SUCCESS != rc ) return rc;
-        rc = ompi_comm_init_failure_propagator();
-        if( OMPI_SUCCESS != rc ) return rc;
-        rc = ompi_comm_init_failure_detector();
+        rc = ompi_comm_start_failure_detector();
         if( OMPI_SUCCESS != rc ) return rc;
     }
 #endif
-
 
     /* Fall through */
  error:
