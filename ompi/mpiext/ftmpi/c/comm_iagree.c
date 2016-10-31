@@ -48,14 +48,14 @@ int MPIX_Comm_iagree(MPI_Comm comm, int *flag, MPI_Request *request)
     }
 
     ompi_comm_failure_get_acked_internal( comm, &acked );
-    rc = comm->c_coll.coll_iagreement( (ompi_communicator_t*)comm,
-                                       acked,
-                                       &ompi_mpi_op_band.op,
-                                       &ompi_mpi_int.dt,
+    rc = comm->c_coll.coll_iagreement( flag,
                                        1,
-                                       flag,
-                                       comm->c_coll.coll_iagreement_module,
-                                       request);
+                                       &ompi_mpi_int.dt,
+                                       &ompi_mpi_op_band.op,
+                                       &acked,
+                                       (ompi_communicator_t*)comm,
+                                       request,
+                                       comm->c_coll.coll_iagreement_module);
     OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
 }
 

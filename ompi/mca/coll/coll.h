@@ -187,7 +187,8 @@ typedef int
 
 /**
  * @param comm: communicator on which to run the agreement
- * @param group: as input: group of locally acknowledged dead processes
+ * @param failgroup:
+ *               as input: group of locally acknowledged dead processes
  *               as output: group of globally acknowledged dead processes
  *               NOTE: iagreement does not need to update group
  *                     as only the blocking agreement function is used
@@ -200,13 +201,15 @@ typedef int
  * @param module: the MCA module that defines this agreement.
  */
 typedef int (*mca_coll_base_module_agreement_fn_t)
-  (struct ompi_communicator_t* comm, struct ompi_group_t **group, struct ompi_op_t *op,
-     struct ompi_datatype_t *dt, int dt_count, void *contrib,
-     struct mca_coll_base_module_2_2_0_t *module);
+ (void *contrib, int dt_count, struct ompi_datatype_t *dtype,
+   struct ompi_op_t *op, struct ompi_group_t **failgroup,
+   struct ompi_communicator_t *comm,
+   struct mca_coll_base_module_2_2_0_t *module);
 typedef int (*mca_coll_base_module_iagreement_fn_t)
-  (struct ompi_communicator_t* comm, struct ompi_group_t *group, struct ompi_op_t *op,
-   struct ompi_datatype_t *dt, int dt_count, void *contrib,
-   struct mca_coll_base_module_2_2_0_t *module, ompi_request_t **request);
+  (void *contrib, int dt_count, struct ompi_datatype_t *dtype,
+   struct ompi_op_t *op, struct ompi_group_t **failgroup,
+   struct ompi_communicator_t *comm, ompi_request_t **request,
+   struct mca_coll_base_module_2_2_0_t *module);
 #endif /* OPAL_ENABLE_FT_MPI */
 
 

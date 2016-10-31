@@ -265,12 +265,12 @@ int ompi_mpi_finalize(void)
         ompi_group_t* acked;
         ompi_comm_failure_get_acked_internal(comm, &acked);
         do {
-            ret = comm->c_coll.coll_agreement(comm,
-                                              &acked,
-                                              &ompi_mpi_op_band.op,
-                                              &ompi_mpi_int.dt,
+            ret = comm->c_coll.coll_agreement(NULL,
                                               0,
-                                              NULL,
+                                              &ompi_mpi_int.dt,
+                                              &ompi_mpi_op_band.op,
+                                              &acked,
+                                              comm,
                                               comm->c_coll.coll_agreement_module);
         } while(ret != MPI_SUCCESS);
 
@@ -282,12 +282,13 @@ int ompi_mpi_finalize(void)
         ompi_comm_finalize_rbcast();
 
 #if 1
-        opal_output(0, "FT: ABORT IN FINALIZE");
+        opal_output(0, "FT: IN FINALIZE");
         if( ompi_group_size(acked) && 0 == ompi_mpi_comm_world.comm.c_my_rank ) opal_pmix.abort(0, "FT: forcing termination with abort until PMIX_Fence works", NULL);
 #endif
         OBJ_RELEASE(acked);
+        opal_pmix.fence(NULL, 0);
     }
-#endif
+#else
     if (!ompi_async_mpi_finalize) {
         if (NULL != opal_pmix.fence_nb) {
             active = true;
@@ -311,6 +312,7 @@ int ompi_mpi_finalize(void)
             opal_pmix.fence(NULL, 0);
         }
     }
+#endif
 
     /* check for timing request - get stop time and report elapsed
      time if so */

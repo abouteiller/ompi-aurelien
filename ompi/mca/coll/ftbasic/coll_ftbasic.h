@@ -134,37 +134,36 @@ int mca_coll_ftbasic_ft_event(int status);
 
 /* Early termination algorithm */
 int
-mca_coll_ftbasic_agreement_eta_intra(ompi_communicator_t* comm,
-                                     ompi_group_t **group,
-                                     ompi_op_t *op,
-                                     ompi_datatype_t *dt,
+mca_coll_ftbasic_agreement_eta_intra(void* contrib,
                                      int dt_count,
-                                     void *contrib,
+                                     ompi_datatype_t *dt,
+                                     ompi_op_t *op,
+                                     ompi_group_t **group,
+                                     ompi_communicator_t* comm,
                                      mca_coll_base_module_t *module);
 /* Early returning algorithm */
 int
-mca_coll_ftbasic_agreement_era_intra(ompi_communicator_t* comm,
-                                     ompi_group_t **group,
-                                     ompi_op_t *op,
-                                     ompi_datatype_t *dt,
+mca_coll_ftbasic_agreement_era_intra(void* contrib,
                                      int dt_count,
-                                     void *contrib,
+                                     ompi_datatype_t *dt,
+                                     ompi_op_t *op,
+                                     ompi_group_t **group,
+                                     ompi_communicator_t* comm,
                                      mca_coll_base_module_t *module);
-int mca_coll_ftbasic_iagreement_era_intra(ompi_communicator_t* comm,
-                                          ompi_group_t *group,
-                                          ompi_op_t *op,
-                                          ompi_datatype_t *dt,
-                                          int dt_count,
-                                          void *contrib,
-                                          mca_coll_base_module_t *module,
-                                          ompi_request_t **request);
-int
-mca_coll_ftbasic_agreement_era_inter(ompi_communicator_t* comm,
-                                     ompi_group_t **group,
-                                     ompi_op_t *op,
-                                     ompi_datatype_t *dt,
+int mca_coll_ftbasic_iagreement_era_intra(void* contrib,
                                      int dt_count,
-                                     void *contrib,
+                                     ompi_datatype_t *dt,
+                                     ompi_op_t *op,
+                                     ompi_group_t **group,
+                                     ompi_communicator_t* comm,
+                                     ompi_request_t **request,
+                                     mca_coll_base_module_t *module);
+int mca_coll_ftbasic_agreement_era_inter(void* contrib,
+                                     int dt_count,
+                                     ompi_datatype_t *dt,
+                                     ompi_op_t *op,
+                                     ompi_group_t **group,
+                                     ompi_communicator_t* comm,
                                      mca_coll_base_module_t *module);
 
 /*

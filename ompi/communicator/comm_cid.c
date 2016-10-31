@@ -158,6 +158,21 @@ static int ompi_comm_allreduce_intra_bridge_nb (int *inbuf, int *outbuf, int cou
                                                 struct ompi_op_t *op, ompi_comm_cid_context_t *cid_context,
                                                 ompi_request_t **req);
 
+#if OPAL_ENABLE_FT_MPI
+static int ompi_comm_ft_allreduce_intra_nb(int *inbuf, int *outbuf, int count,
+                                           struct ompi_op_t *op, ompi_comm_cid_context_t *cid_context,
+                                           ompi_request_t **req);
+
+static int ompi_comm_ft_allreduce_inter_nb(int *inbuf, int *outbuf, int count,
+                                           struct ompi_op_t *op, ompi_comm_cid_context_t *cid_context,
+                                           ompi_request_t **req);
+
+static int ompi_comm_ft_allreduce_intra_pmix_nb(int *inbuf, int *outbuf, int count,
+                                                struct ompi_op_t *op, ompi_comm_cid_context_t *cid_context,
+                                                ompi_request_t **req);
+#endif /* OPAL_ENABLE_FT_MPI */
+
+
 static opal_mutex_t ompi_cid_lock = OPAL_MUTEX_STATIC_INIT;
 
 
@@ -211,13 +226,13 @@ static ompi_comm_cid_context_t *mca_comm_cid_context_alloc (ompi_communicator_t 
         break;
 #if OPAL_ENABLE_FT_MPI
     case OMPI_COMM_CID_INTRA_FT:
-        context->allreduce_fn = ompi_comm_allreduce_intra_ft;
+        context->allreduce_fn = ompi_comm_ft_allreduce_intra_nb;
         break;
     case OMPI_COMM_CID_INTER_FT:
-        context->allreduce_fn = ompi_comm_allreduce_inter_ft;
+        context->allreduce_fn = ompi_comm_ft_allreduce_inter_nb;
         break;
     case OMPI_COMM_CID_INTRA_PMIX_FT:
-        context->allreduce_fn = ompi_comm_allreduce_intra_pmix_ft;
+        context->allreduce_fn = ompi_comm_ft_allreduce_intra_pmix_nb;
         break;
 #if 0
 //TODO: should not need this, remove?
@@ -809,32 +824,6 @@ static int ompi_comm_allreduce_bridged_schedule_bcast (ompi_comm_request_t *requ
     return ompi_comm_request_schedule_append (request, NULL, &subreq, 1);
 }
 
-#if 0
-//TODO: check for errors and continue to unroll the algorithm when P2P return PF
-#if OPAL_ENABLE_FT_MPI
-        if( MPI_ERR_PROC_FAILED == rc ) {
-            /* The peer is dead, continue with the local decision */
-            ompi_datatype_copy_content_same_ddt(MPI_INT, count, outbuf, tmpbuf);
-            goto skip_handshake;
-        }
-#endif  /* OPAL_ENABLE_FT_MPI */
-
-  skip_handshake:
-            rc = ompi_request_wait(&req, MPI_STATUS_IGNORE);
-            if ( OMPI_SUCCESS != rc ) {
-#if OPAL_ENABLE_FT_MPI
-                if( MPI_ERR_PROC_FAILED == rc ) {
-                    /* The peer is dead, continue with the local decision */
-                    ompi_datatype_copy_content_same_ddt(MPI_INT, count, (void*)outbuf, (void*)tmpbuf);
-                    /* Let it go don't break the leader execution flow here */
-                } else
-#endif  /* OPAL_ENABLE_FT_MPI */
-                goto exit;
-            }
-        }
-    }
-#endif
-
 static int ompi_comm_allreduce_bridged_xchng_complete (ompi_comm_request_t *request)
 {
     ompi_comm_allreduce_context_t *context = (ompi_comm_allreduce_context_t *) request->context;
@@ -1212,3 +1201,105 @@ static int ompi_comm_allreduce_group_nb (int *inbuf, int *outbuf, int count,
 
     return OMPI_SUCCESS;
 }
+
+#if OPAL_ENABLE_FT_MPI
+
+/**
+ * Reduction operation using an agreement, to ensure that all processes
+ *  agree on the same list.
+ */
+static int ompi_comm_ft_allreduce_agree_completion(ompi_comm_request_t* request) {
+    int rc = request->super.req_status.MPI_ERROR;
+    ompi_comm_allreduce_context_t *context = (ompi_comm_allreduce_context_t*) request->context;
+    ompi_group_t **failed_group = (ompi_group_t**)&context->inbuf;
+
+    /* Previous agreement found new failures, do another round */
+    if(OPAL_UNLIKELY( MPI_ERR_PROC_FAILED == rc )) {
+        ompi_communicator_t *comm = context->cid_context->comm;
+        ompi_request_t *subreq;
+        OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle, "ft_allreduce found a dead process during previous round; redo"));
+        rc = comm->c_coll.coll_iagreement(context->outbuf, context->count, &ompi_mpi_int.dt, context->op, failed_group,
+                                          comm, &subreq, comm->c_coll.coll_agreement_module);
+        if( OPAL_LIKELY(OMPI_SUCCESS == rc) ) {
+            request->super.req_status.MPI_ERROR = MPI_SUCCESS;
+            return ompi_comm_request_schedule_append(request, ompi_comm_ft_allreduce_agree_completion, &subreq, 1);
+        }
+    }
+    OBJ_RELEASE(*failed_group);
+    return rc;
+}
+
+static int ompi_comm_ft_allreduce_intra_nb(int *inbuf, int *outbuf, int count,
+                                           struct ompi_op_t *op, ompi_comm_cid_context_t *cid_context,
+                                           ompi_request_t **req) {
+    int rc;
+    ompi_comm_allreduce_context_t *context;
+    ompi_comm_request_t *request;
+    ompi_request_t *subreq;
+    ompi_communicator_t *comm = cid_context->comm;
+
+    context = ompi_comm_allreduce_context_alloc(inbuf, outbuf, count, op, cid_context);
+    if(OPAL_UNLIKELY( NULL == context )) {
+        return OMPI_ERR_OUT_OF_RESOURCE;
+    }
+
+    request = ompi_comm_request_get ();
+    if(OPAL_UNLIKELY( NULL == request )) {
+        OBJ_RELEASE(context);
+        return OMPI_ERR_OUT_OF_RESOURCE;
+    }
+    request->context = &context->super;
+    request->super.req_mpi_object.comm = comm;
+
+    /** Because the agreement operates "in place",
+     *  one needs first to copy the inbuf into the outbuf
+     */
+    if( inbuf != outbuf ) {
+        memcpy(outbuf, inbuf, count * sizeof(int));
+    }
+
+    /** Repurpose the inbuf to store the failed_group */
+    ompi_group_t** failed_group = (ompi_group_t**) &context->inbuf;
+    *failed_group = MPI_GROUP_EMPTY;
+    OBJ_RETAIN(*failed_group);
+
+    rc = comm->c_coll.coll_iagreement(context->outbuf, context->count, &ompi_mpi_int.dt, context->op, failed_group,
+                                      comm, &subreq, comm->c_coll.coll_agreement_module);
+    if( OPAL_UNLIKELY(OMPI_SUCCESS != rc) ) {
+        OBJ_RELEASE(*failed_group);
+        ompi_comm_request_return(request);
+        return rc;
+    }
+
+    ompi_comm_request_schedule_append (request, ompi_comm_ft_allreduce_agree_completion, &subreq, 1);
+    ompi_comm_request_start (request);
+    *req = &request->super;
+    return OMPI_SUCCESS;
+}
+
+static int ompi_comm_ft_allreduce_inter_nb(int *inbuf, int *outbuf, int count,
+                                           struct ompi_op_t *op, ompi_comm_cid_context_t *cid_context,
+                                           ompi_request_t **req) {
+    return MPI_ERR_UNSUPPORTED_OPERATION;
+}
+
+static int ompi_comm_ft_allreduce_intra_pmix_nb(int *inbuf, int *outbuf, int count,
+                                                struct ompi_op_t *op, ompi_comm_cid_context_t *cid_context,
+                                                ompi_request_t **req) {
+    return MPI_ERR_UNSUPPORTED_OPERATION;
+}
+
+#if 0
+int ompi_comm_allreduce_intra_bridge_ft( int *inbuf, int* outbuf,
+                                  int count, struct ompi_op_t *op,
+                                  ompi_communicator_t *comm,
+                                  ompi_communicator_t *bridgecomm,
+                                  void* local_leader,
+                                  void* remote_ledaer,
+                                  int send_first, char *tag, int iter ) {
+    return MPI_ERR_UNSUPPORTED_OPERATION;
+}
+#endif
+
+#endif /* OPAL_ENABLE_FT_MPI */
+

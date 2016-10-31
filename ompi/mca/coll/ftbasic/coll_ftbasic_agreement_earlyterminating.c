@@ -66,12 +66,12 @@ typedef struct {
  */
 
 int
-mca_coll_ftbasic_agreement_eta_intra(ompi_communicator_t* comm,
-                                     ompi_group_t **group,
-                                     ompi_op_t *op,
-                                     ompi_datatype_t *dt,
+mca_coll_ftbasic_agreement_eta_intra(void *contrib,
                                      int dt_count,
-                                     void *contrib,
+                                     ompi_datatype_t *dt,
+                                     ompi_op_t *op,
+                                     ompi_group_t **group,
+                                     ompi_communicator_t* comm,
                                      mca_coll_base_module_t *module)
 {
     ftbasic_eta_agreement_msg_t *out, *in;

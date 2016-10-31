@@ -120,9 +120,9 @@ static int ompi_comm_request_progress (void)
                 ompi_request_t *subreq = request_item->subreqs[request_item->subreq_count-1];
                 if( REQUEST_COMPLETE(subreq) ) {
                     if (OMPI_SUCCESS != subreq->req_status.MPI_ERROR) {
-                        /* Let it continue without executing the callbacks, so
+                        /* Let it continue but mark it as failed, so
                          * that it does some subreqs cleanup */
-                        rc = subreq->req_status.MPI_ERROR;
+                        request->super.req_status.MPI_ERROR = subreq->req_status.MPI_ERROR;
                     }
                     ompi_request_free (&subreq);
                     request_item->subreq_count--;
@@ -133,8 +133,10 @@ static int ompi_comm_request_progress (void)
             }
 
             if (item_complete) {
-                if (OMPI_SUCCESS == rc && request_item->callback) {
+                if (request_item->callback) {
                     opal_mutex_unlock (&ompi_comm_request_mutex);
+                    /* the callback should check for errors in the request
+                     * status. */
                     rc = request_item->callback (request);
                     opal_mutex_lock (&ompi_comm_request_mutex);
                 }

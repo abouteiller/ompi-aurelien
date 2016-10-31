@@ -139,12 +139,12 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
          * the value of flag, instead we are only using the globally consistent
          * return value.
          */
-        ret = comm->c_coll.coll_agreement( comm,
-                                           &failed_group,
-                                           &ompi_mpi_op_band.op,
-                                           &ompi_mpi_int.dt,
+        ret = comm->c_coll.coll_agreement( &flag,
                                            1,
-                                           &flag,
+                                           &ompi_mpi_int.dt,
+                                           &ompi_mpi_op_band.op,
+                                           &failed_group,
+                                           comm,
                                            comm->c_coll.coll_agreement_module);
     } while( MPI_ERR_PROC_FAILED == ret );
     stop = MPI_Wtime();
@@ -220,9 +220,12 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
                              NULL,     /* bridge comm */
                              NULL,     /* local leader */
                              NULL,     /* remote_leader */
-                             mode,     /* mode */
-                             -1 );     /* send_first */
+                             -1,       /* send_first */
+                             mode);    /* mode */
     if( OMPI_SUCCESS != ret ) {
+        opal_output_verbose(1, ompi_ftmpi_output_handle,
+                            "%s ompi: comm_shrink: Determine context id failed with error %d",
+                            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), ret);
         exit_status = ret;
         goto cleanup;
     }
@@ -244,8 +247,8 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
                               NULL,
                               NULL,
                               NULL,
-                              mode,
-                              -1 );
+                              -1,
+                              mode);
     if( OMPI_SUCCESS != ret ) {
         exit_status = ret;
         goto cleanup;
@@ -317,79 +320,3 @@ int ompi_comm_set_rank_failed(ompi_communicator_t *comm, int peer_id, bool remot
 
     return OMPI_SUCCESS;
 }
-
-/**
- * Reduction operation using an agreement, to ensure that all processes
- *  agree on the same list.
- */
-int ompi_comm_allreduce_intra_ft( int *inbuf, int* outbuf,
-                                  int count, struct ompi_op_t *op,
-                                  ompi_communicator_t *comm,
-                                  ompi_communicator_t *bridgecomm,
-                                  void* local_leader,
-                                  void* remote_ledaer,
-                                  int send_first, char *tag, int iter ) {
-    int ret;
-    ompi_group_t *failed_group = NULL;
-
-    /** Because the agreement operates "in place",
-     *  one needs first to copy the inbuf into the outbuf
-     */
-    if( inbuf != outbuf ) {
-        memcpy(outbuf, inbuf, count * sizeof(int));
-    }
-
-    failed_group = MPI_GROUP_EMPTY;
-    OBJ_RETAIN(failed_group);
-    do {
-        ret = comm->c_coll.coll_agreement( comm,
-                                           &failed_group,
-                                           op,
-                                           &ompi_mpi_int.dt,
-                                           count,
-                                           outbuf,
-                                           comm->c_coll.coll_agreement_module);
-        if( ret != MPI_SUCCESS && ret != MPI_ERR_PROC_FAILED )
-            goto cleanup;
-    } while( ret == MPI_ERR_PROC_FAILED );
-
- cleanup:
-    OBJ_RELEASE(failed_group);
-    return ret;
-}
-
-int ompi_comm_allreduce_inter_ft( int *inbuf, int* outbuf,
-                                  int count, struct ompi_op_t *op,
-                                  ompi_communicator_t *comm,
-                                  ompi_communicator_t *bridgecomm,
-                                  void* local_leader,
-                                  void* remote_ledaer,
-                                  int send_first, char *tag, int iter ) {
-    return MPI_ERR_UNSUPPORTED_OPERATION;
-}
-
-#if 0
-int ompi_comm_allreduce_intra_bridge_ft( int *inbuf, int* outbuf,
-                                  int count, struct ompi_op_t *op,
-                                  ompi_communicator_t *comm,
-                                  ompi_communicator_t *bridgecomm,
-                                  void* local_leader,
-                                  void* remote_ledaer,
-                                  int send_first, char *tag, int iter ) {
-    return MPI_ERR_UNSUPPORTED_OPERATION;
-}
-#endif
-
-int ompi_comm_allreduce_intra_pmix_ft( int *inbuf, int* outbuf,
-                                  int count, struct ompi_op_t *op,
-                                  ompi_communicator_t *comm,
-                                  ompi_communicator_t *bridgecomm,
-                                  void* local_leader,
-                                  void* remote_ledaer,
-                                  int send_first, char *tag, int iter ) {
-    return MPI_ERR_UNSUPPORTED_OPERATION;
-}
-
-/*********************************************************
- * Internal support functions
- *********************************************************/

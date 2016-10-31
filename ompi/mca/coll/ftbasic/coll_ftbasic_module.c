@@ -27,12 +27,12 @@
 
 #if OPAL_ENABLE_FT_MPI
 static int
-mca_coll_ftbasic_agreement(struct ompi_communicator_t* comm,
-                           struct ompi_group_t **group,
-                           ompi_op_t *op,
-                           ompi_datatype_t *dt,
+mca_coll_ftbasic_agreement(void *contrib,
                            int dt_count,
-                           void *contrib,
+                           ompi_datatype_t *dt,
+                           ompi_op_t *op,
+                           struct ompi_group_t **group,
+                           struct ompi_communicator_t* comm,
                            struct mca_coll_base_module_2_1_0_t *module)
 {
     return comm->c_coll.coll_allreduce(MPI_IN_PLACE, contrib, dt_count, dt, op,
@@ -40,18 +40,17 @@ mca_coll_ftbasic_agreement(struct ompi_communicator_t* comm,
 }
 
 static int
-mca_coll_ftbasic_iagreement(struct ompi_communicator_t* comm,
-                            struct ompi_group_t *group,
-                            ompi_op_t *op,
-                            ompi_datatype_t *dt,
+mca_coll_ftbasic_iagreement(void *contrib,
                             int dt_count,
-                            void *contrib,
-                            struct mca_coll_base_module_2_1_0_t *module,
-                            ompi_request_t **request)
+                            ompi_datatype_t *dt,
+                            ompi_op_t *op,
+                            struct ompi_group_t **group,
+                            struct ompi_communicator_t* comm,
+                            ompi_request_t **request,
+                            struct mca_coll_base_module_2_1_0_t *module)
 {
-    *request = MPI_REQUEST_NULL;
-
-    return OMPI_ERR_NOT_SUPPORTED;
+    return comm->c_coll.coll_iallreduce(MPI_IN_PLACE, contrib, dt_count, dt, op,
+                                        comm, request, module);
 }
 
 #endif /* OPAL_ENABLE_FT_MPI */
