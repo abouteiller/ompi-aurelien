@@ -1082,7 +1082,6 @@ static int ompi_comm_idup_internal (ompi_communicator_t *comm, ompi_group_t *gro
 
     request->context = &context->super;
     request->super.req_mpi_object.comm = comm;
-    request->context = context;
 
     rc =  ompi_comm_set_nb (&context->newcomp,                      /* new comm */
                             comm,                                   /* old comm */

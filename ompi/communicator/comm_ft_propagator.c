@@ -14,7 +14,6 @@
 #include "opal/mca/base/mca_base_var.h"
 
 #include "orte/util/name_fns.h"
-#include "orte/runtime/orte_globals.h"
 #include "orte/util/error_strings.h"
 
 #include "ompi/runtime/params.h"
@@ -25,7 +24,7 @@
 typedef struct ompi_comm_failure_propagator_message_t {
     ompi_comm_rbcast_message_t rbcast_msg;
     ompi_process_name_t proc_name;
-    orte_proc_state_t proc_state;
+    int proc_state;
 } ompi_comm_failure_propagator_message_t;
 
 static int ompi_comm_failure_propagator_local(ompi_communicator_t* comm,
@@ -64,14 +63,14 @@ int ompi_comm_finalize_failure_propagator(void) {
 /**
  * uplevel call from the error handler to initiate a failure_propagator
  */
-int ompi_comm_failure_propagate(ompi_communicator_t* comm, ompi_proc_t* proc, orte_proc_state_t state) {
+int ompi_comm_failure_propagate(ompi_communicator_t* comm, ompi_proc_t* proc, int state) {
     int ret = OMPI_SUCCESS;
 
     if( -1 == comm_failure_propagator_cb_type ) return OMPI_SUCCESS;
 
     OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
-                         "%s %s: Initiate a propagation for failure of %s (state %s) on communicator %3d:%d",
-                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&proc->super.proc_name), orte_proc_state_to_str(state), comm->c_contextid, comm->c_epoch ));
+                         "%s %s: Initiate a propagation for failure of %s (state %d) on communicator %3d:%d",
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&proc->super.proc_name), state, comm->c_contextid, comm->c_epoch ));
 
     ompi_comm_failure_propagator_message_t msg;
     /* Broadcast the 'failure_propagator' signal to all other processes. */
@@ -89,7 +88,7 @@ int ompi_comm_failure_propagate(ompi_communicator_t* comm, ompi_proc_t* proc, or
  * status
  */
 static int ompi_comm_failure_propagator_local(ompi_communicator_t* comm, ompi_comm_failure_propagator_message_t* msg) {
-    ompi_proc_t* proc = ompi_proc_for_name(msg->proc_name);
+    ompi_proc_t* proc = (ompi_proc_t*)ompi_proc_for_name(msg->proc_name);
     if( !ompi_proc_is_active(proc) ) {
         OPAL_OUTPUT_VERBOSE((9, ompi_ftmpi_output_handle,
                 "%s %s: failure of %s has already been propagated on comm %3d:%d",
@@ -99,7 +98,7 @@ static int ompi_comm_failure_propagator_local(ompi_communicator_t* comm, ompi_co
     OPAL_OUTPUT_VERBOSE((9, ompi_ftmpi_output_handle,
             "%s %s: failure of %s needs to be propagated on comm %3d:%d",
             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&msg->proc_name), comm->c_contextid, comm->c_epoch));
-    ompi_errmgr_mark_failed_peer_fw(proc, msg->proc_state, false);
+    ompi_errhandler_proc_failed_internal(proc, msg->proc_state, false);
     return true;
 }
 

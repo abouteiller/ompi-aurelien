@@ -38,7 +38,3 @@ lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
         errhandler/errcode.c \
         errhandler/errcode-internal.c
 
-if WANT_FT_MPI
-lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
-	errhandler/errhandler_rte.c
-endif # WANT_FT_MPI

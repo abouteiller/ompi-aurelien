@@ -44,7 +44,6 @@
 #include "ompi/errhandler/errcode-internal.h"
 
 #if OPAL_ENABLE_FT_MPI
-#include "orte/mca/plm/plm_types.h"
 #include "ompi/proc/proc.h"
 #endif
 
@@ -418,18 +417,10 @@ static inline bool ompi_errhandler_is_intrinsic(ompi_errhandler_t *errhandler)
 }
 
 #if OPAL_ENABLE_FT_MPI
-/**
- * Initialize/Finalize the connection with the Runtime Error Management
- * mechanism to be notified of process failures.
- */
-int ompi_errhandler_internal_rte_init(void);
-int ompi_errhandler_internal_rte_finalize(void);
-OMPI_DECLSPEC int ompi_errmgr_mark_failed_peer_fw(ompi_proc_t *ompi_proc, orte_proc_state_t state, int forward);
-#define ompi_errmgr_mark_failed_peer(ompi_proc, state) ompi_errmgr_mark_failed_peer_fw(ompi_proc, state, true)
-#define ompi_errmgr_mark_failed_peer_cause_comm(ompi_proc) ompi_errmgr_mark_failed_peer_fw(ompi_proc, ORTE_PROC_STATE_COMM_FAILED, true)
-#define ompi_errmgr_mark_failed_peer_cause_heartbeat(ompi_proc) ompi_errmgr_mark_failed_peer_fw(ompi_proc, ORTE_PROC_STATE_HEARTBEAT_FAILED, true)
-#define ompi_errmgr_mark_failed_peer_cause_signal(ompi_proc) ompi_errmgr_mark_failed_peer_fw(ompi_proc, ORTE_PROC_STATE_ABORTED_BY_SIG, true)
-
+OMPI_DECLSPEC int ompi_errhandler_proc_failed_internal(ompi_proc_t *ompi_proc, int status, bool forward);
+static inline int ompi_errhandler_proc_failed(ompi_proc_t* ompi_proc) {
+    return ompi_errhandler_proc_failed_internal(ompi_proc, OPAL_ERR_PROC_ABORTED, true);
+}
 #endif /* OPAL_ENABLE_FT_MPI */
 
 END_C_DECLS

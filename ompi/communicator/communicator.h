@@ -586,7 +586,7 @@ int ompi_comm_rbcast_send_msg(
  */
 OMPI_DECLSPEC int ompi_comm_init_failure_propagator(void);
 OMPI_DECLSPEC int ompi_comm_finalize_failure_propagator(void);
-OMPI_DECLSPEC int ompi_comm_failure_propagate(ompi_communicator_t* comm, ompi_proc_t* proc, orte_proc_state_t state);
+OMPI_DECLSPEC int ompi_comm_failure_propagate(ompi_communicator_t* comm, ompi_proc_t* proc, int state);
 
 /*
  * Setup/Shutdown 'failure propagator' handler

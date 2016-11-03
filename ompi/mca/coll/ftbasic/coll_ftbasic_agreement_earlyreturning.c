@@ -2999,7 +2999,7 @@ static int mca_coll_ftbasic_agreement_era_complete_agreement(era_identifier_t ag
     /* Update the group of failed processes */
     for(i = 0; i < AGS(comm)->afr_size; i++) {
         ompi_proc_t *proc = ompi_group_get_proc_ptr(comm->c_local_group, AGS(comm)->agreed_failed_ranks[i], true);
-        ompi_errmgr_mark_failed_peer(proc, ORTE_PROC_STATE_TERMINATED);
+        ompi_errhandler_proc_failed(proc);
     }
 
     /* User wants the group of new failures */

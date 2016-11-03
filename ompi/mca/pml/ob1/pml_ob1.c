@@ -784,7 +784,7 @@ void mca_pml_ob1_error_handler(
                          btl->btl_component->btl_version.mca_component_name,
                          (NULL == errproc ? "null" : OMPI_NAME_PRINT(&errproc->proc_name)), btlinfo);
     if( NULL != errproc ) {
-        ompi_errmgr_mark_failed_peer_cause_comm(errproc);
+        ompi_errhandler_proc_failed(errproc);
     }
     return;
 #endif

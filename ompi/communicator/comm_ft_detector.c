@@ -282,7 +282,7 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
 #if 0
         if( OMPI_SUCCESS == ret ) break;
         /* mark this process dead and forward */
-        ompi_errmgr_mark_failed_peer_cause_heartbeat(proc);
+        ompi_errhandler_proc_failed(proc);
 #else
         break;
 #endif
@@ -397,7 +397,7 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
                         detector->hb_timeout - (stamp - detector->hb_rstamp), detector->hb_observing);
         ompi_proc_t* proc = ompi_comm_peer_lookup(detector->comm, detector->hb_observing);
         /* mark this process dead and forward */
-        ompi_errmgr_mark_failed_peer_cause_heartbeat(proc);
+        ompi_errhandler_proc_failed(proc);
         /* change the observed proc */
         detector->hb_rdma_flag = -2;
         fd_heartbeat_request(detector);
