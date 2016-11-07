@@ -359,7 +359,7 @@ struct era_iagree_request_s {
     ompi_request_t        super;
     era_identifier_t      agreement_id;
     void                 *contrib;
-    ompi_group_t        **group;
+    ompi_group_t        **outgroup;
     era_agreement_info_t *ci;
 };
 
@@ -3033,7 +3033,7 @@ int mca_coll_ftbasic_agreement_era_intra(void *contrib,
                                          int dt_count,
                                          ompi_datatype_t *dt,
                                          ompi_op_t *op,
-                                         ompi_group_t **group,
+                                         ompi_group_t **group, bool grp_update,
                                          ompi_communicator_t* comm,
                                          mca_coll_base_module_t *module)
 {
@@ -3048,7 +3048,7 @@ int mca_coll_ftbasic_agreement_era_intra(void *contrib,
         opal_progress();
     }
 
-    return mca_coll_ftbasic_agreement_era_complete_agreement(agreement_id, contrib, group);
+    return mca_coll_ftbasic_agreement_era_complete_agreement(agreement_id, contrib, grp_update? group: NULL);
 }
 
 /*
@@ -3062,7 +3062,7 @@ int mca_coll_ftbasic_agreement_era_inter(void *contrib,
                                          int dt_count,
                                          ompi_datatype_t *dt,
                                          ompi_op_t *op,
-                                         ompi_group_t **group,
+                                         ompi_group_t **group, bool grp_update,
                                          ompi_communicator_t* comm,
                                          mca_coll_base_module_t *module)
 {
@@ -3099,7 +3099,7 @@ int mca_coll_ftbasic_agreement_era_inter(void *contrib,
     shadowcomm->any_source_offset = comm->any_source_offset;
     shadowcomm->agreement_specific = comm->agreement_specific;
 
-    rc = mca_coll_ftbasic_agreement_era_intra(contriblh, dt_count*2, dt, op, group, shadowcomm, module);
+    rc = mca_coll_ftbasic_agreement_era_intra(contriblh, dt_count*2, dt, op, group, grp_update, shadowcomm, module);
 
     comm->agreement_specific = shadowcomm->agreement_specific;
     if( NULL != comm->agreement_specific ) OBJ_RETAIN(comm->agreement_specific);
@@ -3131,7 +3131,7 @@ static int era_iagree_req_complete_cb(struct ompi_request_t* request)
     assert( req->ci != NULL );
     assert( req->ci->status == COMPLETED );
 
-    rc = mca_coll_ftbasic_agreement_era_complete_agreement(req->agreement_id, req->contrib, req->group);
+    rc = mca_coll_ftbasic_agreement_era_complete_agreement(req->agreement_id, req->contrib, req->outgroup);
     req->ci = NULL;
     req->super.req_status.MPI_ERROR = rc;
     return 0;
@@ -3141,7 +3141,7 @@ int mca_coll_ftbasic_iagreement_era_intra(void *contrib,
                                           int dt_count,
                                           ompi_datatype_t *dt,
                                           ompi_op_t *op,
-                                          ompi_group_t **group,
+                                          ompi_group_t **group, bool grp_update,
                                           ompi_communicator_t* comm,
                                           ompi_request_t **request,
                                           mca_coll_base_module_t *module)
@@ -3178,7 +3178,7 @@ int mca_coll_ftbasic_iagreement_era_intra(void *contrib,
 
     req->agreement_id = agreement_id;
     req->contrib = contrib;
-    req->group = group;
+    req->outgroup = grp_update? group: NULL;
     req->ci = ci;
 
     ci->req = req;
@@ -3213,7 +3213,7 @@ int mca_coll_ftbasic_agreement_era_free_comm(ompi_communicator_t* comm,
                                                   0,
                                                   &ompi_mpi_int.dt,
                                                   &ompi_mpi_op_band.op,
-                                                  &acked,
+                                                  &acked, true,
                                                   comm,
                                                   comm->c_coll.coll_agreement_module);
     } while(rc != MPI_SUCCESS);

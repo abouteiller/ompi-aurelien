@@ -143,7 +143,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
                                            1,
                                            &ompi_mpi_int.dt,
                                            &ompi_mpi_op_band.op,
-                                           &failed_group,
+                                           &failed_group, true,
                                            comm,
                                            comm->c_coll.coll_agreement_module);
     } while( MPI_ERR_PROC_FAILED == ret );

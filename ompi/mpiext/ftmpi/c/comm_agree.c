@@ -51,7 +51,7 @@ int MPIX_Comm_agree(MPI_Comm comm, int *flag)
                                       1,
                                       &ompi_mpi_int.dt,
                                       &ompi_mpi_op_band.op,
-                                      &acked, /* Acked failures are ignored */
+                                      &acked, false, /* Acked failures are ignored */
                                       (ompi_communicator_t*)comm,
                                       comm->c_coll.coll_agreement_module);
     OBJ_RELEASE( acked );

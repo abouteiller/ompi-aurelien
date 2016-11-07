@@ -70,7 +70,7 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
                                      int dt_count,
                                      ompi_datatype_t *dt,
                                      ompi_op_t *op,
-                                     ompi_group_t **group,
+                                     ompi_group_t **group, bool update_grp,
                                      ompi_communicator_t* comm,
                                      mca_coll_base_module_t *module)
 {
@@ -356,8 +356,10 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
                 failed[pos++] = i;
             }
         }
-        OBJ_RELEASE(*group);
-        ompi_group_incl(comm->c_remote_group, pos, failed, group);
+        if( update_grp ) {
+            OBJ_RELEASE(*group);
+            ompi_group_incl(comm->c_remote_group, pos, failed, group);
+        }
     }
     free(proc_status);
 

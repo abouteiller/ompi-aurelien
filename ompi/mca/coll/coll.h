@@ -202,12 +202,12 @@ typedef int
  */
 typedef int (*mca_coll_base_module_agreement_fn_t)
  (void *contrib, int dt_count, struct ompi_datatype_t *dtype,
-   struct ompi_op_t *op, struct ompi_group_t **failgroup,
+   struct ompi_op_t *op, struct ompi_group_t **failedgroup, bool update_failedgroup,
    struct ompi_communicator_t *comm,
    struct mca_coll_base_module_2_2_0_t *module);
 typedef int (*mca_coll_base_module_iagreement_fn_t)
   (void *contrib, int dt_count, struct ompi_datatype_t *dtype,
-   struct ompi_op_t *op, struct ompi_group_t **failgroup,
+   struct ompi_op_t *op, struct ompi_group_t **failedgroup, bool update_failedgroup,
    struct ompi_communicator_t *comm, ompi_request_t **request,
    struct mca_coll_base_module_2_2_0_t *module);
 #endif /* OPAL_ENABLE_FT_MPI */

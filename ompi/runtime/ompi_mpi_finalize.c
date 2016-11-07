@@ -269,7 +269,7 @@ int ompi_mpi_finalize(void)
                                               0,
                                               &ompi_mpi_int.dt,
                                               &ompi_mpi_op_band.op,
-                                              &acked,
+                                              &acked, true,
                                               comm,
                                               comm->c_coll.coll_agreement_module);
         } while(ret != MPI_SUCCESS);

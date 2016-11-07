@@ -1218,7 +1218,8 @@ static int ompi_comm_ft_allreduce_agree_completion(ompi_comm_request_t* request)
         ompi_communicator_t *comm = context->cid_context->comm;
         ompi_request_t *subreq;
         OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle, "ft_allreduce found a dead process during previous round; redo"));
-        rc = comm->c_coll.coll_iagreement(context->outbuf, context->count, &ompi_mpi_int.dt, context->op, failed_group,
+        rc = comm->c_coll.coll_iagreement(context->outbuf, context->count, &ompi_mpi_int.dt, context->op,
+                                          failed_group, true,
                                           comm, &subreq, comm->c_coll.coll_agreement_module);
         if( OPAL_LIKELY(OMPI_SUCCESS == rc) ) {
             request->super.req_status.MPI_ERROR = MPI_SUCCESS;
@@ -1263,7 +1264,8 @@ static int ompi_comm_ft_allreduce_intra_nb(int *inbuf, int *outbuf, int count,
     *failed_group = MPI_GROUP_EMPTY;
     OBJ_RETAIN(*failed_group);
 
-    rc = comm->c_coll.coll_iagreement(context->outbuf, context->count, &ompi_mpi_int.dt, context->op, failed_group,
+    rc = comm->c_coll.coll_iagreement(context->outbuf, context->count, &ompi_mpi_int.dt, context->op,
+                                      failed_group, true,
                                       comm, &subreq, comm->c_coll.coll_agreement_module);
     if( OPAL_UNLIKELY(OMPI_SUCCESS != rc) ) {
         OBJ_RELEASE(*failed_group);
