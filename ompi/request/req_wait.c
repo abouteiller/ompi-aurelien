@@ -109,6 +109,7 @@ int ompi_request_default_wait_any(size_t count,
         return OMPI_SUCCESS;
     }
 
+recheck:
     WAIT_SYNC_INIT(&sync, 1);
 
     num_requests_null_inactive = 0;
@@ -124,14 +125,16 @@ int ompi_request_default_wait_any(size_t count,
         }
 
         if( !OPAL_ATOMIC_CMPSET_PTR(&request->req_complete, REQUEST_PENDING, &sync) ) {
-            assert(REQUEST_COMPLETE(request));
-            completed = i;
-            *index = i;
-            goto after_sync_wait;
+            if(OPAL_LIKELY( REQUEST_COMPLETE(request) )) {
+                completed = i;
+                *index = i;
+                goto after_sync_wait;
+            }
         }
 
 #if OPAL_ENABLE_FT_MPI
-        if( !ompi_request_state_ok(request) ) {
+        if(OPAL_UNLIKELY( ompi_ftmpi_enabled
+                       && !ompi_request_state_ok(request) )) {
             completed = i;
             *index = i;
             goto after_sync_wait;
@@ -149,7 +152,11 @@ int ompi_request_default_wait_any(size_t count,
         return rc;
     }
 
-    SYNC_WAIT(&sync);
+    rc = SYNC_WAIT(&sync);
+    if(OPAL_UNLIKELY( OMPI_SUCCESS != rc )) {
+        rc = OMPI_SUCCESS;
+        goto recheck;
+    }
 
   after_sync_wait:
     /* recheck the complete status and clean up the sync primitives.
@@ -235,6 +242,7 @@ int ompi_request_default_wait_all( size_t count,
         return OMPI_SUCCESS;
     }
 
+recheck:
     WAIT_SYNC_INIT(&sync, count);
     rptr = requests;
     for (i = 0; i < count; i++) {
@@ -246,15 +254,20 @@ int ompi_request_default_wait_all( size_t count,
         }
 
         if (!OPAL_ATOMIC_CMPSET_PTR(&request->req_complete, REQUEST_PENDING, &sync)) {
-            if( OPAL_UNLIKELY( MPI_SUCCESS != request->req_status.MPI_ERROR ) ) {
-                failed++;
+            if( OPAL_LIKELY( REQUEST_COMPLETE(request) ) ) {
+                if( OPAL_UNLIKELY( MPI_SUCCESS != request->req_status.MPI_ERROR ) ) {
+                    failed++;
+                }
+                completed++;
+                continue;
             }
-            completed++;
         }
 
 #if OPAL_ENABLE_FT_MPI
-        else if( !ompi_request_state_ok(request) ) {
+        if(OPAL_UNLIKELY( ompi_ftmpi_enabled
+                       && !ompi_request_state_ok(request) )) {
             failed++;
+            continue;
         }
 #endif /* OPAL_ENABLE_FT_MPI */
     }
@@ -269,9 +282,12 @@ int ompi_request_default_wait_all( size_t count,
     /* wait until all requests complete or until an error is triggered. */
     mpi_error = SYNC_WAIT(&sync);
     if( OPAL_SUCCESS != mpi_error ) {
-        /* if we are in an error case, increase the failed to ensure
-           proper cleanup during the requests completion. */
-        failed++;
+        /* The sync triggered because of an error. The error may be for us, but
+         * it may be for some other pending wait, so we have to recheck
+         * our request status.
+         */
+        failed = completed = 0;
+        goto recheck;
     }
 
  finish:
@@ -440,6 +456,7 @@ int ompi_request_default_wait_some(size_t count,
         return OMPI_SUCCESS;
     }
 
+  recheck:
     WAIT_SYNC_INIT(&sync, 1);
 
     *outcount = 0;
@@ -457,15 +474,23 @@ int ompi_request_default_wait_some(size_t count,
             num_requests_null_inactive++;
             continue;
         }
-        indices[i] = OPAL_ATOMIC_CMPSET_PTR(&request->req_complete, REQUEST_PENDING, &sync);
-        if( !indices[i] ) {
-            /* If the request is completed go ahead and mark it as such */
-            assert( REQUEST_COMPLETE(request) );
+        OPAL_ATOMIC_CMPSET_PTR(&request->req_complete, REQUEST_PENDING, &sync);
+        if( REQUEST_COMPLETE(request) ) {
+            /* If the request is completed go ahead and mark it as such 
+             * indices[i] = 0 means that the sync does not need to be CAS again */
+            indices[i] = 0;
             num_requests_done++;
+            continue;
+        }
+        else {
+            /* indices[i] = 1 means that the sync will need to be CAS later */
+            indices[i] = 1;
         }
 #if OPAL_ENABLE_FT_MPI
-        else if( !ompi_request_state_ok(request) ) {
+        if(OPAL_UNLIKELY( ompi_ftmpi_enabled
+                       && !ompi_request_state_ok(request) )) {
             num_requests_done++;
+            continue;
         }
 #endif /* OPAL_ENABLE_FT_MPI */
     }
@@ -480,7 +505,11 @@ int ompi_request_default_wait_some(size_t count,
 
     if( 0 == num_requests_done ) {
         /* One completed request is enough to satisfy the some condition */
-        SYNC_WAIT(&sync);
+        rc = SYNC_WAIT(&sync);
+        if(OPAL_UNLIKELY( OMPI_SUCCESS != rc )) {
+            rc = OMPI_SUCCESS;
+            goto recheck;
+        }
     }
 
     /* Do the final counting and */

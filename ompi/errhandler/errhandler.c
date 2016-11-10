@@ -230,6 +230,8 @@ ompi_errhandler_t *ompi_errhandler_create(ompi_errhandler_type_t object_type,
 }
 
 #if OPAL_ENABLE_FT_MPI
+#include "opal/threads/wait_sync.h"
+
 static void pmix_notify_cb(int status, void *cbdata) {
     volatile bool *active = (volatile bool*)cbdata;
     *active = false;
@@ -318,10 +320,7 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
      * The wait function has a check, so all we need to do here is
      * signal it so it will check again.
      */
-    //TODO: this needs to be modified with the "wait-sync" patch.
-    OPAL_THREAD_LOCK(&ompi_request_lock);
-    opal_condition_signal(&ompi_request_cond);
-    OPAL_THREAD_UNLOCK(&ompi_request_lock);
+    wait_sync_global_wakeup(MPI_ERR_PROC_FAILED);
 
     /* Collectives:
      * Propagate the error (this has been selected rather than the "roll

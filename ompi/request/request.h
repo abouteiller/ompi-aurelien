@@ -447,16 +447,15 @@ static inline void ompi_request_wait_completion(ompi_request_t *req)
         WAIT_SYNC_RELEASE(&sync);
     } else {
         while(!REQUEST_COMPLETE(req)) {
+            opal_progress();
 #if OPAL_ENABLE_FT_MPI
             /* Check to make sure that process failure did not break the
              * request. */
-            if( ompi_ftmpi_enabled ) {
-                if( !ompi_request_state_ok(req) ) {
-                    break;
-                }
+            if(OPAL_UNLIKELY( ompi_ftmpi_enabled
+                           && !ompi_request_state_ok(req) )) {
+                break;
             }
 #endif /* OPAL_ENABLE_FT_MPI */
-            opal_progress();
         }
     }
 }
