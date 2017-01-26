@@ -258,6 +258,7 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                         OMPI_NAME_PRINT(&ompi_proc->super.proc_name),
                         status );
+    assert( OPAL_EQUAL != ompi_rte_compare_name_fields(OMPI_RTE_CMP_ALL, OMPI_PROC_MY_NAME, &ompi_proc->super.proc_name) );
 
     /* Process State:
      * Update process state to failed */
@@ -330,11 +331,14 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
         bool active = true;
         /* TODO: this to become redundand when pmix has rbcast */
         ompi_comm_failure_propagate(&ompi_mpi_comm_world.comm, ompi_proc, status);
+#if 0
         /* Let pmix know: flush modex information, propagate to connect/accept
          * jobs */
-        opal_pmix.notify_event(status, &ompi_proc->super.proc_name, OPAL_PMIX_RANGE_NAMESPACE,
+        //TODO: fill the info array with ompi_proc->super.proc_name 
+        opal_pmix.notify_event(status, OMPI_PROC_MY_NAME, OPAL_PMIX_RANGE_NAMESPACE,
                                NULL, pmix_notify_cb, &active);
         OMPI_LAZY_WAIT_FOR_COMPLETION(active);
+#endif
     }
 
  cleanup:
@@ -396,8 +400,10 @@ void ompi_errhandler_callback(int status,
         /* transition this from the RTE thread to the MPI progress engine */
         ompi_errhandler_event_t *event = malloc(sizeof(*event));
         if(OPAL_LIKELY( NULL != event )) {
-            event->procname = *source;
             event->status = status;
+            //TODO: this is not correct, should be the content of the info list
+            //instead.
+            event->procname = *source;
             opal_event_set(opal_sync_event_base, &event->super, -1, OPAL_EV_READ,
                            ompi_errhandler_event_cb, event);
             opal_event_active(&event->super, OPAL_EV_READ, 1);
