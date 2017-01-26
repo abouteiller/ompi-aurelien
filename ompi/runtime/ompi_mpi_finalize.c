@@ -261,7 +261,19 @@ int ompi_mpi_finalize(void)
      * remove that agreement */
     if( ompi_ftmpi_enabled ) {
         ompi_communicator_t* comm = &ompi_mpi_comm_world.comm;
+        ompi_communicator_t* ncomm;
         opal_output_verbose(10, ompi_ftmpi_output_handle, "Rank %d entering finalize", ompi_comm_rank(comm));
+        ret = ompi_comm_shrink_internal(comm, &ncomm);
+        if( MPI_SUCCESS != ret ) {
+            OMPI_ERROR_LOG(ret);
+            goto done;
+        }
+        ret = ncomm->c_coll.coll_barrier(ncomm, ncomm->c_coll.coll_barrier_module);
+        if( MPI_SUCCESS != ret ) {
+            OMPI_ERROR_LOG(ret);
+            goto done;
+        }
+#if 0
         ompi_group_t* acked;
         ompi_comm_failure_get_acked_internal(comm, &acked);
         do {
@@ -273,21 +285,23 @@ int ompi_mpi_finalize(void)
                                               comm,
                                               comm->c_coll.coll_agreement_module);
         } while(ret != MPI_SUCCESS);
+#endif
 
         /* finalize the fault tolerant infrastructure (revoke,
          * failure propagator, etc). From now-on we do not tolerate failures. */
+        opal_output_verbose(10, ompi_ftmpi_output_handle, "Rank %05d: TURNING OFF DETECTOR", ompi_comm_rank(comm));
         ompi_comm_finalize_failure_detector();
         ompi_comm_finalize_failure_propagator();
         ompi_comm_finalize_revoke();
         ompi_comm_finalize_rbcast();
-        opal_output(0, "FT: IN FINALIZE");
+        OPAL_OUTPUT_VERBOSE((20, ompi_ftmpi_output_handle, "Rank %05d: DONE WITH FINALIZE", ompi_comm_rank(comm)));
+        //ompi_async_mpi_finalize = true;
 #if 0
         if( ompi_group_size(acked) && 0 == ompi_mpi_comm_world.comm.c_my_rank ) opal_pmix.abort(0, "FT: forcing termination with abort until PMIX_Fence works", NULL);
-#endif
         OBJ_RELEASE(acked);
-        opal_pmix.fence(NULL, 0);
+#endif
     }
-#else
+#endif
     if (!ompi_async_mpi_finalize) {
         if (NULL != opal_pmix.fence_nb) {
             active = true;
