@@ -29,11 +29,11 @@
 static int
 mca_coll_ftbasic_agreement(void *contrib,
                            int dt_count,
-                           ompi_datatype_t *dt,
-                           ompi_op_t *op,
+                           struct ompi_datatype_t *dt,
+                           struct ompi_op_t *op,
                            struct ompi_group_t **group, bool update_grp,
                            struct ompi_communicator_t* comm,
-                           struct mca_coll_base_module_2_1_0_t *module)
+                           struct mca_coll_base_module_2_2_0_t *module)
 {
     return comm->c_coll.coll_allreduce(MPI_IN_PLACE, contrib, dt_count, dt, op,
                                        comm, module);
@@ -42,12 +42,12 @@ mca_coll_ftbasic_agreement(void *contrib,
 static int
 mca_coll_ftbasic_iagreement(void *contrib,
                             int dt_count,
-                            ompi_datatype_t *dt,
-                            ompi_op_t *op,
+                            struct ompi_datatype_t *dt,
+                            struct ompi_op_t *op,
                             struct ompi_group_t **group, bool update_grp,
                             struct ompi_communicator_t* comm,
                             ompi_request_t **request,
-                            struct mca_coll_base_module_2_1_0_t *module)
+                            struct mca_coll_base_module_2_2_0_t *module)
 {
     return comm->c_coll.coll_iallreduce(MPI_IN_PLACE, contrib, dt_count, dt, op,
                                         comm, request, module);
