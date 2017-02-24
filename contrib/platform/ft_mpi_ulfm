@@ -1,0 +1,7 @@
+# disabling non-tested and known broken components in FT-MPI builds
+# The following frameworks/components are UNTESTED. Use at your own risk with FT.
+#   bcol, crcp, fbtl, fcoll, sbgp, vprotocol, coll-cuda, coll-fca, coll-hcoll, coll-ml, coll-portals4, btl-scif, pml-monitoring, pml-v,
+# The following frameworks/components are NOT WORKING. Do not enable these with FT.
+#   mtl, pml-bfo, pml-cm, pml-crcpw, pml-yalla, pml-ucx
+enable_mca_no_build=bcol,crcp,fbtl,fcoll,mtl,sbgp,vprotocol,pml-bfo,pml-cm,pml-crcpw,pml-monitoring,pml-ucx,pml-v,pml-yalla,coll-cuda,coll-fca,coll-hcoll,coll-ml,coll-portals4,btl-scif
+

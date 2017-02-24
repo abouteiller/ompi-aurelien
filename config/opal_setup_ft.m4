@@ -41,7 +41,7 @@ AC_DEFUN([OPAL_SETUP_FT_OPTIONS],[
     opal_setup_ft_options="yes"
     AC_ARG_WITH(ft,
                 [AC_HELP_STRING([--with-ft=TYPE],
-                [Specify the type of fault tolerance to enable. Options: LAM (LAM/MPI-like), cr (Checkpoint/Restart), mpi (ULFM) (default: disabled)])],
+                [Specify the type of fault tolerance to enable. Options: mpi (ULFM), LAM (LAM/MPI-like), cr (Checkpoint/Restart) (default: disabled)])],
                 [opal_want_ft=1],
                 [opal_want_ft=0])
 
@@ -135,6 +135,16 @@ AC_DEFUN([OPAL_SETUP_FT],[
     AM_CONDITIONAL(WANT_FT, test "$opal_want_ft" = "1")
     AM_CONDITIONAL(WANT_FT_MPI, test "$opal_want_ft_mpi" = "1")
     AM_CONDITIONAL(WANT_FT_CR,  test "$opal_want_ft_cr" = "1")
+
+    if test "$opal_want_ft_mpi" = "1"; then
+        AC_MSG_CHECKING([loading UFLM FT MPI platform file additions])
+        if test -r "${srcdir}/contrib/platform/ft_mpi_ulfm" ; then
+            . ${srcdir}/contrib/platform/ft_mpi_ulfm
+            AC_MSG_RESULT([Loaded contrib/platform/ft_mpi_ulfm])
+        else
+            AC_MSG_RESULT([Not found])
+        fi
+    fi
 
     if test "$opal_setup_ft_options" = "yes"; then
         AC_MSG_CHECKING([if want checkpoint/restart enabled debugging option])
