@@ -3228,7 +3228,7 @@ int mca_coll_ftbasic_agreement_era_free_comm(ompi_communicator_t* comm,
                                                   &ompi_mpi_op_band.op,
                                                   &acked, true,
                                                   comm,
-                                                  comm->c_coll.coll_agreement_module);
+                                                  comm->c_coll->coll_agreement_module);
     } while(rc != MPI_SUCCESS);
     OBJ_RELEASE(acked);
 

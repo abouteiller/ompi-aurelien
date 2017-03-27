@@ -268,7 +268,7 @@ int ompi_mpi_finalize(void)
             OMPI_ERROR_LOG(ret);
             goto done;
         }
-        ret = ncomm->c_coll.coll_barrier(ncomm, ncomm->c_coll.coll_barrier_module);
+        ret = ncomm->c_coll->coll_barrier(ncomm, ncomm->c_coll->coll_barrier_module);
         if( MPI_SUCCESS != ret ) {
             OMPI_ERROR_LOG(ret);
             goto done;
@@ -277,13 +277,13 @@ int ompi_mpi_finalize(void)
         ompi_group_t* acked;
         ompi_comm_failure_get_acked_internal(comm, &acked);
         do {
-            ret = comm->c_coll.coll_agreement(NULL,
+            ret = comm->c_coll->coll_agreement(NULL,
                                               0,
                                               &ompi_mpi_int.dt,
                                               &ompi_mpi_op_band.op,
                                               &acked, true,
                                               comm,
-                                              comm->c_coll.coll_agreement_module);
+                                              comm->c_coll->coll_agreement_module);
         } while(ret != MPI_SUCCESS);
 #endif
 

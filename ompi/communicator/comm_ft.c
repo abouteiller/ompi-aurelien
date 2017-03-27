@@ -139,13 +139,13 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
          * the value of flag, instead we are only using the globally consistent
          * return value.
          */
-        ret = comm->c_coll.coll_agreement( &flag,
+        ret = comm->c_coll->coll_agreement( &flag,
                                            1,
                                            &ompi_mpi_int.dt,
                                            &ompi_mpi_op_band.op,
                                            &failed_group, true,
                                            comm,
-                                           comm->c_coll.coll_agreement_module);
+                                           comm->c_coll->coll_agreement_module);
     } while( MPI_ERR_PROC_FAILED == ret );
     stop = MPI_Wtime();
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
