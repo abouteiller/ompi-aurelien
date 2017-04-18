@@ -363,13 +363,6 @@ static int ompi_comm_allreduce_getnextcid (ompi_comm_request_t *request)
     if( participate ){
         flag = false;
         context->nextlocal_cid = mca_pml.pml_max_contextid;
-#if OPAL_ENABLE_FT_MPI
-        context->nextcid_epoch = ompi_comm_cid_epoch - 1;
-        if (0 == context->nextcid_epoch) {
-            /* out of epochs, force an error by setting nextlocalcid */
-            context->nextlocal_cid = mca_pml.pml_max_contextid;
-        }
-#endif /* OPAL_ENABLE_FT_MPI */
         for (unsigned int i = context->start ; i < mca_pml.pml_max_contextid ; ++i) {
             flag = opal_pointer_array_test_and_set_item (&ompi_mpi_communicators, i,
                                                          context->comm);
@@ -378,6 +371,13 @@ static int ompi_comm_allreduce_getnextcid (ompi_comm_request_t *request)
                 break;
             }
         }
+#if OPAL_ENABLE_FT_MPI
+        context->nextcid_epoch = ompi_comm_cid_epoch - 1;
+        if (0 == context->nextcid_epoch) {
+            /* out of epochs, force an error by setting nextlocalcid */
+            context->nextlocal_cid = mca_pml.pml_max_contextid;
+        }
+#endif /* OPAL_ENABLE_FT_MPI */
     } else {
         context->nextlocal_cid = 0;
     }
