@@ -78,7 +78,7 @@ typedef struct ompi_wait_sync_t {
 
 
 /* not static for inline "wait_sync_st" */
-OPAL_DECLSPEC ompi_wait_sync_t *wait_sync_list;
+OPAL_DECLSPEC extern ompi_wait_sync_t *wait_sync_list;
 
 OPAL_DECLSPEC int ompi_sync_wait_mt(ompi_wait_sync_t *sync);
 static inline int sync_wait_st (ompi_wait_sync_t *sync)
