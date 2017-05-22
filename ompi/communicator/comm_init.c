@@ -54,9 +54,6 @@
 */
 opal_pointer_array_t ompi_mpi_communicators = {{0}};
 opal_pointer_array_t ompi_comm_f_to_c_table = {{0}};
-#if OPAL_ENABLE_FT_MPI
-opal_pointer_array_t ompi_mpi_comm_epoch = {{0}};
-#endif  /* OPAL_ENABLE_FT_MPI */
 
 ompi_predefined_communicator_t  ompi_mpi_comm_world = {{{{0}}}};
 ompi_predefined_communicator_t  ompi_mpi_comm_self = {{{{0}}}};
@@ -103,14 +100,6 @@ int ompi_comm_init(void)
                                                 OMPI_FORTRAN_HANDLE_MAX, 32) ) {
         return OMPI_ERROR;
     }
-
-#if OPAL_ENABLE_FT_MPI
-    OBJ_CONSTRUCT(&ompi_mpi_comm_epoch, opal_pointer_array_t);
-    if( OPAL_SUCCESS != opal_pointer_array_init(&ompi_mpi_comm_epoch, 0,
-                                                OMPI_FORTRAN_HANDLE_MAX, 64) ) {
-        return OMPI_ERROR;
-    }
-#endif  /* OPAL_ENABLE_FT_MPI */
 
     /* Setup MPI_COMM_WORLD */
     OBJ_CONSTRUCT(&ompi_mpi_comm_world, ompi_communicator_t);
@@ -164,8 +153,6 @@ int ompi_comm_init(void)
 
 #if OPAL_ENABLE_FT_MPI
     ompi_mpi_comm_world.comm.c_epoch = 0;
-    opal_pointer_array_set_item (&ompi_mpi_comm_epoch, 0,
-                                 (void*)(uintptr_t)(ompi_mpi_comm_world.comm.c_epoch));
 #endif  /* OPAL_ENABLE_FT_MPI */
 
     /* Setup MPI_COMM_SELF */
@@ -202,8 +189,6 @@ int ompi_comm_init(void)
 
 #if OPAL_ENABLE_FT_MPI
     ompi_mpi_comm_world.comm.c_epoch = 0;
-    opal_pointer_array_set_item (&ompi_mpi_comm_epoch, 1,
-                                 (void*)(uintptr_t)(ompi_mpi_comm_self.comm.c_epoch));
 #endif  /* OPAL_ENABLE_FT_MPI */
 
     /* Setup MPI_COMM_NULL */
@@ -227,8 +212,6 @@ int ompi_comm_init(void)
     ompi_mpi_comm_null.comm.c_flags |= OMPI_COMM_INTRINSIC;
 #if OPAL_ENABLE_FT_MPI
     ompi_mpi_comm_null.comm.c_epoch = 0;
-    opal_pointer_array_set_item (&ompi_mpi_comm_epoch, 2,
-                                 (void*)(uintptr_t)(ompi_mpi_comm_null.comm.c_epoch));
 #endif  /* OPAL_ENABLE_FT_MPI */
 
 
@@ -358,9 +341,6 @@ int ompi_comm_finalize(void)
 
     OBJ_DESTRUCT (&ompi_mpi_communicators);
     OBJ_DESTRUCT (&ompi_comm_f_to_c_table);
-#if OPAL_ENABLE_FT_MPI
-    OBJ_DESTRUCT (&ompi_mpi_comm_epoch);
-#endif /* OPAL_ENABLE_FT_MPI */
 
     /* finalize communicator requests */
     ompi_comm_request_fini ();

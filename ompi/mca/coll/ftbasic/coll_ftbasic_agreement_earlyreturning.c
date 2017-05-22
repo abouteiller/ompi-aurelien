@@ -2309,16 +2309,6 @@ static void result_request(era_msg_header_t *msg_header)
              *  agreement that was posted during the free.
              */
             if( msg_header->agreement_value_header.dt_count == 0 ) {
-                uint16_t requested_cid = msg_header->agreement_id.ERAID_FIELDS.contextid;
-                void *location = opal_pointer_array_get_item(&ompi_mpi_comm_epoch, requested_cid);
-                uint32_t known_epoch = (uint32_t)((uintptr_t)location);
-#if OPAL_ENABLE_DEBUG
-                int64_t distance_betwheen_epochs = (int64_t)known_epoch - (int64_t)msg_header->agreement_id.ERAID_FIELDS.epoch;
-                if( distance_betwheen_epochs > 0 )
-                    assert(  distance_betwheen_epochs < (1LL<<31) );
-                else
-                    assert( -distance_betwheen_epochs < (1LL<<31) );
-#endif
                 /** Then, the answer is "success" */
                 send_msg(NULL, msg_header->src_comm_rank, &msg_header->src_proc_name, msg_header->agreement_id,
                          MSG_DOWN, &success_value, 0, NULL);
