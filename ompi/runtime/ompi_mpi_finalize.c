@@ -325,7 +325,6 @@ int ompi_mpi_finalize(void)
             opal_pmix.fence(NULL, 0);
         }
     }
-#endif
 
     /* check for timing request - get stop time and report elapsed
      time if so */
