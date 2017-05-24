@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2016 The University of Tennessee and The University
+ * Copyright (c) 2004-2017 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -59,8 +59,9 @@ OMPI_DECLSPEC extern int coll_ftbasic_era_debug_rank_may_fail;
 #endif
 
 enum mca_coll_ftbasic_agreement_method_t {
-    COLL_FTBASIC_EARLY_TERMINATION = 0,
-    COLL_FTBASIC_EARLY_RETURNING   = 1
+    COLL_FTBASIC_NOFT = 0,
+    COLL_FTBASIC_EARLY_RETURNING   = 1,
+    COLL_FTBASIC_EARLY_TERMINATION = 2
 };
 typedef enum mca_coll_ftbasic_agreement_method_t mca_coll_ftbasic_agreement_method_t;
 
@@ -90,9 +91,6 @@ OBJ_CLASS_DECLARATION(mca_coll_ftbasic_agreement_t);
 
 struct mca_coll_ftbasic_module_t {
     mca_coll_base_module_t super;
-
-    /* Communicator Type */
-    bool is_intercomm;
 
     /* Array of requests */
     ompi_request_t **mccb_reqs;

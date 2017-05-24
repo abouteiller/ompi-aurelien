@@ -108,24 +108,31 @@ ftbasic_register(void)
                                            MCA_BASE_VAR_SCOPE_READONLY,
                                            &mca_coll_ftbasic_priority);
 
-    value = 1;
+    if( ompi_ftmpi_enabled ) value = 1;
+    else value = 0; /* NOFT: do not initialize ERA */
     (void) mca_base_component_var_register(&mca_coll_ftbasic_component.collm_version,
-                                           "agreement", "Agreement algorithm 0: Early Terminating Concensus (eta); 1: Early Returning Concensus (era)",
+                                           "agreement", "Agreement algorithm 0: Allreduce (NOT FAULT TOLERANT); 1: Early Returning Concensus (era); 2: Early Terminating Concensus (eta)",
                                            MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
                                            OPAL_INFO_LVL_6,
                                            MCA_BASE_VAR_SCOPE_READONLY,
                                            &value);
     switch(value) {
     case 0:
-        mca_coll_ftbasic_cur_agreement_method = COLL_FTBASIC_EARLY_TERMINATION;
+        mca_coll_ftbasic_cur_agreement_method = COLL_FTBASIC_NOFT;
         opal_output_verbose(6, ompi_ftmpi_output_handle,
-                            "%s ftbasic:register) Agreement Algorithm - Early Terminating Consensus Algorithm",
+                            "%s ftbasic:register) Agreement Algorithm - Allreduce (NOT FAULT TOLERANT)",
                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) );
         break;
     default:  /* Includes the valid case 1 */
         mca_coll_ftbasic_cur_agreement_method = COLL_FTBASIC_EARLY_RETURNING;
         opal_output_verbose(6, ompi_ftmpi_output_handle,
                             "%s ftbasic:register) Agreement Algorithm - Early Returning Consensus Algorithm",
+                            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) );
+        break;
+    case 2:
+        mca_coll_ftbasic_cur_agreement_method = COLL_FTBASIC_EARLY_TERMINATION;
+        opal_output_verbose(6, ompi_ftmpi_output_handle,
+                            "%s ftbasic:register) Agreement Algorithm - Early Terminating Consensus Algorithm",
                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) );
         break;
     }
@@ -155,8 +162,6 @@ ftbasic_register(void)
 static void
 mca_coll_ftbasic_module_construct(mca_coll_ftbasic_module_t *module)
 {
-    module->is_intercomm = false;
-
     module->mccb_reqs = NULL;
     module->mccb_num_reqs = 0;
 
@@ -174,11 +179,9 @@ mca_coll_ftbasic_module_destruct(mca_coll_ftbasic_module_t *module)
 {
 
     /* Finalize the agreement function */
-    if( ompi_ftmpi_enabled && !module->is_intercomm ) {
+    if( ompi_ftmpi_enabled ) {
         mca_coll_ftbasic_agreement_finalize(module);
     }
-
-    module->is_intercomm = false;
 
     /* This object is managed by the agreement operation selected */
     module->agreement_info = NULL;

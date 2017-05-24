@@ -2,7 +2,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2016 The University of Tennessee and The University
+ * Copyright (c) 2004-2017 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -36,7 +36,7 @@ mca_coll_ftbasic_agreement(void *contrib,
                            struct mca_coll_base_module_2_2_0_t *module)
 {
     return comm->c_coll->coll_allreduce(MPI_IN_PLACE, contrib, dt_count, dt, op,
-                                       comm, module);
+                                       comm, comm->c_coll->coll_allreduce_module);
 }
 
 static int
@@ -50,7 +50,7 @@ mca_coll_ftbasic_iagreement(void *contrib,
                             struct mca_coll_base_module_2_2_0_t *module)
 {
     return comm->c_coll->coll_iallreduce(MPI_IN_PLACE, contrib, dt_count, dt, op,
-                                        comm, request, module);
+                                        comm, request, comm->c_coll->coll_iallreduce_module);
 }
 
 #endif /* OPAL_ENABLE_FT_MPI */
@@ -62,7 +62,7 @@ mca_coll_ftbasic_iagreement(void *contrib,
  */
 int
 mca_coll_ftbasic_init_query(bool enable_progress_threads,
-                          bool enable_mpi_threads)
+                            bool enable_mpi_threads)
 {
     if( mca_coll_ftbasic_cur_agreement_method == COLL_FTBASIC_EARLY_RETURNING ) {
         return mca_coll_ftbasic_agreement_era_init();
@@ -89,15 +89,13 @@ mca_coll_ftbasic_comm_query(struct ompi_communicator_t *comm,
 
     *priority = mca_coll_ftbasic_priority;
 
-    ftbasic_module->is_intercomm = OMPI_COMM_IS_INTER(comm);
-
     /*
      * Allocate the data that hangs off the communicator
      * Intercommunicators not currently supported
      */
-    if( ompi_ftmpi_enabled && !OMPI_COMM_IS_INTER(comm) ) {
+    if( ompi_ftmpi_enabled ) {
         if (OMPI_COMM_IS_INTER(comm)) {
-            size = ompi_comm_remote_size(comm);
+            size = ompi_comm_remote_size(comm)+ompi_comm_size(comm);
         } else {
             size = ompi_comm_size(comm);
         }
@@ -156,6 +154,8 @@ mca_coll_ftbasic_comm_query(struct ompi_communicator_t *comm,
 
         /* Choose the correct operations */
         switch( mca_coll_ftbasic_cur_agreement_method ) {
+        case COLL_FTBASIC_NOFT:
+            break;
         case COLL_FTBASIC_EARLY_TERMINATION:
             if( !OMPI_COMM_IS_INTER(comm) ) {
                 ftbasic_module->super.coll_agreement  = mca_coll_ftbasic_agreement_eta_intra;

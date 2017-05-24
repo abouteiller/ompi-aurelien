@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016      The University of Tennessee and The University
+ * Copyright (c) 2016-2017 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -19,9 +19,11 @@
 #include "ompi/mca/bml/bml.h"
 #include "ompi/mca/bml/base/base.h"
 
+#include <math.h>
+
 typedef struct {
     ompi_communicator_t* comm;
-    opal_event_t fd_event; /* to trigger timeouts with opal_events */
+    opal_event_t* fd_event; /* to trigger timeouts with opal_events */
     int hb_observing; /* the rank of the process we observe */
     int hb_observer; /* the rank of the process that observes us */
     double hb_rstamp; /* the date of the last hb reception */
@@ -39,8 +41,24 @@ typedef struct {
     opal_mutex_t fd_mutex; /* protect the structure while we change observer */
 } comm_detector_t;
 
-static comm_detector_t comm_world_detector;
-
+static comm_detector_t comm_world_detector = {
+    .comm = &ompi_mpi_comm_world.comm,
+    .fd_event = NULL,
+    .hb_observing = MPI_PROC_NULL,
+    .hb_observer = MPI_PROC_NULL,
+    .hb_rstamp = 0.0,
+    .hb_timeout = INFINITY,
+    .hb_period = INFINITY,
+    .hb_sstamp = 0.0,
+    .hb_rdma_bml_btl = NULL,
+    .hb_rdma_rank = MPI_PROC_NULL,
+    .hb_rdma_rank_lreg = NULL,
+    .hb_rdma_flag = -1,
+    .hb_rdma_flag_lreg = NULL,
+    .hb_rdma_raddr = (int64_t)NULL,
+    .hb_rdma_rreg = NULL,
+    .fd_mutex = OPAL_MUTEX_STATIC_INIT
+};
 
 typedef struct fd_heartbeat_t {
     ompi_comm_rbcast_message_t super;
@@ -108,7 +126,7 @@ int ompi_comm_init_failure_detector(void) {
                                   MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &comm_detector_use_thread);
 #endif /* OPAL_ENABLE_MULTI_THREADS */
-    if( !detect || !ompi_ftmpi_enabled ) return OMPI_SUCCESS;
+    if( !ompi_ftmpi_enabled || !detect ) return OMPI_SUCCESS;
 
     /* using rbcast to transmit messages (cb must always return the noforward 'false' flag) */
     /* registering the cb types */
@@ -136,10 +154,8 @@ int ompi_comm_init_failure_detector(void) {
         if( OPAL_SUCCESS != ret ) goto cleanup;
         while( 0 == fd_thread_active ); /* wait for the fd thread initialization */
         if( 0 > fd_thread_active ) goto cleanup;
-        return OMPI_SUCCESS;
     }
 #endif /* OPAL_ENABLE_MULTI_THREADS */
-    opal_progress_event_users_increment();
 
     return OMPI_SUCCESS;
 
@@ -149,12 +165,16 @@ int ompi_comm_init_failure_detector(void) {
 }
 
 int ompi_comm_start_failure_detector(void) {
+    /* fd not wanted */
+    if( -1 == comm_heartbeat_recv_cb_type ) return OMPI_SUCCESS;
+
 #if OPAL_ENABLE_MULTI_THREADS
     if( comm_detector_use_thread ) {
         OPAL_THREAD_ADD32(&fd_thread_active, 1);
         return OMPI_SUCCESS;
     }
 #endif /* OPAL_ENABLE_MULTI_THREADS */
+
     /* setting up the default detector on comm_world */
     return ompi_comm_start_detector(&ompi_mpi_comm_world.comm);
 }
@@ -167,22 +187,33 @@ int ompi_comm_finalize_failure_detector(void) {
         void* tret;
         /* this is not a race condition. Accesses are serialized, we use the
          * atomic for the mfence part of it. */
-        OPAL_THREAD_ADD32(&fd_thread_active, fd_thread_active);
+        OPAL_THREAD_ADD32(&fd_thread_active, -fd_thread_active);
         opal_event_base_loopbreak(fd_event_base);
         opal_thread_join(&fd_thread, &tret);
     }
 #endif /* OPAL_ENABLE_MULTI_THREADS */
 
-    opal_event_del(&comm_world_detector.fd_event);
+    comm_detector_t* detector = &comm_world_detector;
+    if( NULL != detector->fd_event ) {
+        opal_event_del(detector->fd_event);
+        opal_event_free(detector->fd_event);
+        detector->fd_event = NULL;
+    }
     if( opal_sync_event_base != fd_event_base ) opal_event_base_free(fd_event_base);
+#if 0 /* not doing this permits an optimization in finalize and saves an extra barrier */
     if( -1 != comm_heartbeat_recv_cb_type ) ompi_comm_rbcast_unregister_cb_type(comm_heartbeat_recv_cb_type);
     if( -1 != comm_heartbeat_request_cb_type ) ompi_comm_rbcast_unregister_cb_type(comm_heartbeat_request_cb_type);
     comm_heartbeat_recv_cb_type = comm_heartbeat_request_cb_type = -1;
+#else
+    /* ignore heartbeats and heartbeats requests from now on */
+    detector->hb_observer = detector->hb_observing = detector->comm->c_my_rank;
+#endif
     return OMPI_SUCCESS;
 }
 
 int ompi_comm_start_detector(ompi_communicator_t* comm) {
-    if( comm != &ompi_mpi_comm_world.comm ) return OMPI_SUCCESS; /* TODO: not implemented for other comms yet */
+    /* TODO: not implemented for other comms yet */
+    if( &ompi_mpi_comm_world.comm != comm ) return OMPI_ERR_NOT_IMPLEMENTED;
     comm_detector_t* detector = &comm_world_detector;
 
     int rank, np;
@@ -210,18 +241,18 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
         fd_heartbeat_request(detector);
     }
 
-    opal_event_set(fd_event_base, &detector->fd_event, -1, OPAL_EV_TIMEOUT | OPAL_EV_PERSIST, fd_event_cb, detector);
+    detector->fd_event = opal_event_new(fd_event_base, -1, OPAL_EV_TIMEOUT | OPAL_EV_PERSIST, fd_event_cb, detector);
     struct timeval tv;
     tv.tv_sec = (int)(detector->hb_period / 10.);
     tv.tv_usec = (-tv.tv_sec + (detector->hb_period / 10.)) * 1e6;
-    opal_event_add(&detector->fd_event, &tv);
+    opal_event_add(detector->fd_event, &tv);
+    opal_progress_event_users_increment();
     return OMPI_SUCCESS;
 }
 
 static int fd_heartbeat_request(comm_detector_t* detector) {
     assert( -1 != comm_heartbeat_request_cb_type /* initialized */);
     ompi_communicator_t* comm = detector->comm;
-    if( &ompi_mpi_comm_world.comm != comm ) return OMPI_ERR_NOT_IMPLEMENTED;
 
     if( -3 != detector->hb_rdma_flag /* initialization */
      && ompi_comm_is_proc_active(comm, detector->hb_observing, OMPI_COMM_IS_INTER(comm)) ) {
@@ -287,7 +318,13 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
         break;
 #endif
     }
-    /* if everybody else is dead, then it's a success */
+    /* if everybody else is dead, I don't need to monitor myself. */
+    if( rank == comm->c_my_rank ) {
+        detector->hb_observer = detector->hb_observing = rank;
+        detector->hb_rstamp = INFINITY;
+        detector->hb_period = INFINITY;
+        return OMPI_SUCCESS;
+    }
     detector->hb_rstamp = PMPI_Wtime()+detector->hb_timeout; /* we add one timeout slack to account for the send time */
     return OMPI_SUCCESS;
 }
