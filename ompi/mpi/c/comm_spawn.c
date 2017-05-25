@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2005 The University of Tennessee and The University
+ * Copyright (c) 2004-2017 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -81,12 +81,13 @@ int MPI_Comm_spawn(const char *command, char *argv[], int maxprocs, MPI_Info inf
             return OMPI_ERRHANDLER_INVOKE(comm, MPI_ERR_ARG,
                                           FUNC_NAME);
         }
-#if OPAL_ENABLE_FT_MPI
-        if( !ompi_comm_iface_coll_check(comm, &rc) ) {
-            return OMPI_ERRHANDLER_INVOKE(comm, rc, FUNC_NAME);
-        }
-#endif
     }
+
+#if OPAL_ENABLE_FT_MPI
+    if( OPAL_UNLIKELY(!ompi_comm_iface_coll_check(comm, &rc)) ) {
+        return OMPI_ERRHANDLER_INVOKE(comm, rc, FUNC_NAME);
+    }
+#endif
 
     rank = ompi_comm_rank ( comm );
     if ( MPI_PARAM_CHECK ) {

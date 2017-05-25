@@ -127,7 +127,7 @@ int MPI_Alltoallv(const void *sendbuf, const int sendcounts[],
      * communicator. This is not absolutely necessary since we will
      * check for this, and other, error conditions during the operation.
      */
-    if( !ompi_comm_iface_coll_check(comm, &err) ) {
+    if( OPAL_UNLIKELY(!ompi_comm_iface_coll_check(comm, &err)) ) {
         OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
     }
 #endif

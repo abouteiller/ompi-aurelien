@@ -1288,9 +1288,8 @@ static int ompi_comm_ft_allreduce_inter_nb(int *inbuf, int *outbuf, int count,
 static int ompi_comm_ft_allreduce_intra_pmix_nb(int *inbuf, int *outbuf, int count,
                                                 struct ompi_op_t *op, ompi_comm_cid_context_t *cid_context,
                                                 ompi_request_t **req) {
-    //TODO: CID_INTRA_PMIX_FT needs an implementation, using the non-ft for
-    //now...
-    return ompi_comm_allreduce_intra_pmix_nb(inbuf, outbuf, count op, cid_context, req);
+    //TODO: CID_INTRA_PMIX_FT needs an implementation, using the non-ft for now...
+    return ompi_comm_allreduce_intra_pmix_nb(inbuf, outbuf, count, op, cid_context, req);
 }
 
 #if 0

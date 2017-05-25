@@ -115,18 +115,18 @@ int MPI_Allgatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
         if (NULL == displs) {
           return OMPI_ERRHANDLER_INVOKE(comm, MPI_ERR_BUFFER, FUNC_NAME);
         }
+    }
 
 #if OPAL_ENABLE_FT_MPI
-        /*
-         * An early check, so as to return early if we are using a broken
-         * communicator. This is not absolutely necessary since we will
-         * check for this, and other, error conditions during the operation.
-         */
-        if( !ompi_comm_iface_coll_check(comm, &err) ) {
-            OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
-        }
-#endif
+    /*
+     * An early check, so as to return early if we are using a broken
+     * communicator. This is not absolutely necessary since we will
+     * check for this, and other, error conditions during the operation.
+     */
+    if( OPAL_UNLIKELY(!ompi_comm_iface_coll_check(comm, &err)) ) {
+        OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
     }
+#endif
 
     /* Do we need to do anything?  Everyone had to give the same
        signature, which means that everyone must have given a

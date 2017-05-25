@@ -106,8 +106,8 @@ int MPI_Cart_create(MPI_Comm old_comm, int ndims, const int dims[],
      * communicator. This is not absolutely necessary since we will
      * check for this, and other, error conditions during the operation.
      */
-    if( OPAL_UNLIKELY(!ompi_comm_iface_create_check(old_comm, &rc)) ) {
-       OMPI_ERRHANDLER_RETURN(rc, old_comm, rc, FUNC_NAME);
+    if( OPAL_UNLIKELY(!ompi_comm_iface_create_check(old_comm, &err)) ) {
+       OMPI_ERRHANDLER_RETURN(err, old_comm, err, FUNC_NAME);
     }
 #endif
 

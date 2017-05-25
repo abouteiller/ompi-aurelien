@@ -186,18 +186,18 @@ int MPI_Scatterv(const void *sendbuf, const int sendcounts[], const int displs[]
                 }
             }
         }
+    }
 
 #if OPAL_ENABLE_FT_MPI
-        /*
-         * An early check, so as to return early if we are using a broken
-         * communicator. This is not absolutely necessary since we will
-         * check for this, and other, error conditions during the operation.
-         */
-        if( !ompi_comm_iface_coll_check(comm, &err) ) {
-            OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
-        }
-#endif
+    /*
+     * An early check, so as to return early if we are using a broken
+     * communicator. This is not absolutely necessary since we will
+     * check for this, and other, error conditions during the operation.
+     */
+    if( OPAL_UNLIKELY(!ompi_comm_iface_coll_check(comm, &err)) ) {
+        OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
     }
+#endif
 
     OPAL_CR_ENTER_LIBRARY();
 
