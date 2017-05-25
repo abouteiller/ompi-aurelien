@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2012-2013 The University of Tennessee and The University
+ * Copyright (c) 2012-2017 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2012-2013 Inria.  All rights reserved.
@@ -87,6 +87,17 @@ int MPI_Dist_graph_create(MPI_Comm comm_old, int n, const int sources[],
                                                         &topo, OMPI_COMM_DIST_GRAPH))) {
         return OMPI_ERRHANDLER_INVOKE(comm_old, err, FUNC_NAME);
     }
+
+#if OPAL_ENABLE_FT_MPI
+    /*
+     * An early check, so as to return early if we are using a broken
+     * communicator. This is not absolutely necessary since we will
+     * check for this, and other, error conditions during the operation.
+     */
+    if( OPAL_UNLIKELY(!ompi_comm_iface_create_check(comm_old, &err)) ) {
+        OMPI_ERRHANDLER_RETURN(err, comm_old, err, FUNC_NAME);
+    }
+#endif
 
     err = topo->topo.dist_graph.dist_graph_create(topo, comm_old, n, sources, degrees,
                                                   destinations, weights, &(info->super),
