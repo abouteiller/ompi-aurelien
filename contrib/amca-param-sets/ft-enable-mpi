@@ -52,3 +52,4 @@ ompi_ftmpi_enable=1
 #   corner cases. The safer setup "basic,ftbasic" imparts a huge performance 
 #   penalty, we encourage you to try "tuned,basic,ftbasic" and see if it works for you, in most cases, it will.
 coll=tuned,basic,ftbasic
+pml=ob1
