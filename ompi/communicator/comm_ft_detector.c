@@ -31,7 +31,9 @@ typedef struct {
     double hb_period; /* the time spacing between heartbeat emission (eta) */
     double hb_sstamp; /* the date at which the last hb emission was done */
     /* caching for RDMA put heartbeats */
-    mca_bml_base_btl_t *hb_rdma_bml_btl;
+    mca_bml_base_btl_t *hb_rdma_bml_btl_observer;
+    /* caching for registration removal */
+    mca_bml_base_btl_t *hb_rdma_bml_btl_observing;
     int hb_rdma_rank; /* my rank */
     mca_btl_base_registration_handle_t* hb_rdma_rank_lreg;
     volatile int hb_rdma_flag; /* set to -1 when read locally, set to observing sets it to its rank through rdma */
@@ -50,10 +52,11 @@ static comm_detector_t comm_world_detector = {
     .hb_timeout = INFINITY,
     .hb_period = INFINITY,
     .hb_sstamp = 0.0,
-    .hb_rdma_bml_btl = NULL,
+    .hb_rdma_bml_btl_observer = NULL,
+    .hb_rdma_bml_btl_observing = NULL,
     .hb_rdma_rank = MPI_PROC_NULL,
     .hb_rdma_rank_lreg = NULL,
-    .hb_rdma_flag = -1,
+    .hb_rdma_flag = -3,
     .hb_rdma_flag_lreg = NULL,
     .hb_rdma_raddr = (int64_t)NULL,
     .hb_rdma_rreg = NULL,
@@ -181,6 +184,27 @@ int ompi_comm_start_failure_detector(void) {
 
 int ompi_comm_finalize_failure_detector(void) {
     int ret;
+    comm_detector_t* detector = &comm_world_detector;
+    int np = ompi_comm_size(detector->comm);
+    int rank = ompi_comm_rank(detector->comm);
+
+    if( comm_detector_use_rdma_hb ) {
+        /* Tell our observer that we won't put anymore */
+        if( MPI_PROC_NULL != detector->hb_observer ) {
+            detector->hb_rdma_rank = detector->hb_observer;
+            fd_heartbeat_rdma_put(detector);
+        }
+        /* wait until the observed process confirms he is not putting in our
+         * memory (or everybody else is dead) */
+        while( MPI_PROC_NULL != detector->hb_observing ) {
+#if OPAL_ENABLE_MULTI_THREADS
+            if( 0 < fd_thread_active )
+#endif
+            {
+                opal_progress();
+            }
+        }
+    }
 
 #if OPAL_ENABLE_MULTI_THREADS
     if( 0 < fd_thread_active ) {
@@ -193,20 +217,28 @@ int ompi_comm_finalize_failure_detector(void) {
     }
 #endif /* OPAL_ENABLE_MULTI_THREADS */
 
-    comm_detector_t* detector = &comm_world_detector;
     if( NULL != detector->fd_event ) {
         opal_event_del(detector->fd_event);
         opal_event_free(detector->fd_event);
         detector->fd_event = NULL;
     }
     if( opal_sync_event_base != fd_event_base ) opal_event_base_free(fd_event_base);
+
+    /* Remove rdma registrations, if any */
+    if( NULL != detector->hb_rdma_rank_lreg ) {
+        mca_bml_base_deregister_mem(detector->hb_rdma_bml_btl_observer, detector->hb_rdma_rank_lreg);
+    }
+    if( NULL != detector->hb_rdma_flag_lreg ) {
+        mca_bml_base_deregister_mem(detector->hb_rdma_bml_btl_observing, detector->hb_rdma_flag_lreg);
+    }
+
 #if 0 /* not doing this permits an optimization in finalize and saves an extra barrier */
     if( -1 != comm_heartbeat_recv_cb_type ) ompi_comm_rbcast_unregister_cb_type(comm_heartbeat_recv_cb_type);
     if( -1 != comm_heartbeat_request_cb_type ) ompi_comm_rbcast_unregister_cb_type(comm_heartbeat_request_cb_type);
     comm_heartbeat_recv_cb_type = comm_heartbeat_request_cb_type = -1;
 #else
     /* ignore heartbeats and heartbeats requests from now on */
-    detector->hb_observer = detector->hb_observing = detector->comm->c_my_rank;
+    detector->hb_observer = detector->hb_observing = MPI_PROC_NULL;
 #endif
     return OMPI_SUCCESS;
 }
@@ -227,17 +259,16 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
     detector->hb_sstamp = 0.;
     detector->hb_rstamp = PMPI_Wtime()+(double)np; /* give some slack for MPI_Init */
 
-    detector->hb_rdma_bml_btl = NULL;
+    detector->hb_rdma_bml_btl_observer = NULL;
+    detector->hb_rdma_bml_btl_observing = NULL;
     detector->hb_rdma_rank = rank;
     detector->hb_rdma_rank_lreg = NULL;
     detector->hb_rdma_flag_lreg = NULL;
-    detector->hb_rdma_flag = -1;
     detector->hb_rdma_raddr = 0;
     detector->hb_rdma_rreg = NULL;
 
     if( comm_detector_use_rdma_hb ) {
         OBJ_CONSTRUCT(&detector->fd_mutex, opal_mutex_t);
-        detector->hb_rdma_flag = -3;
         fd_heartbeat_request(detector);
     }
 
@@ -261,13 +292,13 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
     }
 
     int ret;
-    int nb = ompi_comm_size(comm);
+    int np = ompi_comm_size(comm);
     int rank;
     size_t regsize = 0;
 
-    for( rank = (nb+detector->hb_observing) % nb;
+    for( rank = (np+detector->hb_observing) % np;
          rank != comm->c_my_rank;
-         rank = (nb+rank-1) % nb ) {
+         rank = (np+rank-1) % np ) {
         ompi_proc_t* proc = ompi_comm_peer_lookup(comm, rank);
         assert( NULL != proc );
         if( !ompi_proc_is_active(proc) ) continue;
@@ -283,18 +314,20 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
             assert( NULL != bml_btl );
 
             /* register mem for the flag and cache the reg key */
-            if( NULL != bml_btl->btl->btl_register_mem ) {
-#if 0
-                if( NULL != detector->hb_rdma_flag_lreg ) {
-                    mca_bml_base_deregister_mem(bml_btl, detector->hb_rdma_flag_lreg);
-                }
+#if 1
+            /* remove previous registration if any */
+            if( NULL != detector->hb_rdma_flag_lreg ) {
+                mca_bml_base_deregister_mem(detector->hb_rdma_bml_btl_observing, detector->hb_rdma_flag_lreg);
+            }
 #endif
+            if( NULL != bml_btl->btl->btl_register_mem ) {
                 assert( !((size_t)&detector->hb_rdma_flag & ALIGNMENT_MASK(bml_btl->btl->btl_put_alignment)) );
                 mca_bml_base_register_mem(bml_btl, (void*)&detector->hb_rdma_flag, sizeof(int),
                         MCA_BTL_REG_FLAG_LOCAL_WRITE | MCA_BTL_REG_FLAG_REMOTE_WRITE, &detector->hb_rdma_flag_lreg);
                 assert( NULL != detector->hb_rdma_flag_lreg );
                 regsize = bml_btl->btl->btl_registration_handle_size;
             }
+            detector->hb_rdma_bml_btl_observing = bml_btl;
         }
         detector->hb_observing = rank;
 
@@ -303,7 +336,7 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
         msg->super.epoch = comm->c_epoch;
         msg->super.type = comm_heartbeat_request_cb_type;
         msg->from = comm->c_my_rank;
-        if( comm_detector_use_rdma_hb ) {
+        if( regsize ) {
             /* send the rdma addr and registration key to the observed */
             memcpy(&msg->rdma_rreg[0], detector->hb_rdma_flag_lreg, regsize);
             msg->rdma_raddr = (uint64_t)&detector->hb_rdma_flag;
@@ -320,9 +353,13 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
     }
     /* if everybody else is dead, I don't need to monitor myself. */
     if( rank == comm->c_my_rank ) {
-        detector->hb_observer = detector->hb_observing = rank;
+        OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
+                             "%s %s: Everybody else is dead on communicator %3d:%d",
+                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, comm->c_contextid, comm->c_epoch));
+        detector->hb_observer = detector->hb_observing = MPI_PROC_NULL;
         detector->hb_rstamp = INFINITY;
         detector->hb_period = INFINITY;
+        detector->hb_rdma_rank = rank; /* make finalize happy */
         return OMPI_SUCCESS;
     }
     detector->hb_rstamp = PMPI_Wtime()+detector->hb_timeout; /* we add one timeout slack to account for the send time */
@@ -333,10 +370,10 @@ static int fd_heartbeat_request_cb(ompi_communicator_t* comm, ompi_comm_heartbea
     assert( &ompi_mpi_comm_world.comm == comm );
     comm_detector_t* detector = &comm_world_detector;
 
-    int nb, rr, ro;
-    nb = ompi_comm_size(comm);
-    rr = (nb-comm->c_my_rank+msg->from) % nb; /* translate msg->from in circular space so that myrank==0 */
-    ro = (nb-comm->c_my_rank+detector->hb_observer) % nb; /* same for the observer rank */
+    int np, rr, ro;
+    np = ompi_comm_size(comm);
+    rr = (np-comm->c_my_rank+msg->from) % np; /* translate msg->from in circular space so that myrank==0 */
+    ro = (np-comm->c_my_rank+detector->hb_observer) % np; /* same for the observer rank */
     if( rr < ro ) {
         opal_output_verbose(1, ompi_ftmpi_output_handle,
                              "%s %s: Received heartbeat request from %d on communicator %3d:%d but I am monitored by %d -- this is stall information, ignoring.",
@@ -346,7 +383,6 @@ static int fd_heartbeat_request_cb(ompi_communicator_t* comm, ompi_comm_heartbea
     OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                          "%s %s: Recveived heartbeat request from %d on communicator %3d:%d",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->from, comm->c_contextid, comm->c_epoch));
-
     detector->hb_observer = msg->from;
     detector->hb_sstamp = 0.;
 
@@ -361,10 +397,11 @@ static int fd_heartbeat_request_cb(ompi_communicator_t* comm, ompi_comm_heartbea
 
         OPAL_THREAD_LOCK(&detector->fd_mutex);
         /* registration for the local rank */
+        /* remove previous registration, if any */
+        if( NULL != detector->hb_rdma_rank_lreg ) {
+            mca_bml_base_deregister_mem(detector->hb_rdma_bml_btl_observer, detector->hb_rdma_rank_lreg);
+        }
         if( NULL != bml_btl->btl->btl_register_mem ) {
-            if( NULL != detector->hb_rdma_rank_lreg ) {
-                mca_bml_base_deregister_mem(detector->hb_rdma_bml_btl, detector->hb_rdma_rank_lreg);
-            }
             assert( !((size_t)&detector->hb_rdma_rank & ALIGNMENT_MASK(bml_btl->btl->btl_put_alignment)) );
             mca_bml_base_register_mem(bml_btl, &detector->hb_rdma_rank, sizeof(int), 0, &detector->hb_rdma_rank_lreg);
             assert( NULL != detector->hb_rdma_rank_lreg );
@@ -376,7 +413,7 @@ static int fd_heartbeat_request_cb(ompi_communicator_t* comm, ompi_comm_heartbea
             memcpy(detector->hb_rdma_rreg, &msg->rdma_rreg[0], regsize);
         }
         /* cache the bml_btl used for put */
-        detector->hb_rdma_bml_btl = bml_btl;
+        detector->hb_rdma_bml_btl_observer = bml_btl;
         /* remote flag addr */
         detector->hb_rdma_raddr = msg->rdma_raddr;
         OPAL_THREAD_UNLOCK(&detector->fd_mutex);
@@ -398,14 +435,23 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
         fd_heartbeat_send(detector);
     }
 
+    if( MPI_PROC_NULL == detector->hb_observing ) return;
+
     if( comm_detector_use_rdma_hb ) {
         int flag = detector->hb_rdma_flag;
+        int np = ompi_comm_size(detector->comm);
+        int rank = ompi_comm_rank(detector->comm);
 
         if( -1 > flag ) {
             /* still initializing after MPI_INIT, give extra slack */
-            int np = ompi_comm_size(detector->comm);
             if( (stamp - detector->hb_rstamp) < (detector->hb_timeout + (double)np) )
                return;
+        }
+        if( rank == flag) {
+            /* this is a quit message from our observed process, stop the
+             * detector */
+            detector->hb_observing = MPI_PROC_NULL;
+            detector->hb_rstamp = INFINITY;
         }
         if( 0 <= flag ) {
             /* it's alright, we have received stamps since last time we checked */
@@ -426,7 +472,7 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
     }
 
     if( (stamp - detector->hb_rstamp) > detector->hb_timeout ) {
-       /* this process is now suspected dead. */
+        /* this process is now suspected dead. */
         opal_output_verbose(1, ompi_ftmpi_output_handle,
                         "%s %s: evtimer triggered at stamp %g, recv grace MISSED by %.1e, proc %d now suspected dead.",
                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
@@ -490,7 +536,7 @@ static int fd_heartbeat_rdma_put(comm_detector_t* detector) {
     OPAL_THREAD_LOCK(&detector->fd_mutex);
     int retry = 0;
     do {
-        ret = mca_bml_base_put(detector->hb_rdma_bml_btl, &detector->hb_rdma_rank, detector->hb_rdma_raddr,
+        ret = mca_bml_base_put(detector->hb_rdma_bml_btl_observer, &detector->hb_rdma_rank, detector->hb_rdma_raddr,
                                detector->hb_rdma_rank_lreg, detector->hb_rdma_rreg,
                                sizeof(int), 0, MCA_BTL_NO_ORDER, fd_heartbeat_rdma_cb, NULL);
         OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
@@ -498,6 +544,10 @@ static int fd_heartbeat_rdma_put(comm_detector_t* detector) {
                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
                         sendseq++, ret));
     } while( OMPI_ERR_OUT_OF_RESOURCE == ret && retry < 512); /* never give up... */
+    /* finalize case. Do it here, in the locked region */
+    if( detector->hb_observing == detector->hb_rdma_rank ) {
+        detector->hb_rdma_raddr = 0;
+    }
     OPAL_THREAD_UNLOCK(&detector->fd_mutex);
     return ret;
 }
