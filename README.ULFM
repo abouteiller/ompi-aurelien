@@ -1,0 +1,303 @@
+Copyright (c) 2012-2017 The University of Tennessee and The University
+                        of Tennessee Research Foundation.  All rights
+                        reserved.
+
+$COPYRIGHT$
+
+Additional copyrights may follow
+
+$HEADER$
+
+===========================================================================
+
+Found a bug?  Got a question?  Want to make a suggestion?  Want to
+contribute to ULFM Open MPI?  Working on a cool use-case?
+Please let us know!
+
+The best way to report bugs, send comments, or ask questions is to
+sign up on the user's mailing list
+
+    <ulfm+subscribe@googlegroups.com>
+
+Because of spam, only subscribers are allowed to post to these lists
+(ensure that you subscribe with and post from exactly the same e-mail
+address -- joe@example.com is considered different than
+joe@mycomputer.example.com!).  Visit these pages to subscribe to the
+lists:
+
+    <https://groups.google.com/forum/#!forum/ulfm>
+
+When submitting questions and problems, be sure to include as much
+extra information as possible.  This web page details all the
+information that we request in order to provide assistance:
+
+    <http://www.open-mpi.org/community/help/>
+
+===========================================================================
+
+If you want to cite a general reference for ULFM, please use:
+
+Wesley Bland, Aurelien Bouteiller, Thomas Hérault, George Bosilca, Jack Dongarra: Post-failure recovery of MPI communication capability: Design and rationale. IJHPCA 27(3): 244-254 (2013)
+http://journals.sagepub.com/doi/10.1177/1094342013488238
+
+Thanks for your time.
+
+===========================================================================
+
+Much, much more information (tutorials, examples, build instructions for
+leading top500 systems) is also available in the Fault Tolerance Research
+Hub website:
+
+    <https://fault-tolerance.org>
+
+===========================================================================
+
+Network Support
+---------------
+
+- There are four main MPI network models available: "ob1", "cm",
+  "yalla", and "ucx". Only "ob1" is adapted to support fault tolerance.
+  "ob1" uses BTL ("Byte Transfer Layer") components for each supported
+  network.
+  - "ob1" supports a variety of networks that can be used in
+    combination with each other:
+    - Loopback (send-to-self)                               (FT supported)
+    - TCP                                                   (FT supported)
+    - OpenFabrics: InfiniBand, iWARP, and RoCE              (FT supported)
+    - uGNI (Cray Gemini, Aries)                             (FT supported)
+    - Shared memory Vader  (FT supported, CMA, XPmem, KNEM modes untested)
+    - Intel Phi SCIF                                         (FT untested)
+    - SMCUDA                                                 (FT untested)
+    - Cisco usNIC                                            (FT untested)
+
+===========================================================================
+
+Building ULFM Open MPI
+----------------------
+
+shell$ ./configure --with-ft [...options...]
+shell$ make [-j N] all install
+    (use an integer value of N for parallel builds)
+
+There are many available configure options (see "./configure --help"
+for a full list); a summary of the more commonly used ones is included
+in the regular Open MPI README file.
+
+Notable differences in ULFM Open MPI behavior regarding configure options
+are the following:
+
+DIFFERENCES WITH OPEN MPI INSTALLATION OPTIONS
+
+--with-ft=TYPE
+  Specify the type of fault tolerance to enable.  Options: mpi (ULFM MPI
+  draft standard), LAM (LAM/MPI-like), cr (Checkpoint/Restart).  Fault
+  tolerance support is disabled unless this option is specified.
+  You should specify `--with-ft` when using this package.
+
+--with-platform=FILE
+  Load configure options for the build from FILE.  When
+  --with-ft=mpi is set, the file `contrib/platform/ft_mpi_ulfm` is
+  loaded by default. This file disables components that are known to
+  not be able to sustain failures, or are unsificiently tested.
+  You may edit this file and/or force back these options on the
+  command line to enable these components.
+
+--enable-mca-no-build=LIST
+  Comma-separated list of <type>-<component> pairs that will not be
+  built. For example, "--enable-mca-no-build=btl-portals,oob-ud" will
+  disable building the portals BTL and the ud OOB component. When
+  --with-ft=mpi is set, this list is populated with the content of
+  the aforementionned platform file. You may overide the default list
+  with this parameter.
+
+--with-pmi
+--with-slurm
+  Force the building of SLURM scheduler support.
+  Slurm with fault tolerance is tested. Use `mpirun` in an
+  `salloc/sbatch`. Do not use `srun`, then your application would be
+  killed by the scheduler upon the first failure.
+
+--with-sge
+  This is untested with fault tolerance.
+
+--with-tm=<directory>
+  Force the building of PBS/Torque scheduler support.
+  PBS is tested with fault tolerance. Use `mpirun` in a `qsub`
+  allocation.
+
+--disable-mpi-thread-multiple
+  Disable the MPI thread level MPI_THREAD_MULTIPLE (it is enabled by
+  default).
+  Multiple threads with fault tolerance is lightly tested.
+
+--disable-oshmem
+  Disable building the OpenSHMEM implementation (by default, it is
+  enabled).
+  ULFM Fault Tolerance does not apply to OpenSHMEM.
+
+===========================================================================
+
+ULFM Open MPI Version Numbers and Binary Compatibility
+------------------------------------------------------
+
+Starting from ULFM Open MPI version 2.0, ULFM Open MPI is binary compatible
+with the corresponding Open MPI master branch and compatible releases (see
+the binary compatibility and version number section in the Open MPI README).
+That is, applications compiled with a compatible Open MPI can run with the
+ULFM Open MPI `mpirun` and mpi libraries. Conversely, _as long as the
+application does not employ one of the MPIX functions_, which are
+exclusively defined in ULFM Open MPI, an application compiled with
+ULFM Open MPI can be launched with a compatible Open MPI `mpirun` and run
+with the non-fault tolerant mpi library.
+
+
+===========================================================================
+
+The following frameworks/components are UNTESTED. They should work,
+but use at your own risk with FT.
+    btl-usnic, btl-portals4, btl-scif, btl-smcuda, pml-monitoring,
+    pml-v, vprotocol, crcp
+The following frameworks/components are UNTESTED, and probably
+won't work. You may try.
+    bcol, fbtl, fcoll, sbgp, coll-cuda, coll-fca, coll-hcoll, coll-ml,
+    coll-portals4
+The following frameworks/components are NOT WORKING. Do not enable
+these with --with-ft=mpi.
+    mtl, pml-bfo, pml-cm, pml-crcpw, pml-yalla, pml-ucx
+
+Frameworks which are not listed in the following list are unmodified and
+support fault tolerance. Listed frameworks are modified (and work after
+a failure), disabled, or untested (they work before a failure, but may
+malfunction after a failure).
+
+
+Frameworks modified in ULFM Open MPI:
+-------------------------------------
+
+coll      - MPI collective algorithms
+              "tuned", "basic", modified to handle errors
+              "fca", "hcoll", "ml", "portals4" disabled, untested
+fbtl      - file byte transfer layer: abstraction for individual
+            read/write operations for OMPIO
+               Unmodified, untested
+fcoll     - collective read and write operations for MPI I/O
+               Unmodified, untested
+fs        - file system functions for MPI I/O
+               Unmodified, untested
+io        - MPI I/O
+               Unmodified, untested
+mtl       - Matching transport layer, used for MPI point-to-point
+            messages on some types of networks
+               Disabled, not fault tolerant
+osc       - MPI one-sided communications
+               Unmodified, not fault tolerant (post failure deadlock)
+pml       - MPI point-to-point management layer
+               "ob1" modified to handle errors (other components disabled)
+sharedfp  - shared file pointer operations for MPI I/O
+               Unmodified, untested
+vprotocol - Protocols for the "v" PML
+               Disabled, untested
+
+Back-end run-time environment (RTE) component frameworks:
+---------------------------------------------------------
+
+dfs       - Distributed file system
+errmgr    - RTE error manager
+ess       - RTE environment-specific services
+filem     - Remote file management
+grpcomm   - RTE group communications
+iof       - I/O forwarding
+notifier  - System-level notification support
+odls      - OpenRTE daemon local launch subsystem
+oob       - Out of band messaging
+plm       - Process lifecycle management
+ras       - Resource allocation system
+rmaps     - Resource mapping system
+rml       - RTE message layer
+routed    - Routing table for the RML
+rtc       - Run-time control framework
+schizo    - OpenRTE personality framework
+state     - RTE state machine
+
+Miscellaneous frameworks:
+-------------------------
+
+btl         - Point-to-point Byte Transfer Layer
+pmix        - Process management interface (exascale)
+
+
+===========================================================================
+
+Changelog
+---------
+
+### Release 2.0
+
+Focus has been toward integration with current Open MPI master,
+performance, and stability.
+
+- ULFM is now based upon Open MPI master branch (#xxyyzz).
+- Fault Tolerance is enabled by default and is controlled with mca variables.
+- Added support for multithreaded modes (MPI_THREAD_MULTIPLE, etc.)
+- Added support for non-blocking collective operations.
+- Added support for advanced failure detection at the MPI level.
+  Implements the algorithm described in "Failure detection and
+  propagation in HPC systems." <https://doi.org/10.1109/SC.2016.26>.
+- Removed the need for special handling of CID allocation.
+- Non-usable components are automatically removed from the build during configure
+- Bugfixes:
+    - Code cleanup and performance cleanup in non-FT builds
+    - Code cleanup and performance cleanup in FT builds with FT runtime disabled
+    - Some error cases would return ERR_PROC_FAILED or ERR_PENDING instead
+      of ERR_PROC_FAILED_PENDING
+
+
+### Release 1.1
+
+Focus has been toward improving stability, feature coverage for intercomms, and following
+the updated specification for MPI_ERR_PROC_FAILED_PENDING.
+
+- Forked from Open MPI 1.5.5 devel branch
+- Addition of the MPI_ERR_PROC_FAILED_PENDING error code, as per newer specification revision. Properly returned from point-to-point, non-blocking ANY_SOURCE operations.
+- Alias MPI_ERR_PROC_FAILED, MPI_ERR_PROC_FAILED_PENDING and MPI_ERR_REVOKED to the corresponding standard blessed -extension- names MPIX_ERR_xxx.
+- Support for Intercommunicators:
+    - Support for the blocking version of the agreement, MPI_COMM_AGREE on Intercommunicators.
+    - MPI_COMM_REVOKE tested on intercommunicators.
+- Disabled completely (.ompi_ignore) many untested components.
+- Changed the default ORTE failure notification propagation aggregation delay from 1s to 25ms.
+- Added an OMPI internal failure propagator; failure propagation between SM domains is now immediate.
+- Bugfixes:
+    - SendRecv would not always report MPI_ERR_PROC_FAILED correctly.
+    - SendRecv could incorrectly update the status with errors pertaining to the Send portion of the Sendrecv.
+    - Revoked send operations are now always completed or remote cancelled and may not deadlock anymore.
+    - Cancelled send operations to a dead peer will not trigger an assert when the BTL reports that same failure.
+    - Repeat calls to operations returning MPI_ERR_PROC_FAILED will eventually return MPI_ERR_REVOKED when another process revokes the communicator.
+
+### Release 1.0
+
+Focus has been toward improving performance, both before and after the occurence of failures. The list of new features includes:
+- Support for the non-blocking version of the agreement, MPI_COMM_IAGREE.
+- Compliance with the latest ULFM specification draft. In particular, the MPI_COMM_(I)AGREE semantic has changed.
+- New algorithm to perform agreements, with a truly logarithmic complexity in number of ranks, which translates into huge performance boosts in MPI_COMM_(I)AGREE and MPI_COMM_SHRINK.- New algorithm to perform communicator revocation. MPI_COMM_REVOKE performs a reliable broadcast with a fixed maximum output degree, which scales logarithmically with the number of ranks.
+- Improved support for our traditional network layer:
+    - TCP: fully tested
+    - SM: fully tested (with the exception of XPMEM, which remains unsupported)
+- Added support for High Performance networks
+    - Open IB: reasonably tested
+    - uGNI: reasonably tested
+- The tuned collective module is now enabled by default (reasonably tested), expect a huge performance boost compared to the former basic default setting<
+    - Back-ported PBS/ALPS fixes from Open MPI
+    - Back-ported OpenIB bug/performance fixes from Open MPI
+    - Improve Context ID allocation algorithm to reduce overheads of Shrink
+    - Miscellaneous bug fixes
+
+
+
+
+
+===========================================================================
+
+Got more questions?
+-------------------
+
+
