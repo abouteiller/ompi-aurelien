@@ -11,4 +11,3 @@
 
 SUBDIRS = c mpif-h use-mpi
 
-dist_ompidata_DATA = help-ft-mpi.txt

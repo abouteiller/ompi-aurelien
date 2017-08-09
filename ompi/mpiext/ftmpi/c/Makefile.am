@@ -33,6 +33,8 @@ libmpiext_ftmpi_c_la_LDFLAGS = -module -avoid-version
 
 noinst_LTLIBRARIES = $(lib)
 
+dist_ompidata_DATA = help-ft-mpi.txt
+
 ompidir = $(ompiincludedir)/ompi/mpiext/ftmpi/c
 ompi_HEADERS = \
         $(headers)
