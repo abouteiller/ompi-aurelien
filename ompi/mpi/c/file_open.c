@@ -10,7 +10,6 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2013      Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2013      Los Alamos National Security, LLC.  All rights
  *                         reserved.
@@ -74,11 +73,6 @@ int MPI_File_open(MPI_Comm comm, const char *filename, int amode,
         }
 
     }
-
-#if OPAL_ENABLE_FT_MPI
-    OMPI_ERRHANDLER_RETURN(OMPI_ERR_NOT_SUPPORTED, comm,
-                           OMPI_ERR_NOT_SUPPORTED, FUNC_NAME);
-#endif
 
     /* Note that MPI-2:9.7 (p265 in the ps; p261 in the pdf) says that
        errors in MPI_FILE_OPEN (before the file handle is created)

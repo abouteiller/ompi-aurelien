@@ -8,6 +8,6 @@
 
 enable_mca_no_build=\
 btl-usnic,btl-portals4,btl-scif,btl-smcuda,pml-monitoring,pml-v,vprotocol,crcp,\
-bcol,fbtl,fcoll,sbgp,coll-cuda,coll-fca,coll-hcoll,coll-ml,coll-portals4,\
+coll-cuda,coll-fca,coll-hcoll,coll-portals4,\
 mtl,pml-bfo,pml-cm,pml-crcpw,pml-yalla,pml-ucx
 

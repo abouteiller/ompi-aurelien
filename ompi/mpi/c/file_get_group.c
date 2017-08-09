@@ -9,7 +9,6 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * $COPYRIGHT$
@@ -52,11 +51,6 @@ int MPI_File_get_group(MPI_File fh, MPI_Group *group)
         }
         OMPI_ERRHANDLER_CHECK(rc, fh, rc, FUNC_NAME);
     }
-
-#if OPAL_ENABLE_FT_MPI
-    OMPI_ERRHANDLER_RETURN(OMPI_ERR_NOT_SUPPORTED, fh,
-                           OMPI_ERR_NOT_SUPPORTED, FUNC_NAME);
-#endif
 
     OPAL_CR_ENTER_LIBRARY();
 
