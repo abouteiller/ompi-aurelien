@@ -10,7 +10,6 @@
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
  * Copyright (c) 2007-2012 Cisco Systems, Inc.  All rights reserved.
- * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2012      Los Alamos Nat Security, LLC. All rights reserved.
  * Copyright (c) 2012-2013 Inria.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
@@ -70,12 +69,6 @@ int MPI_Graph_get(MPI_Comm comm, int maxindx, int maxedges,
         return OMPI_ERRHANDLER_INVOKE (comm, MPI_ERR_TOPOLOGY,
                                        FUNC_NAME);
     }
-
-#if OPAL_ENABLE_FT_MPI
-    OMPI_ERRHANDLER_RETURN(OMPI_ERR_NOT_SUPPORTED, comm,
-                           OMPI_ERR_NOT_SUPPORTED, FUNC_NAME);
-#endif
-
     OPAL_CR_ENTER_LIBRARY();
 
     /* call the function */
