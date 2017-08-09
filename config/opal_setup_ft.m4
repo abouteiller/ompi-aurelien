@@ -41,9 +41,10 @@ AC_DEFUN([OPAL_SETUP_FT_OPTIONS],[
     opal_setup_ft_options="yes"
     AC_ARG_WITH(ft,
                 [AC_HELP_STRING([--with-ft=TYPE],
-                [Specify the type of fault tolerance to enable. Options: mpi (ULFM), LAM (LAM/MPI-like), cr (Checkpoint/Restart) (default: disabled)])],
+                [Specify the type of fault tolerance to enable. Options: mpi (ULFM), LAM (LAM/MPI-like), cr (Checkpoint/Restart) (default: mpi)])],
                 [opal_want_ft=1],
-                [opal_want_ft=0])
+                [opal_want_ft=1
+                 with_ft=mpi]) # If not specified act as if --with-ft=mpi
 
     #
     # Checkpoint/restart enabled debugging
