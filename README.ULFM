@@ -33,13 +33,6 @@ information that we request in order to provide assistance:
 
     <http://www.open-mpi.org/community/help/>
 
-===========================================================================
-
-If you want to cite a general reference for ULFM, please use:
-
-Wesley Bland, Aurelien Bouteiller, Thomas Hérault, George Bosilca, Jack Dongarra: Post-failure recovery of MPI communication capability: Design and rationale. IJHPCA 27(3): 244-254 (2013)
-http://journals.sagepub.com/doi/10.1177/1094342013488238
-
 Thanks for your time.
 
 ===========================================================================
@@ -52,10 +45,19 @@ Hub website:
 
 ===========================================================================
 
+If you want to cite a general reference for ULFM, please use:
+
+Wesley Bland, Aurelien Bouteiller, Thomas Hérault, George Bosilca, Jack J.
+Dongarra: Post-failure recovery of MPI communication capability: Design and
+rationale. IJHPCA 27(3): 244-254 (2013)
+http://journals.sagepub.com/doi/10.1177/1094342013488238
+
+===========================================================================
+
 Network Support
 ---------------
 
-- There are four main MPI network models available: "ob1", "cm",
+- There are four main MPI network models available in Open MPI: "ob1", "cm",
   "yalla", and "ucx". Only "ob1" is adapted to support fault tolerance.
   "ob1" uses BTL ("Byte Transfer Layer") components for each supported
   network.
@@ -91,14 +93,15 @@ DIFFERENCES WITH OPEN MPI INSTALLATION OPTIONS
 --with-ft=TYPE
   Specify the type of fault tolerance to enable.  Options: mpi (ULFM MPI
   draft standard), LAM (LAM/MPI-like), cr (Checkpoint/Restart).  Fault
-  tolerance support is disabled unless this option is specified.
-  You should specify `--with-ft` when using this package.
+  tolerance support is enabled by default (as if --with-ft=mpi were
+  implicitly present on the configure line).
+  You may specify `--without-ft` to compile an almost stock Open MPI.
 
 --with-platform=FILE
   Load configure options for the build from FILE.  When
   --with-ft=mpi is set, the file `contrib/platform/ft_mpi_ulfm` is
   loaded by default. This file disables components that are known to
-  not be able to sustain failures, or are unsificiently tested.
+  not be able to sustain failures, or are insuficiently tested.
   You may edit this file and/or force back these options on the
   command line to enable these components.
 
@@ -159,8 +162,7 @@ but use at your own risk with FT.
     pml-v, vprotocol, crcp
 The following frameworks/components are UNTESTED, and probably
 won't work. You may try.
-    bcol, fbtl, fcoll, sbgp, coll-cuda, coll-fca, coll-hcoll, coll-ml,
-    coll-portals4
+    coll-cuda, coll-fca, coll-hcoll, coll-portals4
 The following frameworks/components are NOT WORKING. Do not enable
 these with --with-ft=mpi.
     mtl, pml-bfo, pml-cm, pml-crcpw, pml-yalla, pml-ucx
@@ -185,7 +187,7 @@ fcoll     - collective read and write operations for MPI I/O
 fs        - file system functions for MPI I/O
                Unmodified, untested
 io        - MPI I/O
-               Unmodified, untested
+               Unmodified, not fault tolerant (post failure abort)
 mtl       - Matching transport layer, used for MPI point-to-point
             messages on some types of networks
                Disabled, not fault tolerant
@@ -239,17 +241,44 @@ performance, and stability.
 - ULFM is now based upon Open MPI master branch (#xxyyzz).
 - Fault Tolerance is enabled by default and is controlled with mca variables.
 - Added support for multithreaded modes (MPI_THREAD_MULTIPLE, etc.)
-- Added support for non-blocking collective operations.
+- Added support for non-blocking collective operations (NBC).
+- Added support for CMA shared memory transport (Vader).
 - Added support for advanced failure detection at the MPI level.
   Implements the algorithm described in "Failure detection and
   propagation in HPC systems." <https://doi.org/10.1109/SC.2016.26>.
 - Removed the need for special handling of CID allocation.
 - Non-usable components are automatically removed from the build during configure
+- RMA, FILES, and TOPO components are enabled by default, and usage in a fault
+  tolerant execution warns that they may cause undefined behavior after a failure.
 - Bugfixes:
-    - Code cleanup and performance cleanup in non-FT builds
-    - Code cleanup and performance cleanup in FT builds with FT runtime disabled
-    - Some error cases would return ERR_PROC_FAILED or ERR_PENDING instead
-      of ERR_PROC_FAILED_PENDING
+    - Code cleanup and performance cleanup in non-FT builds; --without-ft at
+      configure time gives an almost stock Open MPI.
+    - Code cleanup and performance cleanup in FT builds with FT runtime disabled;
+      --mca ft_enable_mpi false thoroughly disables FT runtime activities.
+    - Some error cases would return ERR_PENDING instead of ERR_PROC_FAILED in
+      collective operations.
+    - Some test could set ERR_PENDING or ERR_PROC_FAILED instead of
+      ERR_PROC_FAILED_PENDING for ANY_SOURCE receptions.
+
+KNOWN LIMITATIONS:
+
+- ORTE daemon failures may cause full application abort in some instances.
+- ORTE daemon may stall after application process have finalized in
+  post-failure executions.
+- TOPO, FILE, RMA are not fault tolerant.
+- There is a tradeoff between failure detection accuracy and performance.
+  Maximum accuracy requires MPI_THREAD_MULTIPLE, which has an incidence on
+  non-thread aware MPI applications' latency. The current default is to
+  favor application performance at the expense of detection accuracy.
+  End-users can control this tradeoff by setting the following mca
+  parameters
+      - mpi_ft_detector_period (default 5e-1 (s))
+      - mpi_ft_detector_timeout (default 1e0 (s))
+      - mpi_ft_detector_thread (default false)
+- The failure detector operates on MPI_COMM_WORLD exclusively. Processes
+  connected from MPI_COMM_CONNECT/ACCEPT and MPI_COMM_SPAWN may
+  occasionally not be detected when they fail.
+- Failures during some NBC collective may not be recovered properly.
 
 
 ### Release 1.1
