@@ -408,11 +408,6 @@ void ompi_errhandler_callback(int status,
                               opal_pmix_notification_complete_fn_t cbfunc,
                               void *cbdata)
 {
-    /* tell the event chain engine to go no further - we
-     * will handle this */
-    if (NULL != cbfunc) {
-        cbfunc(OMPI_ERR_HANDLERS_COMPLETE, NULL, NULL, NULL, cbdata);
-    }
     /* an error has been found, report to the MPI layer and let it take 
      * further action. */
     /* transition this from the RTE thread to the MPI progress engine */
@@ -423,6 +418,16 @@ void ompi_errhandler_callback(int status,
         opal_event_set(opal_sync_event_base, &event->super, -1, OPAL_EV_READ,
                        ompi_errhandler_event_cb, event);
         opal_event_active(&event->super, OPAL_EV_READ, 1);
+        /* tell the event chain engine to go no further - we
+         * will handle this */
+        if (NULL != cbfunc) {
+            cbfunc(OMPI_ERR_HANDLERS_COMPLETE, NULL, NULL, NULL, cbdata);
+        }
+    }
+    else {
+        if (NULL != cbfunc) {
+            cbfunc(status, source, info, results, cbdata);
+        }
     }
 }
 
