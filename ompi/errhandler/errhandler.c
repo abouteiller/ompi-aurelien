@@ -344,6 +344,7 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
  cleanup:
     return rc;
 }
+#endif /* OPAL_ENABLE_FT_MPI */
 
 /* helper to move the error report back from the RTE thread to the MPI thread */
 typedef struct ompi_errhandler_event_s {
@@ -354,18 +355,36 @@ typedef struct ompi_errhandler_event_s {
 
 static void *ompi_errhandler_event_cb(int fd, int flags, void *context) {
     ompi_errhandler_event_t *event = (ompi_errhandler_event_t*) context;
-    ompi_proc_t *proc = NULL;
-    /* Find the ompi_proc_t, if not lazy allocated yet, create it so we can
-     * mark it's active field to false. */
-    proc = (ompi_proc_t*)ompi_proc_for_name(event->procname);
-    assert( NULL != proc );
-    assert( !ompi_proc_is_sentinel(proc) );
-    ompi_errhandler_proc_failed_internal(proc, event->status, true);
+    int status = event->status;
+#if OPAL_ENABLE_FT_MPI
+    if( OPAL_ERR_PROC_ABORTED != status ) {
+        /* An unmanaged type of failure, let it abort. */
+        opal_output_verbose(1, ompi_ftmpi_output_handle,
+            "%s ompi: Error at proc %s reported (state = %d). "
+            "This error type is not handled by the fault tolerant layer "
+            "and the application will now abort.",
+            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
+            OMPI_NAME_PRINT(&event->procname),
+            status );
+#endif /* OPAL_ENABLE_FT_MPI */
+        /* our default action is to abort */
+        ompi_mpi_abort(MPI_COMM_WORLD, status);
+    }
+#if OPAL_ENABLE_FT_MPI
+    else {
+        /* Find the ompi_proc_t, if not lazy allocated yet, create it so we can
+         * mark it's active field to false. */
+        ompi_proc_t *proc = NULL;
+        proc = (ompi_proc_t*)ompi_proc_for_name(event->procname);
+        assert( NULL != proc );
+        assert( !ompi_proc_is_sentinel(proc) );
+        ompi_errhandler_proc_failed_internal(proc, event->status, true);
+    }
+#endif /* OPAL_ENABLE_FT_MPI */
     opal_event_del(&event->super);
     free(event);
     return NULL;
 }
-#endif /* OPAL_ENABLE_FT_MPI */
 
 /* registration callback */
 void ompi_errhandler_registration_callback(int status,
@@ -393,34 +412,17 @@ void ompi_errhandler_callback(int status,
     if (NULL != cbfunc) {
         cbfunc(OMPI_ERR_HANDLERS_COMPLETE, NULL, NULL, NULL, cbdata);
     }
-#if OPAL_ENABLE_FT_MPI
-    /* a process failure has been found, report to the MPI
-     * layer and let it take further action. */
-    if( OPAL_ERR_PROC_ABORTED == status ) {
-        /* transition this from the RTE thread to the MPI progress engine */
-        ompi_errhandler_event_t *event = malloc(sizeof(*event));
-        if(OPAL_LIKELY( NULL != event )) {
-            event->status = status;
-            //TODO: this is not correct, should be the content of the info list
-            //instead.
-            event->procname = *source;
-            opal_event_set(opal_sync_event_base, &event->super, -1, OPAL_EV_READ,
-                           ompi_errhandler_event_cb, event);
-            opal_event_active(&event->super, OPAL_EV_READ, 1);
-            return;
-        }
+    /* an error has been found, report to the MPI layer and let it take 
+     * further action. */
+    /* transition this from the RTE thread to the MPI progress engine */
+    ompi_errhandler_event_t *event = malloc(sizeof(*event));
+    if(OPAL_LIKELY( NULL != event )) {
+        event->status = status;
+        event->procname = *source;
+        opal_event_set(opal_sync_event_base, &event->super, -1, OPAL_EV_READ,
+                       ompi_errhandler_event_cb, event);
+        opal_event_active(&event->super, OPAL_EV_READ, 1);
     }
-    /* An unmanaged type of failure, let it abort. */
-    opal_output_verbose(1, ompi_ftmpi_output_handle,
-                        "%s ompi: Error at proc %s reported (state = %d). "
-                        "This error type is not handled by the fault tolerant layer "
-                        "and the application will now abort.",
-                        OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
-                        OMPI_NAME_PRINT(source),
-                        status );
-#endif /* OPAL_ENABLE_FT_MPI */
-    /* our default action is to abort */
-    ompi_mpi_abort(MPI_COMM_WORLD, status);
 }
 
 
