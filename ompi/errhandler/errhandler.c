@@ -357,7 +357,8 @@ static void *ompi_errhandler_event_cb(int fd, int flags, void *context) {
     ompi_errhandler_event_t *event = (ompi_errhandler_event_t*) context;
     int status = event->status;
 #if OPAL_ENABLE_FT_MPI
-    if( OPAL_ERR_PROC_ABORTED != status ) {
+    if( OPAL_ERR_PROC_ABORTED != status
+     && OPAL_ERR_UNREACH != status) {
         /* An unmanaged type of failure, let it abort. */
         opal_output_verbose(1, ompi_ftmpi_output_handle,
             "%s ompi: Error at proc %s reported (state = %d). "
