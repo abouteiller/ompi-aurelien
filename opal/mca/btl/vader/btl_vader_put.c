@@ -71,6 +71,13 @@ int mca_btl_vader_put_cma (mca_btl_base_module_t *btl, mca_btl_base_endpoint_t *
 
     ret = process_vm_writev (endpoint->segment_data.other.seg_ds->seg_cpid, &src_iov, 1, &dst_iov, 1, 0);
     if (ret != (ssize_t)size) {
+#if OPAL_ENABLE_FT_MPI
+        if (ESRCH == errno) {
+            opal_output_verbose(2, 0,
+                "Wrote %ld, expected %lu, errno = %d\n", (long)ret, (unsigned long)size, errno);
+            return OPAL_ERROR;
+        }
+#endif /* OPAL_ENABLE_FT_MPI */
         opal_output(0, "Wrote %ld, expected %lu, errno = %d\n", (long)ret, (unsigned long)size, errno);
         return OPAL_ERROR;
     }
