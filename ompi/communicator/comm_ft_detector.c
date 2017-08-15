@@ -88,7 +88,7 @@ static opal_event_base_t* fd_event_base = NULL;
 static void fd_event_cb(int fd, short flags, void* pdetector);
 
 #if OPAL_ENABLE_MULTI_THREADS
-static bool comm_detector_use_thread = true;
+static bool comm_detector_use_thread = false;
 static volatile uint32_t fd_thread_active = 0;
 static opal_thread_t fd_thread;
 static void* fd_progress(opal_object_t* obj);
@@ -198,7 +198,7 @@ int ompi_comm_finalize_failure_detector(void) {
          * memory (or everybody else is dead) */
         while( MPI_PROC_NULL != detector->hb_observing ) {
 #if OPAL_ENABLE_MULTI_THREADS
-            if( 0 < fd_thread_active )
+            if( !(0 < fd_thread_active) )
 #endif
             {
                 opal_progress();
@@ -274,10 +274,17 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
 
     detector->fd_event = opal_event_new(fd_event_base, -1, OPAL_EV_TIMEOUT | OPAL_EV_PERSIST, fd_event_cb, detector);
     struct timeval tv;
+    /* wake up the ev loop at 10x the heartbeat period to ensure
+     * accurate heartbeat emission rate (otherwise random sampling
+     * would cause drifts in emissions). */
     tv.tv_sec = (int)(detector->hb_period / 10.);
     tv.tv_usec = (-tv.tv_sec + (detector->hb_period / 10.)) * 1e6;
     opal_event_add(detector->fd_event, &tv);
-    opal_progress_event_users_increment();
+    if( 10e-6 > detector->hb_period ) {
+        /* do not overpoll the event progress loop except if
+         * super aggressive heartbeat rate is required */
+        opal_progress_event_users_increment();
+    }
     return OMPI_SUCCESS;
 }
 
@@ -450,8 +457,12 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
         if( rank == flag) {
             /* this is a quit message from our observed process, stop the
              * detector */
+            opal_output_verbose(10, ompi_ftmpi_output_handle,
+                    "%s %s: evtimer triggered at stamp %g, RDMA flag is set to my own rank, this is a quit message to close the detector.",
+                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, stamp);
             detector->hb_observing = MPI_PROC_NULL;
             detector->hb_rstamp = INFINITY;
+            return;
         }
         if( 0 <= flag ) {
             /* it's alright, we have received stamps since last time we checked */
