@@ -82,8 +82,8 @@ static int fd_heartbeat_send(comm_detector_t* detector);
 static int fd_heartbeat_recv_cb(ompi_communicator_t* comm, ompi_comm_heartbeat_message_t* msg);
 
 static int comm_detector_use_rdma_hb = true;
-static double comm_heartbeat_period = 2e-1;
-static double comm_heartbeat_timeout = 5e-1;
+static double comm_heartbeat_period = 1e-1;
+static double comm_heartbeat_timeout = 3e-1;
 static opal_event_base_t* fd_event_base = NULL;
 static void fd_event_cb(int fd, short flags, void* pdetector);
 
@@ -101,6 +101,7 @@ static int comm_heartbeat_request_cb_type = -1;
 #define ALIGNMENT_MASK(x) ((x) ? (x) - 1 : 0)
 
 int ompi_comm_start_detector(ompi_communicator_t* comm);
+static double startdate;
 
 int ompi_comm_init_failure_detector(void) {
     int ret;
@@ -188,14 +189,17 @@ int ompi_comm_finalize_failure_detector(void) {
     int np = ompi_comm_size(detector->comm);
     int rank = ompi_comm_rank(detector->comm);
 
-    if( comm_detector_use_rdma_hb ) {
-        /* Tell our observer that we won't put anymore */
-        if( MPI_PROC_NULL != detector->hb_observer ) {
-            detector->hb_rdma_rank = detector->hb_observer;
-            fd_heartbeat_rdma_put(detector);
-        }
-        /* wait until the observed process confirms he is not putting in our
-         * memory (or everybody else is dead) */
+    /* Tell our observer that we won't put anymore */
+    if( MPI_PROC_NULL != detector->hb_observer ) {
+        detector->hb_rdma_rank = detector->hb_observer;
+        fd_heartbeat_send(detector);
+        detector->hb_period = INFINITY;
+        MPI_PROC_NULL == detector->hb_observer;
+        opal_atomic_mb();
+    }
+    /* wait until the observed process confirms he is not putting in our
+     * memory (or everybody else is dead) */
+    if( !OPAL_PROC_ON_LOCAL_NODE(ompi_comm_peer_lookup(detector->comm, detector->hb_observing)->super.proc_flags) ) {
         while( MPI_PROC_NULL != detector->hb_observing ) {
 #if OPAL_ENABLE_MULTI_THREADS
             if( !(0 < fd_thread_active) )
@@ -249,6 +253,7 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
     comm_detector_t* detector = &comm_world_detector;
 
     int rank, np;
+    startdate = PMPI_Wtime();
     detector->comm = comm;
     np = ompi_comm_size(comm);
     rank = ompi_comm_rank(comm);
@@ -292,7 +297,7 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
     assert( -1 != comm_heartbeat_request_cb_type /* initialized */);
     ompi_communicator_t* comm = detector->comm;
 
-    if( -3 != detector->hb_rdma_flag /* initialization */
+    if( -2 < detector->hb_rdma_flag /* initialization for values -2, -3 */
      && ompi_comm_is_proc_active(comm, detector->hb_observing, OMPI_COMM_IS_INTER(comm)) ) {
         /* already observing a live process, so nothing to do. */
         return OMPI_SUCCESS;
@@ -310,9 +315,27 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
         assert( NULL != proc );
         if( !ompi_proc_is_active(proc) ) continue;
 
+        /* if everybody else is dead, I don't need to monitor myself. */
+        if( rank == comm->c_my_rank ) {
+            OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
+                             "%s %s: Every other node is dead on communicator %3d:%d",
+                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, comm->c_contextid, comm->c_epoch));
+            detector->hb_observer = detector->hb_observing = MPI_PROC_NULL;
+            detector->hb_rstamp = INFINITY;
+            detector->hb_period = INFINITY;
+            detector->hb_rdma_rank = rank; /* make finalize happy */
+            return OMPI_SUCCESS;
+        }
+
+        /* do not heartbeat on sm domain, PMIx will detect for us */
+        if( OPAL_PROC_ON_LOCAL_NODE(proc->super.proc_flags) ) {
+            detector->hb_observing = rank;
+            return OMPI_SUCCESS;
+        }
+
         OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                              "%s %s: Sending observe request to %d on communicator %3d:%d stamp %g",
-                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, rank, comm->c_contextid, comm->c_epoch, detector->hb_rstamp ));
+                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, rank, comm->c_contextid, comm->c_epoch, detector->hb_rstamp-startdate ));
 
         if( comm_detector_use_rdma_hb ) {
             mca_bml_base_endpoint_t* endpoint = mca_bml_base_get_endpoint(proc);
@@ -357,17 +380,6 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
 #else
         break;
 #endif
-    }
-    /* if everybody else is dead, I don't need to monitor myself. */
-    if( rank == comm->c_my_rank ) {
-        OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
-                             "%s %s: Everybody else is dead on communicator %3d:%d",
-                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, comm->c_contextid, comm->c_epoch));
-        detector->hb_observer = detector->hb_observing = MPI_PROC_NULL;
-        detector->hb_rstamp = INFINITY;
-        detector->hb_period = INFINITY;
-        detector->hb_rdma_rank = rank; /* make finalize happy */
-        return OMPI_SUCCESS;
     }
     detector->hb_rstamp = PMPI_Wtime()+detector->hb_timeout; /* we add one timeout slack to account for the send time */
     return OMPI_SUCCESS;
@@ -438,28 +450,39 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
     double stamp = PMPI_Wtime();
     comm_detector_t* detector = pdetector;;
 
+    OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
+                "%s %s: evtime triggered at stamp %g; observing %d (recv grace %g); observer %d (send grace %g)",
+                OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, stamp-startdate,
+                detector->hb_observing, stamp-detector->hb_rstamp,
+                detector->hb_observer, stamp-detector->hb_sstamp));
+
     if( (stamp - detector->hb_sstamp) >= detector->hb_period ) {
         fd_heartbeat_send(detector);
     }
 
-    if( MPI_PROC_NULL == detector->hb_observing ) return;
+    if( INFINITY == detector->hb_rstamp ) return;
 
     if( comm_detector_use_rdma_hb ) {
         int flag = detector->hb_rdma_flag;
         int np = ompi_comm_size(detector->comm);
         int rank = ompi_comm_rank(detector->comm);
 
+        OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
+                    "%s:%s: read flag %d at stamp %g",
+                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, flag, stamp-startdate));
+#if 0
         if( -1 > flag ) {
             /* still initializing after MPI_INIT, give extra slack */
             if( (stamp - detector->hb_rstamp) < (detector->hb_timeout + (double)np) )
-               return;
+                return;
         }
+#endif
         if( rank == flag) {
             /* this is a quit message from our observed process, stop the
              * detector */
             opal_output_verbose(10, ompi_ftmpi_output_handle,
                     "%s %s: evtimer triggered at stamp %g, RDMA flag is set to my own rank, this is a quit message to close the detector.",
-                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, stamp);
+                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, stamp-startdate);
             detector->hb_observing = MPI_PROC_NULL;
             detector->hb_rstamp = INFINITY;
             return;
@@ -469,12 +492,12 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
             OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                    "%s %s: evtimer triggered at stamp %g, RDMA recv grace %.1e is OK from %d :)",
                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
-                   stamp, stamp - detector->hb_rstamp, flag));
+                   stamp-startdate, stamp - detector->hb_rstamp, flag));
             if( flag != detector->hb_observing ) {
                 opal_output_verbose(1, ompi_ftmpi_output_handle,
                    "%s %s: evtimer triggered at stamp %g, this is a rdma heartbeat from %d, but I am now observing %d, acting as-if this was a valid heartbeat",
                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
-                   flag, detector->hb_observing);
+                   stamp-startdate, flag, detector->hb_observing);
             }
             detector->hb_rdma_flag = -1;
             detector->hb_rstamp = stamp;
@@ -483,13 +506,29 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
     }
 
     if( (stamp - detector->hb_rstamp) > detector->hb_timeout ) {
+        ompi_proc_t* proc = ompi_comm_peer_lookup(detector->comm, detector->hb_observing);
+
+        /* Special case for procs on local node: we do not send or monitor
+         * heartbeats in that case. Check if this proc has been reported dead
+         * from PMIx, if so, move on to patch the ring. Otherwise, change the
+         * recv grace and do not check for another timeout, all is fine. */
+        if( OPAL_PROC_ON_LOCAL_NODE(proc->super.proc_flags)
+         && ompi_proc_is_active(proc) ) {
+            OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
+                        "%s %s: evtimer triggered at stamp %g, recv grace IGNORED by %.1e, proc %d is local and still active.",
+                        OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
+                        stamp-startdate,
+                        detector->hb_timeout - (stamp - detector->hb_rstamp), detector->hb_observing));
+            detector->hb_rstamp = stamp;
+            return;
+        }
+
         /* this process is now suspected dead. */
         opal_output_verbose(1, ompi_ftmpi_output_handle,
                         "%s %s: evtimer triggered at stamp %g, recv grace MISSED by %.1e, proc %d now suspected dead.",
                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
-                        stamp,
+                        stamp-startdate,
                         detector->hb_timeout - (stamp - detector->hb_rstamp), detector->hb_observing);
-        ompi_proc_t* proc = ompi_comm_peer_lookup(detector->comm, detector->hb_observing);
         /* mark this process dead and forward */
         ompi_errhandler_proc_failed(proc);
         /* change the observed proc */
@@ -510,14 +549,14 @@ void* fd_progress(opal_object_t* obj) {
     while( 1 == fd_thread_active ); /* wait for init stage 2: start_detector */
     ret = MCA_PML_CALL(irecv(NULL, 0, MPI_BYTE, 0, MCA_COLL_BASE_TAG_FT_END, &ompi_mpi_comm_self.comm, &req));
     while( fd_thread_active ) {
-        if( 0 == comm_world_detector.hb_rdma_raddr ) { /* if RDMA hb not setup yet */
+        opal_event_loop(fd_event_base, OPAL_EVLOOP_ONCE);
+        if( 1|| 0 == comm_world_detector.hb_rdma_raddr ) { /* if RDMA hb not setup yet */
             /* force rbcast recv to progress */
             int completed = 0;
             ret = ompi_request_test(&req, &completed, MPI_STATUS_IGNORE);
             assert( OMPI_SUCCESS == ret );
             assert( 0 == completed );
         }
-        opal_event_loop(fd_event_base, OPAL_EVLOOP_ONCE);
     }
     ret = ompi_request_cancel(req);
     ret = ompi_request_wait(&req, MPI_STATUS_IGNORE);
@@ -573,6 +612,9 @@ static int fd_heartbeat_send(comm_detector_t* detector) {
     ompi_communicator_t* comm = detector->comm;
     if( comm != &ompi_mpi_comm_world.comm ) return OMPI_ERR_NOT_IMPLEMENTED;
 
+    /* Do not heartbeat to local procs, PMIx will detect for us */
+    if( OPAL_PROC_ON_LOCAL_NODE(ompi_comm_peer_lookup(comm, detector->hb_observer)->super.proc_flags) ) return OMPI_SUCCESS;
+
     double now = PMPI_Wtime();
     if( 0. != detector->hb_sstamp
      && (now - detector->hb_sstamp) >= 2.*detector->hb_period ) {
@@ -583,7 +625,7 @@ static int fd_heartbeat_send(comm_detector_t* detector) {
     detector->hb_sstamp = now;
     OPAL_OUTPUT_VERBOSE((9, ompi_ftmpi_output_handle,
                          "%s %s: Sending heartbeat to %d on communicator %3d:%d stamp %g",
-                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, detector->hb_observer, comm->c_contextid, comm->c_epoch, detector->hb_sstamp ));
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, detector->hb_observer, comm->c_contextid, comm->c_epoch, detector->hb_sstamp-startdate ));
 
     if( comm_detector_use_rdma_hb ) return fd_heartbeat_rdma_put(detector);
 
@@ -592,7 +634,7 @@ static int fd_heartbeat_send(comm_detector_t* detector) {
     msg.super.cid = comm->c_contextid;
     msg.super.epoch = comm->c_epoch;
     msg.super.type = comm_heartbeat_recv_cb_type;
-    msg.from = comm->c_my_rank;
+    msg.from = detector->hb_rdma_rank; /* comm->c_my_rank; except during finalize when it is equal to detector->hb_observer */
     ompi_proc_t* proc = ompi_comm_peer_lookup(comm, detector->hb_observer);
     ompi_comm_rbcast_send_msg(proc, &msg.super, sizeof(msg));
     return OMPI_SUCCESS;
@@ -601,6 +643,18 @@ static int fd_heartbeat_send(comm_detector_t* detector) {
 static int fd_heartbeat_recv_cb(ompi_communicator_t* comm, ompi_comm_heartbeat_message_t* msg) {
     assert( &ompi_mpi_comm_world.comm == comm );
     comm_detector_t* detector = &comm_world_detector;
+
+
+    if( comm->c_my_rank == msg->from ) {
+        /* this is a quit message from our observed process, stop the
+         * detector */
+        opal_output_verbose(10, ompi_ftmpi_output_handle,
+            "%s %s: Received heartbeat from %d, which is my own rank, this is a quit message to close the detector.",
+            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->from);
+        detector->hb_observing = MPI_PROC_NULL;
+        detector->hb_rstamp = INFINITY;
+        return false;
+    }
 
     if( msg->from != detector->hb_observing ) {
         OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
@@ -611,8 +665,8 @@ static int fd_heartbeat_recv_cb(ompi_communicator_t* comm, ompi_comm_heartbeat_m
         double stamp = PMPI_Wtime();
         double grace = detector->hb_timeout - (stamp - detector->hb_rstamp);
         OPAL_OUTPUT_VERBOSE((9, ompi_ftmpi_output_handle,
-                             "%s %s: Recveived heartbeat from %d on communicator %3d:%d at timestamp %g (remained %.1e of %.1e before suspecting)",
-                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->from, comm->c_contextid, comm->c_epoch, stamp, grace, detector->hb_timeout ));
+                             "%s %s: Received heartbeat from %d on communicator %3d:%d at timestamp %g (remained %.1e of %.1e before suspecting)",
+                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->from, comm->c_contextid, comm->c_epoch, stamp-startdate, grace, detector->hb_timeout ));
         detector->hb_rstamp = stamp;
         if( grace < 0.0 ) {
             opal_output(ompi_ftmpi_output_handle,
