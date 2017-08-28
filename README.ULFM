@@ -203,29 +203,15 @@ vprotocol - Protocols for the "v" PML
 Back-end run-time environment (RTE) component frameworks:
 ---------------------------------------------------------
 
-dfs       - Distributed file system
-errmgr    - RTE error manager
-ess       - RTE environment-specific services
-filem     - Remote file management
-grpcomm   - RTE group communications
-iof       - I/O forwarding
-notifier  - System-level notification support
-odls      - OpenRTE daemon local launch subsystem
-oob       - Out of band messaging
-plm       - Process lifecycle management
-ras       - Resource allocation system
-rmaps     - Resource mapping system
-rml       - RTE message layer
-routed    - Routing table for the RML
-rtc       - Run-time control framework
-schizo    - OpenRTE personality framework
-state     - RTE state machine
+All components unmodified.
 
 Miscellaneous frameworks:
 -------------------------
 
 btl         - Point-to-point Byte Transfer Layer
-pmix        - Process management interface (exascale)
+                Supported BTLs modified to remove unconditional abort on error.
+threads/wait_sync
+                Added a global interrupt for wait_sync objects
 
 
 ===========================================================================
@@ -272,8 +258,8 @@ KNOWN LIMITATIONS:
   favor application performance at the expense of detection accuracy.
   End-users can control this tradeoff by setting the following mca
   parameters
-      - mpi_ft_detector_period (default 5e-1 (s))
-      - mpi_ft_detector_timeout (default 1e0 (s))
+      - mpi_ft_detector_period (default 1e-1 (s))
+      - mpi_ft_detector_timeout (default 3e-1 (s))
       - mpi_ft_detector_thread (default false)
 - The failure detector operates on MPI_COMM_WORLD exclusively. Processes
   connected from MPI_COMM_CONNECT/ACCEPT and MPI_COMM_SPAWN may
@@ -320,13 +306,5 @@ Focus has been toward improving performance, both before and after the occurence
     - Improve Context ID allocation algorithm to reduce overheads of Shrink
     - Miscellaneous bug fixes
 
-
-
-
-
-===========================================================================
-
-Got more questions?
--------------------
 
 
