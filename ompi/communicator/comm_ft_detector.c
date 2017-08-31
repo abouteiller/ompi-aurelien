@@ -194,18 +194,22 @@ int ompi_comm_finalize_failure_detector(void) {
         detector->hb_rdma_rank = detector->hb_observer;
         fd_heartbeat_send(detector);
         detector->hb_period = INFINITY;
-        MPI_PROC_NULL == detector->hb_observer;
+        detector->hb_observer = MPI_PROC_NULL;
         opal_atomic_mb();
     }
     /* wait until the observed process confirms he is not putting in our
      * memory (or everybody else is dead) */
-    if( !OPAL_PROC_ON_LOCAL_NODE(ompi_comm_peer_lookup(detector->comm, detector->hb_observing)->super.proc_flags) ) {
-        while( MPI_PROC_NULL != detector->hb_observing ) {
+    if( MPI_PROC_NULL != detector->hb_observing ) {
+        ompi_proc_t* proc = ompi_comm_peer_lookup(detector->comm, detector->hb_observing);
+        assert( NULL != proc );
+        if( !OPAL_PROC_ON_LOCAL_NODE(proc->super.proc_flags) ) {
+            while( MPI_PROC_NULL != detector->hb_observing ) {
 #if OPAL_ENABLE_MULTI_THREADS
-            if( !(0 < fd_thread_active) )
+                if( !(0 < fd_thread_active) )
 #endif
-            {
-                opal_progress();
+                {
+                    opal_progress();
+                }
             }
         }
     }
