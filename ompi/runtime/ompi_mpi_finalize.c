@@ -16,7 +16,6 @@
  * Copyright (c) 2006      University of Houston. All rights reserved.
  * Copyright (c) 2009      Sun Microsystems, Inc.  All rights reserved.
  * Copyright (c) 2011      Sandia National Laboratories. All rights reserved.
- * Copyright (c) 2012      Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2014-2017 Intel, Inc. All rights reserved.
  * Copyright (c) 2016      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
@@ -255,25 +254,13 @@ int ompi_mpi_finalize(void)
        https://svn.open-mpi.org/trac/ompi/ticket/4669#comment:4 for
        more details). */
 #if OPAL_ENABLE_FT_MPI
-    /* grpcomm barrier does not tolerate /new/ failures. Let's make sure
-     * we drain all preexisting failures before we proceed;
-     * TODO: when we have better failure support in the runtime, we can
-     * remove that agreement */
     if( ompi_ftmpi_enabled ) {
         ompi_communicator_t* comm = &ompi_mpi_comm_world.comm;
-        ompi_communicator_t* ncomm;
-        opal_output_verbose(10, ompi_ftmpi_output_handle, "Rank %d entering finalize", ompi_comm_rank(comm));
-        ret = ompi_comm_shrink_internal(comm, &ncomm);
-        if( MPI_SUCCESS != ret ) {
-            OMPI_ERROR_LOG(ret);
-            goto done;
-        }
-        ret = ncomm->c_coll->coll_barrier(ncomm, ncomm->c_coll->coll_barrier_module);
-        if( MPI_SUCCESS != ret ) {
-            OMPI_ERROR_LOG(ret);
-            goto done;
-        }
-#if 0
+        OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle, "FT: Rank %d entering finalize", ompi_comm_rank(comm)));
+        /* grpcomm barrier does not tolerate /new/ failures. Let's make sure
+         * we drain all preexisting failures before we proceed;
+         * TODO: when we have better failure support in the runtime, we can
+         * remove that agreement */
         ompi_group_t* acked;
         ompi_comm_failure_get_acked_internal(comm, &acked);
         do {
@@ -284,24 +271,20 @@ int ompi_mpi_finalize(void)
                                               &acked, true,
                                               comm,
                                               comm->c_coll->coll_agreement_module);
-        } while(ret != MPI_SUCCESS);
-#endif
+        } while (MPI_ERR_PROC_FAILED == ret);
+        assert( MPI_SUCCESS == ret );
+        OBJ_RELEASE(acked);
 
         /* finalize the fault tolerant infrastructure (revoke,
          * failure propagator, etc). From now-on we do not tolerate failures. */
-        opal_output_verbose(10, ompi_ftmpi_output_handle, "Rank %05d: TURNING OFF DETECTOR", ompi_comm_rank(comm));
+        OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle, "FT: Rank %05d turning off the failure detector", ompi_comm_rank(comm)));
         ompi_comm_finalize_failure_detector();
         ompi_comm_finalize_failure_propagator();
         ompi_comm_finalize_revoke();
         ompi_comm_finalize_rbcast();
-        OPAL_OUTPUT_VERBOSE((20, ompi_ftmpi_output_handle, "Rank %05d: DONE WITH FINALIZE", ompi_comm_rank(comm)));
-        //ompi_async_mpi_finalize = true;
-#if 0
-        if( ompi_group_size(acked) && 0 == ompi_mpi_comm_world.comm.c_my_rank ) opal_pmix.abort(0, "FT: forcing termination with abort until PMIX_Fence works", NULL);
-        OBJ_RELEASE(acked);
-#endif
+        opal_output_verbose(60, ompi_ftmpi_output_handle, "Rank %05d: DONE WITH FINALIZE", ompi_comm_rank(comm));
     }
-#endif
+#endif /* OPAL_ENABLE_FT_MPI */
     if (!ompi_async_mpi_finalize) {
         if (NULL != opal_pmix.fence_nb) {
             active = true;
