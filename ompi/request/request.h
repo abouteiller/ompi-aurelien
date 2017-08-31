@@ -434,6 +434,9 @@ static inline void ompi_request_wait_completion(ompi_request_t *req)
 {
     if (opal_using_threads () && !REQUEST_COMPLETE(req)) {
         ompi_wait_sync_t sync;
+#if OPAL_ENABLE_FT_MPI
+redo:
+#endif /* OPAL_ENABLE_FT_MPI */
         WAIT_SYNC_INIT(&sync, 1);
 
         if (OPAL_ATOMIC_CMPSET_PTR(&req->req_complete, REQUEST_PENDING, &sync)) {
@@ -444,10 +447,14 @@ static inline void ompi_request_wait_completion(ompi_request_t *req)
         }
 
 #if OPAL_ENABLE_FT_MPI
-        assert(REQUEST_COMPLETE(req) || !ompi_request_state_ok(req));
-#else
-        assert(REQUEST_COMPLETE(req));
+        if (OPAL_UNLIKELY(!REQUEST_COMPLETE(req))) {
+            if (ompi_request_state_ok(req)
+             && sync.status != OMPI_SUCCESS) {
+                goto redo;
+            }
+        }
 #endif /* OPAL_ENABLE_FT_MPI */
+        assert(REQUEST_COMPLETE(req));
         WAIT_SYNC_RELEASE(&sync);
     } else {
         while(!REQUEST_COMPLETE(req)) {
