@@ -77,9 +77,9 @@ ompi_predefined_errhandler_t *ompi_mpi_errors_throw_exceptions_addr =
 
 #if OPAL_ENABLE_FT_MPI
 /*
- * A mutex to prevent altering the proc/comm status from an 
- * RTE progress thread at the same time as from an OMPI 
- * thread. 
+ * A mutex to prevent altering the proc/comm status from an
+ * RTE progress thread at the same time as from an OMPI
+ * thread.
  */
 static opal_mutex_t errhandler_ftmpi_lock = OPAL_MUTEX_STATIC_INIT;
 #endif /* OPAL_ENABLE_FT_MPI */
@@ -243,7 +243,9 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
     ompi_group_t *group = NULL;
     bool remote = false;
 
-    /* mutual exclusion (we are going to manipulate global group objects etc). This function 
+    assert( OPAL_EQUAL != ompi_rte_compare_name_fields(OMPI_RTE_CMP_ALL, OMPI_PROC_MY_NAME, &ompi_proc->super.proc_name) );
+
+    /* mutual exclusion (we are going to manipulate global group objects etc). This function
      * may be invoked from the RTE thread. */
     opal_mutex_lock(&errhandler_ftmpi_lock);
     /* If we have already reported this error, ignore */
@@ -251,6 +253,9 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
         opal_mutex_unlock(&errhandler_ftmpi_lock);
         return rc;
     }
+    /* Process State:
+     * Update process state to failed */
+    ompi_proc_mark_as_failed(ompi_proc);
     opal_mutex_unlock(&errhandler_ftmpi_lock);
 
     opal_output_verbose(1, ompi_ftmpi_output_handle,
@@ -258,13 +263,8 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                         OMPI_NAME_PRINT(&ompi_proc->super.proc_name),
                         status );
-    assert( OPAL_EQUAL != ompi_rte_compare_name_fields(OMPI_RTE_CMP_ALL, OMPI_PROC_MY_NAME, &ompi_proc->super.proc_name) );
 
-    /* Process State:
-     * Update process state to failed */
-    ompi_proc_mark_as_failed(ompi_proc);
-
-   /* Communicator State:
+    /* Communicator State:
      * Let them know about the failure. */
     max_num_comm = opal_pointer_array_get_size(&ompi_mpi_communicators);
     for( i = 0; i < max_num_comm; ++i ) {
@@ -315,7 +315,6 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
         OBJ_RELEASE(tmp);
     }
 
-
     /* Point-to-Point:
      * Let the active request know of the process state change.
      * The wait function has a check, so all we need to do here is
@@ -334,7 +333,7 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
 #if 0
         /* Let pmix know: flush modex information, propagate to connect/accept
          * jobs */
-        //TODO: fill the info array with ompi_proc->super.proc_name 
+        //TODO: fill the info array with ompi_proc->super.proc_name
         opal_pmix.notify_event(status, OMPI_PROC_MY_NAME, OPAL_PMIX_RANGE_NAMESPACE,
                                NULL, pmix_notify_cb, &active);
         OMPI_LAZY_WAIT_FOR_COMPLETION(active);
@@ -408,7 +407,7 @@ void ompi_errhandler_callback(int status,
                               opal_pmix_notification_complete_fn_t cbfunc,
                               void *cbdata)
 {
-    /* an error has been found, report to the MPI layer and let it take 
+    /* an error has been found, report to the MPI layer and let it take
      * further action. */
     /* transition this from the RTE thread to the MPI progress engine */
     ompi_errhandler_event_t *event = malloc(sizeof(*event));
