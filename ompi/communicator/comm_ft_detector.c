@@ -313,7 +313,7 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
     size_t regsize = 0;
 
     for( rank = (np+detector->hb_observing) % np;
-         rank != comm->c_my_rank;
+         true;
          rank = (np+rank-1) % np ) {
         ompi_proc_t* proc = ompi_comm_peer_lookup(comm, rank);
         assert( NULL != proc );
@@ -327,7 +327,6 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
             detector->hb_observer = detector->hb_observing = MPI_PROC_NULL;
             detector->hb_rstamp = INFINITY;
             detector->hb_period = INFINITY;
-            detector->hb_rdma_rank = rank; /* make finalize happy */
             return OMPI_SUCCESS;
         }
 
