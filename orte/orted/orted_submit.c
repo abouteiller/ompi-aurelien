@@ -915,6 +915,17 @@ int orte_submit_job(char *argv[], int *index,
         orte_set_attribute(&jdata->attributes, ORTE_JOB_CPU_LIST, ORTE_ATTR_GLOBAL, orte_cmd_options.cpu_list, OPAL_STRING);
     }
 
+    if (orte_cmd_options.disable_recovery) {
+#if OPAL_ENABLE_FT_MPI
+        for (n=0; n < (int)jdata->num_apps; n++) {
+            if (NULL != (app = (orte_app_context_t*)opal_pointer_array_get_item(jdata->apps, n))) {
+                opal_setenv("OMPI_MCA_mpi_ft_enable", "false", true, &app->env);
+            }
+        }
+#endif /* OPAL_ENABLE_FT_MPI */
+        orte_enable_recovery = false;
+    }
+
     /* if recovery was enabled on the cmd line, do so */
     if (orte_enable_recovery) {
         ORTE_FLAG_SET(jdata, ORTE_JOB_FLAG_RECOVERABLE);

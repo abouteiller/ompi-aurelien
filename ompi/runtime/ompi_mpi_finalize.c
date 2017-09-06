@@ -283,6 +283,7 @@ int ompi_mpi_finalize(void)
         ompi_comm_finalize_revoke();
         ompi_comm_finalize_rbcast();
         opal_output_verbose(60, ompi_ftmpi_output_handle, "Rank %05d: DONE WITH FINALIZE", ompi_comm_rank(comm));
+        ompi_async_mpi_finalize = true; //TODO: when pmix fence_nb can tolerate failures, reenable it to flush UDP transports */
     }
 #endif /* OPAL_ENABLE_FT_MPI */
     if (!ompi_async_mpi_finalize) {

@@ -195,10 +195,16 @@ As ULFM is still an extension to the MPI standard, you will need to
 supplementary error codes and functions.
 
 Compile your application as usual, using the provided `mpicc`, `mpif90`, or
-`mpicxx` wrappers. You can then launch your application with fault tolerance
-by simply using the provided `mpiexec`. Beware that your distribution may
-already provide a version of MPI, make sure to set your `PATH` and
-`LD_LIBRARY_PATH` properly.
+`mpicxx` wrappers.
+
+## Running your application
+
+You can launch your application with fault tolerance by simply using the
+provided `mpiexec`. Beware that your distribution may already provide a
+version of MPI, make sure to set your `PATH` and `LD_LIBRARY_PATH` properly.
+Note that fault tolerance is enabled by default in ULFM Open MPI; you can
+disable all fault tolerance systems by launching your application with
+`mpiexec --disable-recovery`.
 
 ## Running under a batch scheduler
 
@@ -215,6 +221,9 @@ ULFM comes with a variety of knobs for controlling how it runs. The default
 parameters are sane and should result in very good performance in most
 cases. You can change the default settings with `--mca mpi_ft_foo <value>`.
 
+- `orte_enable_recovery <true|false> (default: true)` controls automatic
+  cleanup of apps with failed processes withing mpirun. The default
+  differs from upstream Open MPI.
 - `mpi_ft_enable <true|false> (default: true)` permits turning off fault
   tolerance without recompiling. Failure detection is disabled. Interfaces
   defined by the fault tolerance extensions are substituted with dummy

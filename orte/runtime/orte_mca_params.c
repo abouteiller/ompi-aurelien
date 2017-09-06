@@ -620,7 +620,11 @@ int orte_register_params(void)
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY,
                                   &orte_do_not_barrier);
 
+#if OPAL_ENABLE_FT_MPI
+    orte_enable_recovery = true;
+#else
     orte_enable_recovery = false;
+#endif /* OPAL_ENABLE_FT_MPI */
     (void) mca_base_var_register ("orte", "orte", NULL, "enable_recovery",
                                   "Enable recovery from process failure [Default = disabled]",
                                   MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,

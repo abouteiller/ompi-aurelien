@@ -3,7 +3,7 @@
  *                         All rights reserved.
  * Copyright (c) 2010-2013 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2004-2011 The University of Tennessee and The University
+ * Copyright (c) 2004-2017 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2011-2013 Los Alamos National Security, LLC.
@@ -590,6 +590,12 @@ static void proc_errors(int fd, short args, void *cbdata)
     }
 
     if (ORTE_PROC_STATE_TERMINATED < state) {
+        if (ORTE_FLAG_TEST(child, ORTE_PROC_FLAG_ALIVE)) {
+            ORTE_FLAG_UNSET(child, ORTE_PROC_FLAG_ALIVE);
+        }
+        if (!ORTE_FLAG_TEST(child, ORTE_PROC_FLAG_WAITPID)) {
+            ORTE_FLAG_SET(child, ORTE_PROC_FLAG_WAITPID);
+        }
         /* if we were ordered to terminate, see if
          * any of our routes or local children remain alive - if not, then
          * terminate ourselves. */
@@ -597,9 +603,6 @@ static void proc_errors(int fd, short args, void *cbdata)
             /* mark the child as no longer alive and update the counters, if necessary.
              * we have to do this here as we aren't going to send this to the state
              * machine, and we want to keep the bookkeeping accurate just in case */
-            if (ORTE_FLAG_TEST(child, ORTE_PROC_FLAG_ALIVE)) {
-                ORTE_FLAG_UNSET(child, ORTE_PROC_FLAG_ALIVE);
-            }
             if (!ORTE_FLAG_TEST(child, ORTE_PROC_FLAG_RECORDED)) {
                 ORTE_FLAG_SET(child, ORTE_PROC_FLAG_RECORDED);
                 jdata->num_terminated++;

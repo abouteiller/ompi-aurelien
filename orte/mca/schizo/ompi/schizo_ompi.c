@@ -457,10 +457,12 @@ static opal_cmd_line_init_t cmd_line_init[] = {
       NULL, OPAL_CMD_LINE_TYPE_STRING,
       "Report events to a tool listening at the specified URI", OPAL_CMD_LINE_OTYPE_DEBUG },
 
+#if !OPAL_ENABLE_FT_MPI
     { "orte_enable_recovery", '\0', "enable-recovery", "enable-recovery", 0,
       NULL, OPAL_CMD_LINE_TYPE_BOOL,
       "Enable recovery from process failure [Default = disabled]",
       OPAL_CMD_LINE_OTYPE_UNSUPPORTED },
+#endif /* OPAL_ENABLE_FT_MPI */
 
     { "orte_max_restarts", '\0', "max-restarts", "max-restarts", 1,
       NULL, OPAL_CMD_LINE_TYPE_INT,

@@ -3,7 +3,7 @@
  *                         All rights reserved.
  * Copyright (c) 2010      Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2010-2011 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2004-2016 The University of Tennessee and The University
+ * Copyright (c) 2004-2017 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2011      Oracle and/or all its affiliates.  All rights reserved.
@@ -478,6 +478,9 @@ static void proc_errors(int fd, short args, void *cbdata)
     if (pptr->state < ORTE_PROC_STATE_TERMINATED) {
         pptr->state = state;
     }
+    else {
+        goto cleanup;
+    }
 
     /* if we were ordered to terminate, mark this proc as dead and see if
      * any of our routes or local children remain alive - if not, then
@@ -541,7 +544,6 @@ static void proc_errors(int fd, short args, void *cbdata)
                              "%s errmgr:hnp: proc %s aborted",
                              ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
                              ORTE_NAME_PRINT(proc)));
-#if !OPAL_ENABLE_FT_MPI
         if (!ORTE_FLAG_TEST(jdata, ORTE_JOB_FLAG_ABORTED)) {
             jdata->state = ORTE_JOB_STATE_ABORTED;
             /* point to the first rank to cause the problem */
@@ -554,7 +556,6 @@ static void proc_errors(int fd, short args, void *cbdata)
              * to avoid creating a lot of confusion */
             default_hnp_abort(jdata);
         }
-#endif /* !OPAL_ENABLE_FT_MPI */
         break;
 
     case ORTE_PROC_STATE_ABORTED_BY_SIG:
@@ -572,7 +573,6 @@ static void proc_errors(int fd, short args, void *cbdata)
         orte_set_attribute(&jdata->attributes, ORTE_JOB_NUM_NONZERO_EXIT, ORTE_ATTR_LOCAL, i32ptr, OPAL_INT32);
         if (orte_abort_non_zero_exit) {
 
-#if !OPAL_ENABLE_FT_MPI
             if (!ORTE_FLAG_TEST(jdata, ORTE_JOB_FLAG_ABORTED)) {
                 jdata->state = ORTE_JOB_STATE_ABORTED_BY_SIG;
                 /* point to the first rank to cause the problem */
@@ -585,7 +585,6 @@ static void proc_errors(int fd, short args, void *cbdata)
                  * to avoid creating a lot of confusion */
                 default_hnp_abort(jdata);
             }
-#endif /* !OPAL_ENABLE_FT_MPI */
         } else {
             /* user requested we consider this normal termination */
             if (jdata->num_terminated >= jdata->num_procs) {
@@ -708,7 +707,6 @@ static void proc_errors(int fd, short args, void *cbdata)
                              "%s errmgr:hnp: proc %s heartbeat failed",
                              ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
                              ORTE_NAME_PRINT(proc)));
-#if !OPAL_ENABLE_FT_MPI
         if (!ORTE_FLAG_TEST(jdata, ORTE_JOB_FLAG_ABORTED)) {
             jdata->state = ORTE_JOB_STATE_HEARTBEAT_FAILED;
             /* point to the first rank to cause the problem */
@@ -721,7 +719,6 @@ static void proc_errors(int fd, short args, void *cbdata)
              * to avoid creating a lot of confusion */
             default_hnp_abort(jdata);
         }
-#endif /* !OPAL_ENABLE_FT_MPI */
         /* remove from dependent routes, if it is one */
         orte_routed.route_lost(rtmod, proc);
         break;
@@ -780,13 +777,11 @@ static void proc_errors(int fd, short args, void *cbdata)
             ORTE_ACTIVATE_JOB_STATE(NULL, ORTE_JOB_STATE_DAEMONS_TERMINATED);
             break;
         }
-#if !OPAL_ENABLE_FT_MPI
         if (!ORTE_FLAG_TEST(jdata, ORTE_JOB_FLAG_ABORTED)) {
             /* abnormal termination - abort, but only do it once
              * to avoid creating a lot of confusion */
             default_hnp_abort(jdata);
         }
-#endif /* !OPAL_ENABLE_FT_MPI */
         break;
 
     default:
