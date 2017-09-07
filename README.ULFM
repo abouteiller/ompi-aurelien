@@ -251,8 +251,6 @@ cases. You can change the default settings with `--mca mpi_ft_foo <value>`.
   the heartbeat period.
 
 ## Known Limitations in ULFM-2.0:
-- In post-failure executions, ORTE daemons may remain idling after
-  application processes have successfully finalized.
 - TOPO, FILE, RMA are not fault tolerant.
 - There is a tradeoff between failure detection accuracy and performance.
   The current default is to favor performance. Users that experience
