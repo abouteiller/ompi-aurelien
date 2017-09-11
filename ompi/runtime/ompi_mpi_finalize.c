@@ -257,6 +257,7 @@ int ompi_mpi_finalize(void)
     if( ompi_ftmpi_enabled ) {
         ompi_communicator_t* comm = &ompi_mpi_comm_world.comm;
         OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle, "FT: Rank %d entering finalize", ompi_comm_rank(comm)));
+#if 0
         /* grpcomm barrier does not tolerate /new/ failures. Let's make sure
          * we drain all preexisting failures before we proceed;
          * TODO: when we have better failure support in the runtime, we can
@@ -274,7 +275,7 @@ int ompi_mpi_finalize(void)
         } while (MPI_ERR_PROC_FAILED == ret);
         assert( MPI_SUCCESS == ret );
         OBJ_RELEASE(acked);
-
+#endif
         /* finalize the fault tolerant infrastructure (revoke,
          * failure propagator, etc). From now-on we do not tolerate failures. */
         OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle, "FT: Rank %05d turning off the failure detector", ompi_comm_rank(comm)));
