@@ -1,5 +1,5 @@
 dnl
-dnl Copyright (c) 2004-2016 The University of Tennessee and The University
+dnl Copyright (c) 2004-2017 The University of Tennessee and The University
 dnl                         of Tennessee Research Foundation.  All rights
 dnl                         reserved.
 dnl Copyright (c) 2009-2012 Oak Ridge National Labs.  All rights reserved.
@@ -42,9 +42,8 @@ AC_DEFUN([OPAL_SETUP_FT_OPTIONS],[
     AC_ARG_WITH(ft,
                 [AC_HELP_STRING([--with-ft=TYPE],
                 [Specify the type of fault tolerance to enable. Options: mpi (ULFM), LAM (LAM/MPI-like), cr (Checkpoint/Restart) (default: mpi)])],
-                [opal_want_ft=1],
-                [opal_want_ft=1
-                 with_ft=mpi]) # If not specified act as if --with-ft=mpi
+                [],
+                [with_ft=mpi]) # If not specified act as if --with-ft=mpi
 
     #
     # Checkpoint/restart enabled debugging
@@ -72,7 +71,8 @@ AC_DEFUN([OPAL_SETUP_FT],[
     if test "$opal_setup_ft_options" = "yes"; then
         AC_MSG_CHECKING([if want fault tolerance])
     fi
-    if test "x$with_ft" != "x" || test "$opal_want_ft" = "1"; then
+
+    if test x"$with_ft" != "xno"; then
         opal_want_ft=1
         opal_want_ft_cr=0
         opal_want_ft_mpi=0
@@ -84,7 +84,7 @@ AC_DEFUN([OPAL_SETUP_FT],[
             IFS=$as_save_IFS
 
             # Default value
-            if test "$opt" = "" || test "$opt" = "yes"; then
+            if test "$opt" = "yes"; then
                 opal_want_ft_mpi=1
             elif test "$opt" = "ULFM"; then
                 opal_want_ft_mpi=1
