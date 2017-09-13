@@ -39,6 +39,7 @@
 #include "ompi/errhandler/errhandler.h"
 #include "opal/threads/mutex.h"
 #include "ompi/communicator/comm_request.h"
+#include "ompi/mca/coll/base/coll_tags.h"
 
 #include "mpi.h"
 #include "ompi/group/group.h"

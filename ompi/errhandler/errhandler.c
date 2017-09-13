@@ -369,8 +369,8 @@ static void *ompi_errhandler_event_cb(int fd, int flags, void *context) {
 #endif /* OPAL_ENABLE_FT_MPI */
         /* our default action is to abort */
         ompi_mpi_abort(MPI_COMM_WORLD, status);
-    }
 #if OPAL_ENABLE_FT_MPI
+    }
     else {
         /* Find the ompi_proc_t, if not lazy allocated yet, create it so we can
          * mark it's active field to false. */
