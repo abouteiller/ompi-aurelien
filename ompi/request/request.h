@@ -447,9 +447,9 @@ redo:
         }
 
 #if OPAL_ENABLE_FT_MPI
-        if (OPAL_UNLIKELY(!REQUEST_COMPLETE(req))) {
-            if (ompi_request_state_ok(req)
-             && sync.status != OMPI_SUCCESS) {
+        if (OPAL_UNLIKELY(OMPI_SUCCESS != sync.status)) {
+            if (OPAL_ATOMIC_CMPSET_PTR(&req->req_complete, &sync, REQUEST_PENDING)
+             && ompi_request_state_ok(req)) {
                 goto redo;
             }
         }
