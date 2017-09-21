@@ -31,6 +31,7 @@
 #include "opal/util/argv.h"
 #include "opal/util/opal_environ.h"
 #include "opal/util/proc.h"
+#include "opal/util/show_help.h"
 
 #include "opal/mca/pmix/base/base.h"
 #include "pmix2x.h"
@@ -66,7 +67,6 @@ int pmix2x_client_init(opal_list_t *ilist)
     pmix_info_t *pinfo;
     size_t ninfo, n;
     opal_value_t *ival;
-    char *evar;
 
     opal_output_verbose(1, opal_pmix_base_framework.framework_output,
                         "PMIx_client init");
@@ -78,9 +78,10 @@ int pmix2x_client_init(opal_list_t *ilist)
             asprintf(&dbgvalue, "PMIX_DEBUG=%d", dbg);
             putenv(dbgvalue);
         }
-        if ((NULL != (evar = getenv("OPAL_PREFIX"))) && 
-            (NULL == getenv("PMIX_INSTALL_PREFIX"))) {
-            opal_setenv("PMIX_INSTALL_PREFIX", evar, false, &environ);
+        /* check the evars for a mismatch */
+        if (OPAL_SUCCESS != (dbg = opal_pmix_pmix2x_check_evars())) {
+            OPAL_PMIX_RELEASE_THREAD(&opal_pmix_base.lock);
+            return dbg;
         }
     }
 
@@ -196,7 +197,7 @@ int pmix2x_tool_init(opal_list_t *info)
     opal_value_t *val;
     pmix_status_t rc;
     int ret;
-    opal_process_name_t pname;
+    opal_process_name_t pname = {OPAL_JOBID_INVALID, OPAL_VPID_INVALID};
     opal_pmix2x_event_t *event;
 
     opal_output_verbose(1, opal_pmix_base_framework.framework_output,
@@ -212,11 +213,22 @@ int pmix2x_tool_init(opal_list_t *info)
             (void)strncpy(pinfo[n].key, val->key, PMIX_MAX_KEYLEN);
             pmix2x_value_load(&pinfo[n].value, val);
             ++n;
+            /* check to see if our name is being given from above */
+            if (0 == strcmp(val->key, OPAL_PMIX_TOOL_NSPACE)) {
+                opal_convert_string_to_jobid(&pname.jobid, val->data.string);
+                (void)strncpy(my_proc.nspace, val->data.string, PMIX_MAX_NSLEN);
+            } else if (0 == strcmp(val->key, OPAL_PMIX_TOOL_RANK)) {
+                pname.vpid = val->data.name.vpid;
+                my_proc.rank = pname.vpid;
+            }
         }
     } else {
         pinfo = NULL;
         ninfo = 0;
     }
+    /* we are going to get our name from the server, or we were given it by the tool,
+     * so mark as native launch so we don't convert back/forth */
+    mca_pmix_pmix2x_component.native_launch = true;
 
     OPAL_PMIX_RELEASE_THREAD(&opal_pmix_base.lock);
     rc = PMIx_tool_init(&my_proc, pinfo, ninfo);
@@ -237,16 +249,9 @@ int pmix2x_tool_init(opal_list_t *info)
     }
 
     /* store our jobid and rank */
-    if (NULL != getenv(OPAL_MCA_PREFIX"orte_launch")) {
-        /* if we were launched by the OMPI RTE, then
-         * the jobid is in a special format - so get it */
-        mca_pmix_pmix2x_component.native_launch = true;
-        opal_convert_string_to_jobid(&pname.jobid, my_proc.nspace);
-    } else {
-        /* we were launched by someone else, so make the
-         * jobid just be the hash of the nspace */
-        OPAL_HASH_JOBID(my_proc.nspace, pname.jobid);
-    }
+    opal_convert_string_to_jobid(&pname.jobid, my_proc.nspace);
+    pname.vpid = pmix2x_convert_rank(my_proc.rank);
+
     /* insert this into our list of jobids - it will be the
      * first, and so we'll check it first */
     job = OBJ_NEW(opal_pmix2x_jobid_trkr_t);
@@ -254,7 +259,6 @@ int pmix2x_tool_init(opal_list_t *info)
     job->jobid = pname.jobid;
     opal_list_append(&mca_pmix_pmix2x_component.jobids, &job->super);
 
-    pname.vpid = pmix2x_convert_rank(my_proc.rank);
     opal_proc_set_name(&pname);
 
     /* release the thread in case the event handler fires when
@@ -1143,6 +1147,9 @@ int pmix2x_spawn(opal_list_t *job_info, opal_list_t *apps, opal_jobid_t *jobid)
         if (NULL != app->env) {
             papps[n].env = opal_argv_copy(app->env);
         }
+        if (NULL != app->cwd) {
+            papps[n].cwd = strdup(app->cwd);
+        }
         papps[n].maxprocs = app->maxprocs;
         if (0 < (papps[n].ninfo = opal_list_get_size(&app->info))) {
             PMIX_INFO_CREATE(papps[n].info, papps[n].ninfo);
@@ -1548,4 +1555,95 @@ int pmix2x_resolve_nodes(opal_jobid_t jobid, char **nodelist)
     ret = PMIx_Resolve_nodes(nsptr, nodelist);
 
     return pmix2x_convert_rc(ret);
+}
+
+static void relcbfunc(void *cbdata)
+{
+    pmix2x_opcaddy_t *op = (pmix2x_opcaddy_t*)cbdata;
+    OBJ_RELEASE(op);
+}
+
+static void infocbfunc(pmix_status_t status,
+                       pmix_info_t *info, size_t ninfo,
+                       void *cbdata,
+                       pmix_release_cbfunc_t release_fn,
+                       void *release_cbdata)
+{
+    pmix2x_opcaddy_t *op = (pmix2x_opcaddy_t*)cbdata;
+    int rc;
+
+    if (NULL != release_fn) {
+        release_fn(release_cbdata);
+    }
+    rc = pmix2x_convert_rc(status);
+    if (NULL != op->qcbfunc) {
+        op->qcbfunc(rc, NULL, op->cbdata, relcbfunc, op);
+    } else {
+        OBJ_RELEASE(op);
+    }
+}
+
+int pmix2x_allocate(opal_pmix_alloc_directive_t directive,
+                    opal_list_t *info,
+                    opal_pmix_info_cbfunc_t cbfunc, void *cbdata)
+{
+    return OPAL_ERR_NOT_SUPPORTED;
+}
+
+int pmix2x_job_control(opal_list_t *targets,
+                       opal_list_t *directives,
+                       opal_pmix_info_cbfunc_t cbfunc, void *cbdata)
+{
+    pmix2x_opcaddy_t *op;
+    size_t n;
+    opal_namelist_t *ptr;
+    opal_value_t *iptr;
+    pmix_status_t rc;
+    char *nsptr;
+
+    OPAL_PMIX_ACQUIRE_THREAD(&opal_pmix_base.lock);
+    if (0 >= opal_pmix_base.initialized) {
+        OPAL_PMIX_RELEASE_THREAD(&opal_pmix_base.lock);
+        return OPAL_ERR_NOT_INITIALIZED;
+    }
+
+    /* create the caddy */
+    op = OBJ_NEW(pmix2x_opcaddy_t);
+    op->qcbfunc = cbfunc;
+    op->cbdata = cbdata;
+    if (NULL != targets) {
+        op->nprocs = opal_list_get_size(targets);
+
+        /* convert the list of procs to an array
+         * of pmix_proc_t */
+        PMIX_PROC_CREATE(op->procs, op->nprocs);
+        n=0;
+        OPAL_LIST_FOREACH(ptr, targets, opal_namelist_t) {
+            if (NULL == (nsptr = pmix2x_convert_jobid(ptr->name.jobid))) {
+                OBJ_RELEASE(op);
+                OPAL_PMIX_RELEASE_THREAD(&opal_pmix_base.lock);
+                return OPAL_ERR_NOT_FOUND;
+            }
+            (void)strncpy(op->procs[n].nspace, nsptr, PMIX_MAX_NSLEN);
+            op->procs[n].rank = pmix2x_convert_opalrank(ptr->name.vpid);
+            ++n;
+        }
+    }
+    OPAL_PMIX_RELEASE_THREAD(&opal_pmix_base.lock);
+
+    if (NULL != directives && 0 < (op->ninfo = opal_list_get_size(directives))) {
+        PMIX_INFO_CREATE(op->info, op->ninfo);
+        n=0;
+        OPAL_LIST_FOREACH(iptr, directives, opal_value_t) {
+            (void)strncpy(op->info[n].key, iptr->key, PMIX_MAX_KEYLEN);
+            pmix2x_value_load(&op->info[n].value, iptr);
+            ++n;
+        }
+    }
+
+    rc = PMIx_Job_control_nb(op->procs,op->nprocs, op->info, op->ninfo, infocbfunc, op);
+    if (PMIX_SUCCESS != rc) {
+        OBJ_RELEASE(op);
+    }
+    return pmix2x_convert_rc(rc);
 }

@@ -37,6 +37,12 @@
 
 BEGIN_C_DECLS
 
+#ifdef OPAL_C_HAVE_VISIBILITY
+#define PMIX_HAVE_VISIBILITY 1
+#else
+#undef PMIX_HAVE_VISIBILITY
+#endif
+
 typedef struct {
   opal_pmix_base_component_t super;
   opal_list_t jobids;
@@ -46,6 +52,7 @@ typedef struct {
   int cache_size;
   opal_list_t cache;
   opal_list_t dmdx;
+  bool silence_warning;
 } mca_pmix_pmix2x_component_t;
 
 OPAL_DECLSPEC extern mca_pmix_pmix2x_component_t mca_pmix_pmix2x_component;
@@ -249,6 +256,12 @@ OPAL_MODULE_DECLSPEC int pmix2x_disconnectnb(opal_list_t *procs,
 OPAL_MODULE_DECLSPEC int pmix2x_resolve_peers(const char *nodename, opal_jobid_t jobid,
                                              opal_list_t *procs);
 OPAL_MODULE_DECLSPEC int pmix2x_resolve_nodes(opal_jobid_t jobid, char **nodelist);
+OPAL_MODULE_DECLSPEC int pmix2x_allocate(opal_pmix_alloc_directive_t directive,
+                                         opal_list_t *info,
+                                         opal_pmix_info_cbfunc_t cbfunc, void *cbdata);
+OPAL_MODULE_DECLSPEC int pmix2x_job_control(opal_list_t *targets,
+                                            opal_list_t *directives,
+                                            opal_pmix_info_cbfunc_t cbfunc, void *cbdata);
 
 /****  TOOL FUNCTIONS  ****/
 OPAL_MODULE_DECLSPEC int pmix2x_tool_init(opal_list_t *info);
@@ -290,6 +303,8 @@ OPAL_MODULE_DECLSPEC int pmix2x_server_notify_event(int status,
 
 
 /****  COMPONENT UTILITY FUNCTIONS  ****/
+OPAL_MODULE_DECLSPEC int opal_pmix_pmix2x_check_evars(void);
+
 OPAL_MODULE_DECLSPEC void pmix2x_event_hdlr(size_t evhdlr_registration_id,
                                             pmix_status_t status, const pmix_proc_t *source,
                                             pmix_info_t info[], size_t ninfo,

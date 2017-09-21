@@ -42,6 +42,10 @@ extern pmix_ptl_usock_component_t mca_ptl_usock_component;
 
 extern pmix_ptl_module_t pmix_ptl_usock_module;
 
+void pmix_usock_send_handler(int sd, short args, void *cbdata);
+
+void pmix_usock_recv_handler(int sd, short args, void *cbdata);
+
 END_C_DECLS
 
 #endif /* PMIX_PTL_USOCK_H */

@@ -510,10 +510,14 @@ pmix_status_t pmix_bfrops_base_value_xfer(pmix_value_t *p,
         memcpy(&p->data.status, &src->data.status, sizeof(pmix_status_t));
         break;
     case PMIX_PROC:
-        memcpy(&p->data.proc, &src->data.proc, sizeof(pmix_proc_t));
+        PMIX_PROC_CREATE(p->data.proc, 1);
+        if (NULL == p->data.proc) {
+            return PMIX_ERR_NOMEM;
+        }
+        memcpy(p->data.proc, src->data.proc, sizeof(pmix_proc_t));
         break;
     case PMIX_PROC_RANK:
-        memcpy(&p->data.proc, &src->data.rank, sizeof(pmix_rank_t));
+        memcpy(&p->data.rank, &src->data.rank, sizeof(pmix_rank_t));
         break;
     case PMIX_BYTE_OBJECT:
     case PMIX_COMPRESSED_STRING:
@@ -1042,7 +1046,6 @@ pmix_status_t pmix_bfrop_store_data_type(pmix_buffer_t *buffer, pmix_data_type_t
      if (NULL == (dst = pmix_bfrop_buffer_extend(buffer, sizeof(tmp)))) {
         return PMIX_ERR_OUT_OF_RESOURCE;
     }
-
     tmp = pmix_htons(type);
     memcpy(dst, &tmp, sizeof(tmp));
     buffer->pack_ptr += sizeof(tmp);

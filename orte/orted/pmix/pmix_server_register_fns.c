@@ -18,6 +18,7 @@
  *                         All rights reserved.
  * Copyright (c) 2014-2016 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2017      IBM Corporation.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -45,10 +46,12 @@
 #include "orte/runtime/orte_globals.h"
 #include "orte/runtime/orte_wait.h"
 #include "orte/mca/errmgr/errmgr.h"
-#include "orte/mca/rmaps/rmaps_types.h"
+#include "orte/mca/rmaps/base/base.h"
 
 #include "pmix_server_internal.h"
 #include "pmix_server.h"
+
+static void mycbfunc(int status, void *cbdata);
 
 /* stuff proc attributes for sending back to a proc */
 int orte_pmix_server_register_nspace(orte_job_t *jdata, bool force)
@@ -84,6 +87,19 @@ int orte_pmix_server_register_nspace(orte_job_t *jdata, bool force)
     info = OBJ_NEW(opal_list_t);
     uid = geteuid();
     gid = getegid();
+
+    /* pass our nspace/rank */
+    kv = OBJ_NEW(opal_value_t);
+    kv->key = strdup(OPAL_PMIX_SERVER_NSPACE);
+    kv->data.string = strdup(ORTE_JOBID_PRINT(ORTE_PROC_MY_NAME->jobid));
+    kv->type = OPAL_STRING;
+    opal_list_append(info, &kv->super);
+
+    kv = OBJ_NEW(opal_value_t);
+    kv->key = strdup(OPAL_PMIX_SERVER_RANK);
+    kv->data.uint32 = ORTE_PROC_MY_NAME->vpid;
+    kv->type = OPAL_UINT32;
+    opal_list_append(info, &kv->super);
 
     /* jobid */
     kv = OBJ_NEW(opal_value_t);
@@ -264,6 +280,29 @@ int orte_pmix_server_register_nspace(orte_job_t *jdata, bool force)
         opal_list_append(info, &kv->super);
     }
 
+    /* pass the mapping policy used for this job */
+    kv = OBJ_NEW(opal_value_t);
+    kv->key = strdup(OPAL_PMIX_MAPBY);
+    kv->type = OPAL_STRING;
+    kv->data.string = strdup(orte_rmaps_base_print_mapping(jdata->map->mapping));
+    opal_list_append(info, &kv->super);
+
+    /* pass the ranking policy used for this job */
+    kv = OBJ_NEW(opal_value_t);
+    kv->key = strdup(OPAL_PMIX_RANKBY);
+    kv->type = OPAL_STRING;
+    kv->data.string = strdup(orte_rmaps_base_print_ranking(jdata->map->ranking));
+    opal_list_append(info, &kv->super);
+
+    /* pass the binding policy used for this job */
+    kv = OBJ_NEW(opal_value_t);
+    kv->key = strdup(OPAL_PMIX_BINDTO);
+    kv->type = OPAL_STRING;
+    kv->data.string = strdup(opal_hwloc_base_print_binding(jdata->map->binding));
+    opal_list_append(info, &kv->super);
+
+
+
     /* register any local clients */
     vpid = ORTE_VPID_MAX;
     micro = NULL;
@@ -357,6 +396,13 @@ int orte_pmix_server_register_nspace(orte_job_t *jdata, bool force)
                 }
             }
 
+            /* global/univ rank */
+            kv = OBJ_NEW(opal_value_t);
+            kv->key = strdup(OPAL_PMIX_GLOBAL_RANK);
+            kv->type = OPAL_VPID;
+            kv->data.name.vpid = pptr->name.vpid + jdata->offset;
+            opal_list_append(pmap, &kv->super);
+
             if (1 < jdata->num_apps) {
                 /* appnum */
                 kv = OBJ_NEW(opal_value_t);
@@ -371,13 +417,6 @@ int orte_pmix_server_register_nspace(orte_job_t *jdata, bool force)
                 kv->key = strdup(OPAL_PMIX_APPLDR);
                 kv->type = OPAL_VPID;
                 kv->data.name.vpid = app->first_rank;
-                opal_list_append(pmap, &kv->super);
-
-                /* global/univ rank */
-                kv = OBJ_NEW(opal_value_t);
-                kv->key = strdup(OPAL_PMIX_GLOBAL_RANK);
-                kv->type = OPAL_VPID;
-                kv->data.name.vpid = pptr->name.vpid + jdata->offset;
                 opal_list_append(pmap, &kv->super);
 
                 /* app rank */
@@ -436,5 +475,67 @@ int orte_pmix_server_register_nspace(orte_job_t *jdata, bool force)
                                           info, NULL, NULL);
     OPAL_LIST_RELEASE(info);
 
+    /* if the user has connected us to an external server, then we must
+     * assume there is going to be some cross-mpirun exchange, and so
+     * we protect against that situation by publishing the job info
+     * for this job - this allows any subsequent "connect" to retrieve
+     * the job info */
+    if (NULL != orte_data_server_uri) {
+        opal_buffer_t buf;
+
+        OBJ_CONSTRUCT(&buf, opal_buffer_t);
+        if (OPAL_SUCCESS != (rc = opal_dss.pack(&buf, &jdata, 1, ORTE_JOB))) {
+            ORTE_ERROR_LOG(rc);
+            OBJ_DESTRUCT(&buf);
+            return rc;
+        }
+        info = OBJ_NEW(opal_list_t);
+        /* create a key-value with the key being the string jobid
+         * and the value being the byte object */
+        kv = OBJ_NEW(opal_value_t);
+        orte_util_convert_jobid_to_string(&kv->key, jdata->jobid);
+        kv->type = OPAL_BYTE_OBJECT;
+        opal_dss.unload(&buf, (void**)&kv->data.bo.bytes, &kv->data.bo.size);
+        OBJ_DESTRUCT(&buf);
+        opal_list_append(info, &kv->super);
+
+        /* set the range to be session */
+        kv = OBJ_NEW(opal_value_t);
+        kv->key = strdup(OPAL_PMIX_RANGE);
+        kv->type = OPAL_UINT;
+        kv->data.uint = OPAL_PMIX_RANGE_SESSION;
+        opal_list_append(info, &kv->super);
+
+        /* set the persistence to be app */
+        kv = OBJ_NEW(opal_value_t);
+        kv->key = strdup(OPAL_PMIX_PERSISTENCE);
+        kv->type = OPAL_INT;
+        kv->data.integer = OPAL_PMIX_PERSIST_APP;
+        opal_list_append(info, &kv->super);
+
+        /* add our effective userid to the directives */
+        kv = OBJ_NEW(opal_value_t);
+        kv->key = strdup(OPAL_PMIX_USERID);
+        kv->type = OPAL_UINT32;
+        kv->data.uint32 = geteuid();
+        opal_list_append(info, &kv->super);
+
+        /* now publish it */
+        if (ORTE_SUCCESS != (rc = pmix_server_publish_fn(ORTE_PROC_MY_NAME,
+                                                         info, mycbfunc, info))) {
+            ORTE_ERROR_LOG(rc);
+        }
+    }
+
     return rc;
+}
+
+static void mycbfunc(int status, void *cbdata)
+{
+    opal_list_t *info = (opal_list_t*)cbdata;
+
+    if (ORTE_SUCCESS != status) {
+        ORTE_ERROR_LOG(status);
+    }
+    OPAL_LIST_RELEASE(info);
 }

@@ -670,6 +670,9 @@ static pmix_status_t server_spawn_fn(const pmix_proc_t *p,
         if (NULL != apps[n].env) {
             app->env = opal_argv_copy(apps[n].env);
         }
+        if (NULL != apps[n].cwd) {
+            app->cwd = strdup(apps[n].cwd);
+        }
         app->maxprocs = apps[n].maxprocs;
         for (k=0; k < apps[n].ninfo; k++) {
             oinfo = OBJ_NEW(opal_value_t);
@@ -921,15 +924,12 @@ static void info_cbfunc(int status,
     pcaddy->status = pmix2x_convert_opalrc(status);
 
     /* convert the list to a pmix_info_t array */
-    if (NULL != info) {
-        pcaddy->ninfo = opal_list_get_size(info);
-        if (0 < pcaddy->ninfo) {
-            PMIX_INFO_CREATE(pcaddy->info, pcaddy->ninfo);
-            n = 0;
-            OPAL_LIST_FOREACH(kv, info, opal_value_t) {
-                (void)strncpy(pcaddy->info[n].key, kv->key, PMIX_MAX_KEYLEN);
-                pmix2x_value_load(&pcaddy->info[n].value, kv);
-            }
+    if (NULL != info && 0 < (pcaddy->ninfo = opal_list_get_size(info))) {
+        PMIX_INFO_CREATE(pcaddy->info, pcaddy->ninfo);
+        n = 0;
+        OPAL_LIST_FOREACH(kv, info, opal_value_t) {
+            (void)strncpy(pcaddy->info[n].key, kv->key, PMIX_MAX_KEYLEN);
+            pmix2x_value_load(&pcaddy->info[n].value, kv);
         }
     }
     /* we are done with the incoming data */
@@ -1243,6 +1243,7 @@ static pmix_status_t server_job_control(const pmix_proc_t *proct,
     for (n=0; n < ndirs; n++) {
         oinfo = OBJ_NEW(opal_value_t);
         opal_list_append(&opalcaddy->info, &oinfo->super);
+        oinfo->key = strdup(directives[n].key);
         if (OPAL_SUCCESS != (rc = pmix2x_value_unload(oinfo, &directives[n].value))) {
             OBJ_RELEASE(opalcaddy);
             return pmix2x_convert_opalrc(rc);

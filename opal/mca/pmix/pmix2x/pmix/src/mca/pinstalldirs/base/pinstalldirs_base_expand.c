@@ -27,27 +27,31 @@
    whatever the actual value of the shell variable is. */
 #define EXPAND_STRING(name) EXPAND_STRING2(name, name)
 
-#define EXPAND_STRING2(ompiname, fieldname)                             \
-    do {                                                                \
-        if (NULL != (start_pos = strstr(retval, "${" #fieldname "}"))) { \
-            tmp = retval;                                               \
-            *start_pos = '\0';                                          \
-            end_pos = start_pos + strlen("${" #fieldname "}");          \
-            asprintf(&retval, "%s%s%s", tmp,                            \
-                     pmix_pinstall_dirs.ompiname + destdir_offset,       \
-                     end_pos);                                          \
-            free(tmp);                                                  \
-            changed = true;                                             \
-        } else if (NULL != (start_pos = strstr(retval, "@{" #fieldname "}"))) { \
-            tmp = retval;                                               \
-            *start_pos = '\0';                                          \
-            end_pos = start_pos + strlen("@{" #fieldname "}");          \
-            asprintf(&retval, "%s%s%s", tmp,                            \
-                     pmix_pinstall_dirs.ompiname + destdir_offset,       \
-                     end_pos);                                          \
-            free(tmp);                                                  \
-            changed = true;                                             \
-        }                                                               \
+#define EXPAND_STRING2(ompiname, fieldname)                                         \
+    do {                                                                            \
+        if (NULL != (start_pos = strstr(retval, "${" #fieldname "}"))) {            \
+            tmp = retval;                                                           \
+            *start_pos = '\0';                                                      \
+            end_pos = start_pos + strlen("${" #fieldname "}");                      \
+            if (0 > asprintf(&retval, "%s%s%s", tmp,                                \
+                     pmix_pinstall_dirs.ompiname + destdir_offset,                  \
+                     end_pos)) {                                                    \
+                pmix_output(0, "NOMEM");                                            \
+            }                                                                       \
+            free(tmp);                                                              \
+            changed = true;                                                         \
+        } else if (NULL != (start_pos = strstr(retval, "@{" #fieldname "}"))) {     \
+            tmp = retval;                                                           \
+            *start_pos = '\0';                                                      \
+            end_pos = start_pos + strlen("@{" #fieldname "}");                      \
+            if (0 > asprintf(&retval, "%s%s%s", tmp,                                \
+                     pmix_pinstall_dirs.ompiname + destdir_offset,                  \
+                     end_pos)) {                                                    \
+                pmix_output(0, "NOMEM");                                            \
+            }                                                                       \
+            free(tmp);                                                              \
+            changed = true;                                                         \
+        }                                                                           \
     } while (0)
 
 

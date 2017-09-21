@@ -54,14 +54,14 @@ PMIX_EXPORT pmix_status_t PMIx_Notify_event(pmix_status_t status,
     }
 
     /* if we aren't connected, don't attempt to send */
-    if (!PMIX_PROC_IS_SERVER && !pmix_globals.connected) {
+    if (!PMIX_PROC_IS_SERVER(pmix_globals.mypeer) && !pmix_globals.connected) {
         PMIX_RELEASE_THREAD(&pmix_global_lock);
         return PMIX_ERR_UNREACH;
     }
     PMIX_RELEASE_THREAD(&pmix_global_lock);
 
 
-    if (PMIX_PROC_IS_SERVER) {
+    if (PMIX_PROC_IS_SERVER(pmix_globals.mypeer)) {
         rc = pmix_server_notify_client_of_event(status, source, range,
                                                 info, ninfo,
                                                 cbfunc, cbdata);
@@ -109,7 +109,7 @@ static pmix_status_t notify_server_of_event(pmix_status_t status,
                                             pmix_op_cbfunc_t cbfunc, void *cbdata)
 {
     pmix_status_t rc;
-    pmix_buffer_t *msg;
+    pmix_buffer_t *msg = NULL;
     pmix_cmd_t cmd = PMIX_NOTIFY_CMD;
     pmix_cb_t *cb;
     pmix_event_chain_t *chain;
@@ -124,9 +124,11 @@ static pmix_status_t notify_server_of_event(pmix_status_t status,
     if (PMIX_RANGE_PROC_LOCAL != range) {
         /* create the msg object */
         msg = PMIX_NEW(pmix_buffer_t);
-
+        if (NULL == msg) {
+            return PMIX_ERR_NOMEM;
+        }
         /* pack the command */
-        PMIX_BFROPS_PACK(rc, pmix_client_globals.myserver, msg, &cmd, 1, PMIX_CMD);
+        PMIX_BFROPS_PACK(rc, pmix_client_globals.myserver, msg, &cmd, 1, PMIX_COMMAND);
         if (PMIX_SUCCESS != rc) {
             PMIX_ERROR_LOG(rc);
             goto cleanup;
@@ -231,7 +233,7 @@ static pmix_status_t notify_server_of_event(pmix_status_t status,
         PMIX_RELEASE(rbout);
     }
 
-    if (PMIX_RANGE_PROC_LOCAL != range) {
+    if (PMIX_RANGE_PROC_LOCAL != range && NULL != msg) {
         /* create a callback object as we need to pass it to the
          * recv routine so we know which callback to use when
          * the server acks/nacks the register events request. The
@@ -800,19 +802,38 @@ static void _notify_client_event(int sd, short args, void *cbdata)
     PMIX_ACQUIRE_OBJECT(cd);
 
     pmix_output_verbose(2, pmix_globals.debug_output,
-                        "pmix_server: _notify_client_event notifying clients of event %s",
-                        PMIx_Error_string(cd->status));
+                        "pmix_server: _notify_client_event notifying clients of event %s range %s type %s",
+                        PMIx_Error_string(cd->status),
+                        PMIx_Data_range_string(cd->range),
+                        cd->nondefault ? "NONDEFAULT" : "OPEN");
 
-    /* we cannot know if everyone who wants this notice has had a chance
-     * to register for it - the notice may be coming too early. So cache
-     * the message until all local procs have received it, or it ages to
-     * the point where it gets pushed out by more recent events */
-    PMIX_RETAIN(cd);
-    rbout = pmix_ring_buffer_push(&pmix_globals.notifications, cd);
+    /* check for caching instructions */
+    holdcd = true;
+    if (0 < cd->ninfo) {
+        /* check for caching instructions */
+        for (n=0; n < cd->ninfo; n++) {
+            if (0 == strncmp(cd->info[n].key, PMIX_EVENT_DO_NOT_CACHE, PMIX_MAX_KEYLEN)) {
+                if (PMIX_UNDEF == cd->info[n].value.type ||
+                    cd->info[n].value.data.flag) {
+                    holdcd = false;
+                    break;
+                }
+            }
+        }
+    }
 
-   /* if an older event was bumped, release it */
-    if (NULL != rbout) {
-        PMIX_RELEASE(rbout);
+    if (holdcd) {
+        /* we cannot know if everyone who wants this notice has had a chance
+         * to register for it - the notice may be coming too early. So cache
+         * the message until all local procs have received it, or it ages to
+         * the point where it gets pushed out by more recent events */
+        PMIX_RETAIN(cd);
+        rbout = pmix_ring_buffer_push(&pmix_globals.notifications, cd);
+
+        /* if an older event was bumped, release it */
+        if (NULL != rbout) {
+            PMIX_RELEASE(rbout);
+        }
     }
 
     holdcd = false;
@@ -856,7 +877,7 @@ static void _notify_client_event(int sd, short args, void *cbdata)
                         continue;
                     }
                     /* pack the command */
-                    PMIX_BFROPS_PACK(rc, pr->peer, bfr, &cmd, 1, PMIX_CMD);
+                    PMIX_BFROPS_PACK(rc, pr->peer, bfr, &cmd, 1, PMIX_COMMAND);
                     if (PMIX_SUCCESS != rc) {
                         PMIX_ERROR_LOG(rc);
                         PMIX_RELEASE(bfr);
@@ -980,8 +1001,15 @@ pmix_status_t pmix_server_notify_client_of_event(pmix_status_t status,
         cd->source.rank = source->rank;
     }
     cd->range = range;
-    cd->info = info;
-    cd->ninfo = ninfo;
+    /* have to copy the info to preserve it for future when cached */
+    if (0 < ninfo) {
+        cd->ninfo = ninfo;
+        PMIX_INFO_CREATE(cd->info, cd->ninfo);
+        /* need to copy the info */
+        for (n=0; n < cd->ninfo; n++) {
+            PMIX_INFO_XFER(&cd->info[n], &info[n]);
+        }
+    }
 
     /* check for directives */
     if (NULL != info) {
@@ -1103,7 +1131,7 @@ void pmix_event_timeout_cb(int fd, short flags, void *arg)
     pmix_list_remove_item(&pmix_globals.cached_events, &ch->super);
 
     /* process this event thru the regular channels */
-    if (PMIX_PROC_SERVER == pmix_globals.proc_type) {
+    if (PMIX_PROC_IS_SERVER(pmix_globals.mypeer)) {
         pmix_server_notify_client_of_event(ch->status, &ch->source,
                                            ch->range, ch->info, ch->ninfo,
                                            ch->final_cbfunc, ch->final_cbdata);

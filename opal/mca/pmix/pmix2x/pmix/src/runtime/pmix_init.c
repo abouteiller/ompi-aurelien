@@ -65,15 +65,14 @@
 #endif
 const char pmix_version_string[] = PMIX_IDENT_STRING;
 
-int pmix_initialized = 0;
-bool pmix_init_called = false;
+PMIX_EXPORT int pmix_initialized = 0;
+PMIX_EXPORT bool pmix_init_called = false;
 /* we have to export the pmix_globals object so
  * all plugins can access it. However, it is included
  * in the pmix_rename.h file for external protection */
 PMIX_EXPORT pmix_globals_t pmix_globals = {
     .init_cntr = 0,
     .mypeer = NULL,
-    .proc_type = PMIX_PROC_UNDEF,
     .pindex = 0,
     .evbase = NULL,
     .external_evbase = false,
@@ -151,7 +150,6 @@ int pmix_rte_init(pmix_proc_type_t type,
     }
 
     /* setup the globals structure */
-    pmix_globals.proc_type = type;
     memset(&pmix_globals.myid, 0, sizeof(pmix_proc_t));
     PMIX_CONSTRUCT(&pmix_globals.events, pmix_events_t);
     pmix_globals.event_window.tv_sec = pmix_event_caching_window;
@@ -176,6 +174,8 @@ int pmix_rte_init(pmix_proc_type_t type,
         ret = PMIX_ERR_NOMEM;
         goto return_error;
     }
+    /* whatever our declared proc type, we are definitely v2.1 */
+    pmix_globals.mypeer->proc_type = type | PMIX_PROC_V21;
     /* create an nspace object for ourselves - we will
      * fill in the nspace name later */
     pmix_globals.mypeer->nptr = PMIX_NEW(pmix_nspace_t);
@@ -285,9 +285,11 @@ int pmix_rte_init(pmix_proc_type_t type,
 
     return PMIX_SUCCESS;
 
- return_error:
-    pmix_show_help( "help-pmix-runtime.txt",
-                    "pmix_init:startup:internal-failure", true,
-                    error, ret );
+  return_error:
+    if (PMIX_ERR_SILENT != ret) {
+        pmix_show_help( "help-pmix-runtime.txt",
+                        "pmix_init:startup:internal-failure", true,
+                        error, ret );
+    }
     return ret;
 }

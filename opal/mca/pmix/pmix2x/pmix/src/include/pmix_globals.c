@@ -42,7 +42,7 @@
 #include "src/class/pmix_list.h"
 #include "src/threads/threads.h"
 
-pmix_lock_t pmix_global_lock = {
+PMIX_EXPORT pmix_lock_t pmix_global_lock = {
     .mutex = PMIX_MUTEX_STATIC_INIT,
     .cond = PMIX_CONDITION_STATIC_INIT,
     .active = false
@@ -57,8 +57,6 @@ static void nscon(pmix_nspace_t *p)
     p->nspace = NULL;
     p->nlocalprocs = 0;
     p->all_registered = false;
-    p->jobinfo = NULL;
-    p->njobinfo = 0;
     p->jobbkt = NULL;
     p->ndelivered = 0;
     PMIX_CONSTRUCT(&p->ranks, pmix_list_t);
@@ -68,9 +66,6 @@ static void nsdes(pmix_nspace_t *p)
 {
     if (NULL != p->nspace) {
         free(p->nspace);
-    }
-    if (NULL != p->jobinfo) {
-        PMIX_INFO_FREE(p->jobinfo, p->njobinfo);
     }
     if (NULL != p->jobbkt) {
         PMIX_RELEASE(p->jobbkt);
@@ -117,6 +112,7 @@ PMIX_EXPORT PMIX_CLASS_INSTANCE(pmix_rank_info_t,
 
 static void pcon(pmix_peer_t *p)
 {
+    p->proc_type = PMIX_PROC_UNDEF;
     p->finalized = false;
     p->info = NULL;
     p->proc_cnt = 0;
@@ -245,6 +241,7 @@ static void qcon(pmix_query_caddy_t *p)
     p->info = NULL;
     p->ninfo = 0;
     p->cbfunc = NULL;
+    p->valcbfunc = NULL;
     p->cbdata = NULL;
     p->relcbfunc = NULL;
 }

@@ -237,6 +237,12 @@ int pmix_server_spawn_fn(opal_process_name_t *requestor,
         } else if (0 == strcmp(info->key, OPAL_PMIX_NON_PMI)) {
             orte_set_attribute(&jdata->attributes, ORTE_JOB_NON_ORTE_JOB,
                                ORTE_ATTR_GLOBAL, NULL, OPAL_BOOL);
+        } else if (0 == strcmp(info->key, OPAL_PMIX_REQUESTOR_IS_TOOL)) {
+            orte_set_attribute(&jdata->attributes, ORTE_JOB_DVM_JOB,
+                               ORTE_ATTR_GLOBAL, NULL, OPAL_BOOL);
+            /* request that IO be forwarded to the requesting tool */
+            orte_set_attribute(&jdata->attributes, ORTE_JOB_FWDIO_TO_TOOL,
+                               ORTE_ATTR_GLOBAL, NULL, OPAL_BOOL);
         } else if (0 == strcmp(info->key, OPAL_PMIX_STDIN_TGT)) {
             if (0 == strcmp(info->data.string, "all")) {
                 jdata->stdin_target = ORTE_VPID_WILDCARD;
@@ -341,7 +347,7 @@ int pmix_server_spawn_fn(opal_process_name_t *requestor,
         }
     }
 
-    /* indicate that we are to notify the requestor when we hear back */
+    /* indicate the requestor so bookmarks can be correctly set */
     orte_set_attribute(&jdata->attributes, ORTE_JOB_LAUNCH_PROXY, ORTE_ATTR_GLOBAL,
                        requestor, OPAL_NAME);
 
@@ -399,7 +405,11 @@ static void _cnlk(int status, opal_list_t *data, void *cbdata)
 
     /* restart the cnct processor */
     ORTE_PMIX_OPERATION(cd->procs, cd->info, _cnct, cd->cbfunc, cd->cbdata);
+    /* protect the re-referenced data */
+    cd->procs = NULL;
+    cd->info = NULL;
     OBJ_RELEASE(cd);
+    return;
 
   release:
     if (NULL != cd->cbfunc) {
@@ -415,6 +425,7 @@ static void _cnct(int sd, short args, void *cbdata)
     char **keys = NULL, *key;
     orte_job_t *jdata;
     int rc = ORTE_SUCCESS;
+    opal_value_t *kv;
 
     ORTE_ACQUIRE_OBJECT(cd);
 
@@ -444,6 +455,12 @@ static void _cnct(int sd, short args, void *cbdata)
             orte_util_convert_jobid_to_string(&key, nm->name.jobid);
             opal_argv_append_nosize(&keys, key);
             free(key);
+            /* we have to add the user's id to our list of info */
+            kv = OBJ_NEW(opal_value_t);
+            kv->key = strdup(OPAL_PMIX_USERID);
+            kv->type = OPAL_UINT32;
+            kv->data.uint32 = geteuid();
+            opal_list_append(cd->info, &kv->super);
             if (ORTE_SUCCESS != (rc = pmix_server_lookup_fn(&nm->name, keys, cd->info, _cnlk, cd))) {
                 opal_argv_free(keys);
                 goto release;

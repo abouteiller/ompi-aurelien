@@ -10,7 +10,7 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2006-2010 University of Houston. All rights reserved.
+ * Copyright (c) 2006-2017 University of Houston. All rights reserved.
  * Copyright (c) 2007-2012 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2009      Sun Microsystems, Inc. All rights reserved.
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
@@ -19,9 +19,9 @@
  * Copyright (c) 2011-2013 Inria.  All rights reserved.
  * Copyright (c) 2011-2013 Universite Bordeaux 1
  *                         All rights reserved.
- * Copyright (c) 2015      Research Organization for Information Science
+ * Copyright (c) 2015-2017 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
- * Copyright (c) 2015      Intel, Inc. All rights reserved.
+ * Copyright (c) 2015-2017 Intel, Inc. All rights reserved.
  * Copyright (c) 2016-2017 IBM Corporation. All rights reserved.
  * $COPYRIGHT$
  *
@@ -36,6 +36,7 @@
 
 #include "opal/util/bit_ops.h"
 #include "opal/util/info_subscriber.h"
+#include "opal/mca/pmix/pmix.h"
 #include "ompi/constants.h"
 #include "ompi/mca/pml/pml.h"
 #include "ompi/mca/coll/base/base.h"
@@ -151,10 +152,26 @@ int ompi_comm_init(void)
        because MPI_COMM_WORLD has some predefined attributes. */
     ompi_attr_hash_init(&ompi_mpi_comm_world.comm.c_keyhash);
 
-#if OPAL_ENABLE_FT_MPI
-    ompi_mpi_comm_world.comm.c_epoch = 0;
-#endif  /* OPAL_ENABLE_FT_MPI */
+    /* Check for the binding policy used. We are only interested in
+       whether mapby-node has been set right now (could be extended later)
+       and only on MPI_COMM_WORLD, since for all other sub-communicators
+       it is virtually impossible to identify their layout across nodes
+       in the most generic sense. This is used by OMPIO for deciding which
+       ranks to use for aggregators
+    */
+    opal_process_name_t wildcard = {ORTE_PROC_MY_NAME->jobid, OPAL_VPID_WILDCARD};
+    char *str=NULL;
+    int rc;
 
+    OPAL_MODEX_RECV_VALUE_OPTIONAL(rc, OPAL_PMIX_MAPBY, &wildcard, &str, OPAL_STRING);
+    if ( 0 == rc && NULL != str) {
+        if ( strstr ( str, "BYNODE") ) {
+            OMPI_COMM_SET_MAPBY_NODE(&ompi_mpi_comm_world.comm);
+        }
+        if (NULL != str) {
+            free(str);
+        }
+    }
     /* Setup MPI_COMM_SELF */
     OBJ_CONSTRUCT(&ompi_mpi_comm_self, ompi_communicator_t);
     assert(ompi_mpi_comm_self.comm.c_f_to_c_index == 1);
@@ -187,10 +204,6 @@ int ompi_comm_init(void)
        MPI_COMM_SELF, the keyhash will automatically be created. */
     ompi_mpi_comm_self.comm.c_keyhash = NULL;
 
-#if OPAL_ENABLE_FT_MPI
-    ompi_mpi_comm_world.comm.c_epoch = 0;
-#endif  /* OPAL_ENABLE_FT_MPI */
-
     /* Setup MPI_COMM_NULL */
     OBJ_CONSTRUCT(&ompi_mpi_comm_null, ompi_communicator_t);
     assert(ompi_mpi_comm_null.comm.c_f_to_c_index == 2);
@@ -210,10 +223,6 @@ int ompi_comm_init(void)
     strncpy(ompi_mpi_comm_null.comm.c_name,"MPI_COMM_NULL",strlen("MPI_COMM_NULL")+1);
     ompi_mpi_comm_null.comm.c_flags |= OMPI_COMM_NAMEISSET;
     ompi_mpi_comm_null.comm.c_flags |= OMPI_COMM_INTRINSIC;
-#if OPAL_ENABLE_FT_MPI
-    ompi_mpi_comm_null.comm.c_epoch = 0;
-#endif  /* OPAL_ENABLE_FT_MPI */
-
 
     /* Initialize the parent communicator to MPI_COMM_NULL */
     ompi_mpi_comm_parent = &ompi_mpi_comm_null.comm;
@@ -384,7 +393,7 @@ static void ompi_comm_construct(ompi_communicator_t* comm)
     comm->any_source_offset   = 0;
     comm->comm_revoked        = false;
     comm->coll_revoked        = false;
-    comm->c_epoch             = MPI_UNDEFINED;
+    comm->c_epoch             = 0;
     comm->agreement_specific  = NULL;
 #endif
 }

@@ -13,7 +13,7 @@
 #                         reserved.
 # Copyright (c) 2010-2015 Cisco Systems, Inc.  All rights reserved.
 # Copyright (c) 2015      Intel, Inc. All rights reserved.
-# Copyright (c) 2016      IBM Corporation.  All rights reserved.
+# Copyright (c) 2016-2017 IBM Corporation.  All rights reserved.
 # Copyright (c) 2017      Los Alamos National Security, LLC.  All rights
 #                         reserved.
 # $COPYRIGHT$
@@ -31,8 +31,7 @@ dist_opaldata_DATA = \
     help-mpi-btl-usnic.txt
 
 test_sources = \
-    test/btl_usnic_component_test.h \
-    test/btl_usnic_graph_test.h
+    test/btl_usnic_component_test.h
 
 sources = \
     btl_usnic_compat.h \
@@ -50,8 +49,6 @@ sources = \
     btl_usnic_endpoint.h \
     btl_usnic_frag.c \
     btl_usnic_frag.h \
-    btl_usnic_graph.h \
-    btl_usnic_graph.c \
     btl_usnic_hwloc.c \
     btl_usnic_hwloc.h \
     btl_usnic_map.c \
@@ -92,7 +89,7 @@ mca_btl_usnic_la_SOURCES = $(component_sources)
 mca_btl_usnic_la_LDFLAGS = \
         $(opal_btl_usnic_LDFLAGS) \
         -module -avoid-version
-mca_btl_usnic_la_LIBADD = \
+mca_btl_usnic_la_LIBADD = $(top_builddir)/opal/lib@OPAL_LIB_PREFIX@open-pal.la \
         $(OPAL_TOP_BUILDDIR)/opal/mca/common/ofi/lib@OPAL_LIB_PREFIX@mca_common_ofi.la
 
 noinst_LTLIBRARIES = $(lib)

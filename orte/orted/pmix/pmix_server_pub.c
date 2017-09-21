@@ -187,8 +187,20 @@ static void execute(int sd, short args, void *cbdata)
 
     /* if the range is SESSION, then set the target to the global server */
     if (OPAL_PMIX_RANGE_SESSION == req->range) {
+        opal_output_verbose(1, orte_pmix_server_globals.output,
+                            "%s orted:pmix:server range SESSION",
+                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME));
         target = &orte_pmix_server_globals.server;
+    } else if (OPAL_PMIX_RANGE_LOCAL == req->range) {
+        /* if the range is local, send it to myself */
+        opal_output_verbose(1, orte_pmix_server_globals.output,
+                            "%s orted:pmix:server range LOCAL",
+                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME));
+        target = ORTE_PROC_MY_NAME;
     } else {
+        opal_output_verbose(1, orte_pmix_server_globals.output,
+                            "%s orted:pmix:server range GLOBAL",
+                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME));
         target = ORTE_PROC_MY_HNP;
     }
 
@@ -394,6 +406,10 @@ int pmix_server_lookup_fn(opal_process_name_t *proc, char **keys,
             req->timeout = iptr->data.integer;
             continue;
         }
+        opal_output_verbose(2, orte_pmix_server_globals.output,
+                            "%s lookup directive %s for proc %s",
+                            ORTE_NAME_PRINT(ORTE_PROC_MY_NAME), iptr->key,
+                            ORTE_NAME_PRINT(proc));
         if (OPAL_SUCCESS != (rc = opal_dss.pack(&req->msg, &iptr, 1, OPAL_VALUE))) {
             ORTE_ERROR_LOG(rc);
             OBJ_RELEASE(req);

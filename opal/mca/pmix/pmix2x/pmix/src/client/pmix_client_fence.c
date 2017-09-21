@@ -198,7 +198,7 @@ static pmix_status_t unpack_return(pmix_buffer_t *data)
     }
     pmix_output_verbose(2, pmix_globals.debug_output,
                         "client:unpack fence received status %d", ret);
-    return PMIX_SUCCESS;
+    return ret;
 }
 
 static pmix_status_t pack_fence(pmix_buffer_t *msg, pmix_cmd_t cmd,
@@ -209,7 +209,7 @@ static pmix_status_t pack_fence(pmix_buffer_t *msg, pmix_cmd_t cmd,
 
     /* pack the cmd */
     PMIX_BFROPS_PACK(rc, pmix_client_globals.myserver,
-                     msg, &cmd, 1, PMIX_CMD);
+                     msg, &cmd, 1, PMIX_COMMAND);
     if (PMIX_SUCCESS != rc) {
         PMIX_ERROR_LOG(rc);
         return rc;
@@ -262,7 +262,13 @@ static void wait_cbfunc(struct pmix_peer_t *pr, pmix_ptl_hdr_t *hdr,
         PMIX_ERROR_LOG(PMIX_ERR_BAD_PARAM);
         return;
     }
-    rc = unpack_return(buf);
+    /* a zero-byte buffer indicates that this recv is being
+     * completed due to a lost connection */
+    if (PMIX_BUFFER_IS_EMPTY(buf)) {
+        rc = PMIX_ERR_UNREACH;
+    } else {
+        rc = unpack_return(buf);
+    }
 
     /* if a callback was provided, execute it */
     if (NULL != cb->cbfunc.opfn) {

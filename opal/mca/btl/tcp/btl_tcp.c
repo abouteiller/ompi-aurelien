@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2014 The University of Tennessee and The University
+ * Copyright (c) 2004-2017 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -31,6 +31,7 @@
 #include "opal/mca/mpool/base/base.h"
 #include "opal/mca/mpool/mpool.h"
 #include "opal/mca/btl/base/btl_base_error.h"
+#include "opal/opal_socket_errno.h"
 
 #include "btl_tcp.h"
 #include "btl_tcp_frag.h"
@@ -39,6 +40,7 @@
 
 static int mca_btl_tcp_register_error_cb(struct mca_btl_base_module_t* btl,
                                          mca_btl_base_module_error_cb_fn_t cbfunc);
+
 mca_btl_tcp_module_t mca_btl_tcp_module = {
     .super = {
         .btl_component = &mca_btl_tcp_component.super,
@@ -146,11 +148,6 @@ int mca_btl_tcp_add_procs( struct mca_btl_base_module_t* btl,
         }
 
         peers[i] = tcp_endpoint;
-
-        /* we increase the count of MPI users of the event library
-           once per peer, so that we are used until we aren't
-           connected to a peer */
-        opal_progress_event_users_increment();
     }
 
     return OPAL_SUCCESS;
@@ -169,7 +166,6 @@ int mca_btl_tcp_del_procs(struct mca_btl_base_module_t* btl,
         mca_btl_tcp_endpoint_t* tcp_endpoint = endpoints[i];
         opal_list_remove_item(&tcp_btl->tcp_endpoints, (opal_list_item_t*)tcp_endpoint);
         OBJ_RELEASE(tcp_endpoint);
-        opal_progress_event_users_decrement();
     }
     OPAL_THREAD_UNLOCK(&tcp_btl->tcp_endpoints_mutex);
     return OPAL_SUCCESS;
@@ -504,7 +500,6 @@ int mca_btl_tcp_finalize(struct mca_btl_base_module_t* btl)
          item = opal_list_remove_first(&tcp_btl->tcp_endpoints)) {
         mca_btl_tcp_endpoint_t *endpoint = (mca_btl_tcp_endpoint_t*)item;
         OBJ_RELEASE(endpoint);
-        opal_progress_event_users_decrement();
     }
     free(tcp_btl);
     return OPAL_SUCCESS;
@@ -541,4 +536,75 @@ void mca_btl_tcp_dump(struct mca_btl_base_module_t* base_btl,
         OPAL_THREAD_UNLOCK(&btl->tcp_endpoints_mutex);
     }
 #endif /* OPAL_ENABLE_DEBUG && WANT_PEER_DUMP */
+}
+
+
+/*
+ * A blocking recv for both blocking and non-blocking socket. 
+ * Used to receive the small amount of connection information 
+ * that identifies the endpoints
+ * 
+ * when the socket is blocking (the caller introduces timeout) 
+ * which happens during initial handshake otherwise socket is 
+ * non-blocking most of the time.
+ */
+
+int mca_btl_tcp_recv_blocking(int sd, void* data, size_t size)
+{
+    unsigned char* ptr = (unsigned char*)data;
+    size_t cnt = 0;
+    while (cnt < size) {
+        int retval = recv(sd, ((char *)ptr) + cnt, size - cnt, 0);
+        /* remote closed connection */
+        if (0 == retval) {
+#if OPAL_ENABLE_FT_MPI == 0
+            BTL_ERROR(("remote peer unexpectedly closed connection while I was waiting for blocking message"));
+#endif /* OPAL_ENABLE_FT_MPI == 0 */
+            return -1;
+        }
+
+        /* socket is non-blocking so handle errors */
+        if (retval < 0) {
+            if (opal_socket_errno != EINTR &&
+                opal_socket_errno != EAGAIN &&
+                opal_socket_errno != EWOULDBLOCK) {
+#if OPAL_ENABLE_FT_MPI == 0
+                BTL_ERROR(("recv(%d) failed: %s (%d)", sd, strerror(opal_socket_errno), opal_socket_errno));
+#endif /* OPAL_ENABLE_FT_MPI == 0 */
+                return -1;
+            }
+            continue;
+        }
+        cnt += retval;
+    }
+    return cnt;
+}
+
+
+/*
+ * A blocking send on a non-blocking socket. Used to send the small
+ * amount of connection information that identifies the endpoints
+ * endpoint.
+ */
+
+int mca_btl_tcp_send_blocking(int sd, const void* data, size_t size)
+{
+    unsigned char* ptr = (unsigned char*)data;
+    size_t cnt = 0;
+    while(cnt < size) {
+        int retval = send(sd, ((const char *)ptr) + cnt, size - cnt, 0);
+        if (retval < 0) {
+            if (opal_socket_errno != EINTR &&
+                opal_socket_errno != EAGAIN &&
+                opal_socket_errno != EWOULDBLOCK) {
+#if OPAL_ENABLE_FT_MPI == 0
+                BTL_ERROR(("send() failed: %s (%d)", strerror(opal_socket_errno), opal_socket_errno));
+#endif /* OPAL_ENABLE_FT_MPI == 0 */
+                return -1;
+            }
+            continue;
+        }
+        cnt += retval;
+    }
+    return cnt;
 }

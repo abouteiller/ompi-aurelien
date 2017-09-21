@@ -142,7 +142,7 @@ PMIX_EXPORT pmix_status_t PMIx_Publish_nb(const pmix_info_t info[], size_t ninfo
     msg = PMIX_NEW(pmix_buffer_t);
     /* pack the cmd */
     PMIX_BFROPS_PACK(rc, pmix_client_globals.myserver,
-                     msg, &cmd, 1, PMIX_CMD);
+                     msg, &cmd, 1, PMIX_COMMAND);
     if (PMIX_SUCCESS != rc) {
         PMIX_ERROR_LOG(rc);
         PMIX_RELEASE(msg);
@@ -291,7 +291,7 @@ PMIX_EXPORT pmix_status_t PMIx_Lookup_nb(char **keys,
     msg = PMIX_NEW(pmix_buffer_t);
     /* pack the cmd */
     PMIX_BFROPS_PACK(rc, pmix_client_globals.myserver,
-                     msg, &cmd, 1, PMIX_CMD);
+                     msg, &cmd, 1, PMIX_COMMAND);
     if (PMIX_SUCCESS != rc) {
         PMIX_ERROR_LOG(rc);
         PMIX_RELEASE(msg);
@@ -437,7 +437,7 @@ PMIX_EXPORT pmix_status_t PMIx_Unpublish_nb(char **keys,
     msg = PMIX_NEW(pmix_buffer_t);
     /* pack the cmd */
     PMIX_BFROPS_PACK(rc, pmix_client_globals.myserver,
-                     msg, &cmd, 1, PMIX_CMD);
+                     msg, &cmd, 1, PMIX_COMMAND);
     if (PMIX_SUCCESS != rc) {
         PMIX_ERROR_LOG(rc);
         PMIX_RELEASE(msg);
@@ -526,6 +526,12 @@ static void wait_cbfunc(struct pmix_peer_t *pr,
         rc = PMIX_ERR_BAD_PARAM;
         goto report;
     }
+    /* a zero-byte buffer indicates that this recv is being
+     * completed due to a lost connection */
+    if (PMIX_BUFFER_IS_EMPTY(buf)) {
+        rc = PMIX_ERR_UNREACH;
+        goto report;
+    }
 
     /* unpack the returned status */
     cnt = 1;
@@ -574,6 +580,12 @@ static void wait_lookup_cbfunc(struct pmix_peer_t *pr,
     }
     if (NULL == buf) {
         rc = PMIX_ERR_BAD_PARAM;
+        goto report;
+    }
+    /* a zero-byte buffer indicates that this recv is being
+     * completed due to a lost connection */
+    if (PMIX_BUFFER_IS_EMPTY(buf)) {
+        rc = PMIX_ERR_UNREACH;
         goto report;
     }
 

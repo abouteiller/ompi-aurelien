@@ -16,7 +16,7 @@
  * Copyright (c) 2011      Sandia National Laboratories. All rights reserved.
  * Copyright (c) 2012      Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2014      Cisco Systems, Inc.  All rights reserved.
- * Copyright (c) 2016      Research Organization for Information Science
+ * Copyright (c) 2016-2017 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * $COPYRIGHT$
  *
@@ -134,6 +134,16 @@ int mca_pml_ob1_recv(void *addr,
 
     MCA_PML_OB1_RECV_REQUEST_START(recvreq);
     ompi_request_wait_completion(&recvreq->req_recv.req_base.req_ompi);
+
+    if( true == recvreq->req_recv.req_base.req_pml_complete ) {
+        /* make buffer defined when the request is compeleted */
+        MEMCHECKER(
+            memchecker_call(&opal_memchecker_base_mem_defined,
+                            recvreq->req_recv.req_base.req_addr,
+                            recvreq->req_recv.req_base.req_count,
+                            recvreq->req_recv.req_base.req_datatype);
+        );
+    }
 
     if (NULL != status) {  /* return status */
         *status = recvreq->req_recv.req_base.req_ompi.req_status;

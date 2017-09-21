@@ -35,6 +35,7 @@
 #include "opal/util/argv.h"
 #include "opal/util/output.h"
 #include "opal/dss/dss.h"
+#include "opal/mca/hwloc/hwloc-internal.h"
 #include "opal/mca/pstat/pstat.h"
 
 #include "orte/mca/errmgr/errmgr.h"
@@ -621,7 +622,6 @@ static void _query(int sd, short args, void *cbdata)
 
                     }
                 } else {
-                    opal_output(0, "NONLOCAL");
                     /* if they want it for remote procs, see who is hosting them
                      * and ask directly for the info - if rank=wildcard, then
                      * we need to xcast the request and collect the results */
@@ -635,6 +635,54 @@ static void _query(int sd, short args, void *cbdata)
                 } else {
                     opal_list_append(results, &kv->super);
                 }
+            } else if (0 == strcmp(q->keys[n], OPAL_PMIX_HWLOC_XML_V1)) {
+                if (NULL != opal_hwloc_topology) {
+                    char *xmlbuffer=NULL;
+                    int len;
+                    kv = OBJ_NEW(opal_value_t);
+                    kv->key = strdup(OPAL_PMIX_HWLOC_XML_V1);
+                    #if HWLOC_API_VERSION < 0x20000
+                        /* get this from the v1.x API */
+                        if (0 != hwloc_topology_export_xmlbuffer(opal_hwloc_topology, &xmlbuffer, &len)) {
+                            OBJ_RELEASE(kv);
+                            continue;
+                        }
+                    #else
+                        /* get it from the v2 API */
+                        if (0 != hwloc_topology_export_xmlbuffer(opal_hwloc_topology, &xmlbuffer, &len,
+                                                                 HWLOC_TOPOLOGY_EXPORT_XML_FLAG_V1)) {
+                            OBJ_RELEASE(kv);
+                            continue;
+                        }
+                    #endif
+                    kv->data.string = xmlbuffer;
+                    kv->type = OPAL_STRING;
+                    opal_list_append(results, &kv->super);
+                }
+            } else if (0 == strcmp(q->keys[n], OPAL_PMIX_HWLOC_XML_V2)) {
+                /* we cannot provide it if we are using v1.x */
+                #if HWLOC_API_VERSION >= 0x20000
+                    if (NULL != opal_hwloc_topology) {
+                        char *xmlbuffer=NULL;
+                        int len;
+                        kv = OBJ_NEW(opal_value_t);
+                        kv->key = strdup(OPAL_PMIX_HWLOC_XML_V2);
+                        if (0 != hwloc_topology_export_xmlbuffer(opal_hwloc_topology, &xmlbuffer, &len, 0)) {
+                            OBJ_RELEASE(kv);
+                            continue;
+                        }
+                        kv->data.string = xmlbuffer;
+                        kv->type = OPAL_STRING;
+                        opal_list_append(results, &kv->super);
+                    }
+                #endif
+            } else if (0 == strcmp(q->keys[n], OPAL_PMIX_SERVER_URI)) {
+                /* they want our URI */
+                kv = OBJ_NEW(opal_value_t);
+                kv->key = strdup(OPAL_PMIX_SERVER_URI);
+                kv->type = OPAL_STRING;
+                kv->data.string = strdup(orte_process_info.my_hnp_uri);
+                opal_list_append(results, &kv->super);
             }
         }
     }
@@ -684,6 +732,8 @@ static void _toolconn(int sd, short args, void *cbdata)
     orte_node_t *node;
     orte_process_name_t tool;
     int rc;
+    opal_value_t *val;
+    bool flag;
 
     ORTE_ACQUIRE_OBJECT(cd);
 
@@ -746,6 +796,22 @@ static void _toolconn(int sd, short args, void *cbdata)
         proc->state = ORTE_PROC_STATE_RUNNING;
         proc->app_idx = 0;
         ORTE_FLAG_SET(proc, ORTE_PROC_FLAG_LOCAL);
+
+        /* check for directives */
+        if (NULL != cd->info) {
+            OPAL_LIST_FOREACH(val, cd->info, opal_value_t) {
+                if (0 == strcmp(val->key, OPAL_PMIX_EVENT_SILENT_TERMINATION)) {
+                    if (OPAL_UNDEF == val->type || val->data.flag) {
+                        flag = true;
+                        orte_set_attribute(&jdata->attributes, ORTE_JOB_SILENT_TERMINATION,
+                                           ORTE_ATTR_GLOBAL, &flag, OPAL_BOOL);
+                    }
+                }
+            }
+        }
+        flag = true;
+        orte_set_attribute(&jdata->attributes, ORTE_JOB_SILENT_TERMINATION,
+                           ORTE_ATTR_GLOBAL, &flag, OPAL_BOOL);
 
         /* pass back the assigned jobid */
         tool.jobid = jdata->jobid;
@@ -852,6 +918,9 @@ int pmix_server_job_ctrl_fn(const opal_process_name_t *requestor,
     orte_proc_t *proc;
     opal_pointer_array_t parray, *ptrarray;
     opal_namelist_t *nm;
+    opal_buffer_t *cmd;
+    orte_daemon_cmd_flag_t cmmnd = ORTE_DAEMON_HALT_VM_CMD;
+    orte_grpcomm_signature_t *sig;
 
     opal_output_verbose(2, orte_pmix_server_globals.output,
                         "%s job control request from %s",
@@ -863,10 +932,9 @@ int pmix_server_job_ctrl_fn(const opal_process_name_t *requestor,
             ORTE_ERROR_LOG(ORTE_ERR_BAD_PARAM);
             continue;
         }
-
         if (0 == strcmp(val->key, OPAL_PMIX_JOB_CTRL_KILL)) {
             /* convert the list of targets to a pointer array */
-            if (NULL == targets) {
+            if (0 == opal_list_get_size(targets)) {
                 ptrarray = NULL;
             } else {
                 OBJ_CONSTRUCT(&parray, opal_pointer_array_t);
@@ -894,6 +962,27 @@ int pmix_server_job_ctrl_fn(const opal_process_name_t *requestor,
                 OBJ_DESTRUCT(&parray);
             }
             continue;
+        } else if (0 == strcmp(val->key, OPAL_PMIX_JOB_CTRL_TERMINATE)) {
+            if (0 == opal_list_get_size(targets)) {
+                /* terminate the daemons and all running jobs */
+                cmd = OBJ_NEW(opal_buffer_t);
+                /* pack the command */
+                if (ORTE_SUCCESS != (rc = opal_dss.pack(cmd, &cmmnd, 1, ORTE_DAEMON_CMD))) {
+                    ORTE_ERROR_LOG(rc);
+                    OBJ_RELEASE(cmd);
+                    return rc;
+                }
+                /* goes to all daemons */
+                sig = OBJ_NEW(orte_grpcomm_signature_t);
+                sig->signature = (orte_process_name_t*)malloc(sizeof(orte_process_name_t));
+                sig->signature[0].jobid = ORTE_PROC_MY_NAME->jobid;
+                sig->signature[0].vpid = ORTE_VPID_WILDCARD;
+                if (ORTE_SUCCESS != (rc = orte_grpcomm.xcast(sig, ORTE_RML_TAG_DAEMON, cmd))) {
+                    ORTE_ERROR_LOG(rc);
+                }
+                OBJ_RELEASE(cmd);
+                OBJ_RELEASE(sig);
+            }
         }
     }
 

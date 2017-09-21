@@ -52,20 +52,29 @@ BEGIN_C_DECLS
                                                                         //        accept tool connection requests
 #define OPAL_PMIX_SERVER_SYSTEM_SUPPORT         "pmix.srvr.sys"         // (bool) The host RM wants to declare itself as being the local
                                                                         //        system server for PMIx connection requests
-#define OPAL_PMIX_SERVER_PIDINFO                "pmix.srvr.pidinfo"     // (pid_t) pid of the target server
 #define OPAL_PMIX_SERVER_TMPDIR                 "pmix.srvr.tmpdir"      // (char*) temp directory where PMIx server will place
                                                                         //        client rendezvous points
 #define OPAL_PMIX_SYSTEM_TMPDIR                 "pmix.sys.tmpdir"       // (char*) temp directory where PMIx server will place
                                                                         //        tool rendezvous points
-#define OPAL_PMIX_CONNECT_TO_SYSTEM             "pmix.cnct.sys"         // (bool) The requestor requires that a connection be made only to
-                                                                        //        a local system-level PMIx server
-#define OPAL_PMIX_CONNECT_SYSTEM_FIRST          "pmix.cnct.sys.first"   // (bool) Preferentially look for a system-level PMIx server first
 #define OPAL_PMIX_REGISTER_NODATA               "pmix.reg.nodata"       // (bool) Registration is for nspace only, do not copy job data
 #define OPAL_PMIX_SERVER_ENABLE_MONITORING      "pmix.srv.monitor"      // (bool) Enable PMIx internal monitoring by server
 #define OPAL_PMIX_SERVER_NSPACE                 "pmix.srv.nspace"       // (char*) Name of the nspace to use for this server
 #define OPAL_PMIX_SERVER_RANK                   "pmix.srv.rank"         // (uint32_t) Rank of this server
+
+/* tool-related attributes */
 #define OPAL_PMIX_TOOL_NSPACE                   "pmix.tool.nspace"      // (char*) Name of the nspace to use for this tool
 #define OPAL_PMIX_TOOL_RANK                     "pmix.tool.rank"        // (uint32_t) Rank of this tool
+#define OPAL_PMIX_SERVER_PIDINFO                "pmix.srvr.pidinfo"     // (pid_t) pid of the target server for a tool
+#define OPAL_PMIX_CONNECT_TO_SYSTEM             "pmix.cnct.sys"         // (bool) The requestor requires that a connection be made only to
+                                                                        //        a local system-level PMIx server
+#define OPAL_PMIX_CONNECT_SYSTEM_FIRST          "pmix.cnct.sys.first"   // (bool) Preferentially look for a system-level PMIx server first
+#define OPAL_PMIX_SERVER_URI                    "pmix.srvr.uri"         // (char*) URI of server to be contacted
+#define OPAL_PMIX_SERVER_HOSTNAME               "pmix.srvr.host"        // (char*) node where target server is located
+#define OPAL_PMIX_CONNECT_MAX_RETRIES           "pmix.tool.mretries"    // (uint32_t) maximum number of times to try to connect to server
+#define OPAL_PMIX_CONNECT_RETRY_DELAY           "pmix.tool.retry"       // (uint32_t) time in seconds between connection attempts
+#define OPAL_PMIX_TOOL_DO_NOT_CONNECT           "pmix.tool.nocon"       // (bool) the tool wants to use internal PMIx support, but does
+                                                                        //        not want to connect to a PMIx server
+
 
 /* identification attributes */
 #define OPAL_PMIX_USERID                        "pmix.euid"             // (uint32_t) effective user id
@@ -74,6 +83,8 @@ BEGIN_C_DECLS
 #define OPAL_PMIX_MODEL_LIBRARY_NAME            "pmix.mdl.name"         // (char*) programming model implementation ID (e.g., "OpenMPI" or "MPICH")
 #define OPAL_PMIX_MODEL_LIBRARY_VERSION         "pmix.mld.vrs"          // (char*) programming model version string (e.g., "2.1.1")
 #define OPAL_PMIX_THREADING_MODEL               "pmix.threads"          // (char*) threading model used (e.g., "pthreads")
+#define OPAL_PMIX_REQUESTOR_IS_TOOL             "pmix.req.tool"         // (bool) requesting process is a tool
+#define OPAL_PMIX_REQUESTOR_IS_CLIENT           "pmix.req.client"       // (bool) requesting process is a client process
 
 /* attributes for the rendezvous socket  */
 #define OPAL_PMIX_USOCK_DISABLE                 "pmix.usock.disable"    // (bool) disable legacy usock support
@@ -161,6 +172,9 @@ BEGIN_C_DECLS
 #define OPAL_PMIX_HWLOC_SHMEM_ADDR              "pmix.hwlocaddr"        // (size_t) address of HWLOC shared memory segment
 #define OPAL_PMIX_HWLOC_SHMEM_SIZE              "pmix.hwlocsize"        // (size_t) size of HWLOC shared memory segment
 #define OPAL_PMIX_HWLOC_SHMEM_FILE              "pmix.hwlocfile"        // (char*) path to HWLOC shared memory file
+#define OPAL_PMIX_HWLOC_XML_V1                  "pmix.hwlocxml1"        // (char*) XML representation of local topology using HWLOC v1.x format
+#define OPAL_PMIX_HWLOC_XML_V2                  "pmix.hwlocxml2"        // (char*) XML representation of local topology using HWLOC v2.x format
+
 
 /* request-related info */
 #define OPAL_PMIX_COLLECT_DATA                  "pmix.collect"          // (bool) collect data and return it at the end of the operation
@@ -178,6 +192,9 @@ BEGIN_C_DECLS
                                                                         //        not request data from the server if not found
 #define OPAL_PMIX_EMBED_BARRIER                 "pmix.embed.barrier"    // (bool) execute a blocking fence operation before executing the
                                                                         //        specified operation
+#define OPAL_PMIX_JOB_TERM_STATUS               "pmix.job.term.status"  // (int) status returned upon job termination
+#define OPAL_PMIX_PROC_STATE_STATUS             "pmix.proc.state"       // (int) process state
+
 
 
 /* attribute used by host server to pass data to the server convenience library - the
@@ -204,6 +221,9 @@ BEGIN_C_DECLS
 #define OPAL_PMIX_EVENT_RETURN_OBJECT           "pmix.evobject"         // (void*) object to be returned whenever the registered cbfunc is invoked
                                                                         //     NOTE: the object will _only_ be returned to the process that
                                                                         //           registered it
+#define OPAL_PMIX_EVENT_DO_NOT_CACHE            "pmix.evnocache"        // (bool) instruct the PMIx server not to cache the event
+#define OPAL_PMIX_EVENT_SILENT_TERMINATION      "pmix.evsilentterm"     // (bool) do not generate an event when this job normally terminates
+
 
 /* fault tolerance-related events */
 #define OPAL_PMIX_EVENT_TERMINATE_SESSION       "pmix.evterm.sess"      // (bool) RM intends to terminate session
@@ -236,7 +256,9 @@ BEGIN_C_DECLS
 #define OPAL_PMIX_FWD_STDERR                    "pmix.fwd.stderr"       // (bool) forward stderr from spawned procs to me
 #define OPAL_PMIX_DEBUGGER_DAEMONS              "pmix.debugger"         // (bool) spawned app consists of debugger daemons
 #define OPAL_PMIX_COSPAWN_APP                   "pmix.cospawn"          // (bool) designated app is to be spawned as a disconnected
-                                                                        //     job - i.e., not part of the "comm_world" of the job
+                                                                        //        job - i.e., not part of the "comm_world" of the job
+#define OPAL_PMIX_SET_SESSION_CWD               "pmix.ssncwd"           // (bool) set the application's current working directory to
+                                                                        //        the session working directory assigned by the RM
 
 /* query attributes */
 #define OPAL_PMIX_QUERY_NAMESPACES              "pmix.qry.ns"           // (char*) request a comma-delimited list of active nspaces
@@ -324,6 +346,8 @@ BEGIN_C_DECLS
 #define OPAL_PMIX_JOB_CTRL_PROVISION            "pmix.jctrl.pvn"        // (char*) regex identifying nodes that are to be provisioned
 #define OPAL_PMIX_JOB_CTRL_PROVISION_IMAGE      "pmix.jctrl.pvnimg"     // (char*) name of the image that is to be provisioned
 #define OPAL_PMIX_JOB_CTRL_PREEMPTIBLE          "pmix.jctrl.preempt"    // (bool) job can be pre-empted
+#define OPAL_PMIX_JOB_CTRL_TERMINATE            "pmix.jctrl.term"       // (bool) politely terminate the specified procs
+
 
 /* monitoring attributes */
 #define OPAL_PMIX_MONITOR_HEARTBEAT             "pmix.monitor.mbeat"    // (void) register to have the server monitor the requestor for heartbeats

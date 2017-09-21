@@ -423,7 +423,7 @@ mca_pml_ob1_frag_completion( mca_btl_base_module_t* btl,
                                                                        sizeof(mca_pml_ob1_frag_hdr_t));
     }
 
-    OPAL_THREAD_SUB_SIZE_T(&sendreq->req_pipeline_depth, 1);
+    OPAL_THREAD_ADD32(&sendreq->req_pipeline_depth, -1);
     OPAL_THREAD_ADD_SIZE_T(&sendreq->req_bytes_delivered, req_bytes_delivered);
 
     if(send_request_pml_complete_check(sendreq) == false) {
@@ -1023,13 +1023,13 @@ mca_pml_ob1_send_request_schedule_once(mca_pml_ob1_send_request_t* sendreq)
 
     /* check pipeline_depth here before attempting to get any locks */
     if(true == sendreq->req_throttle_sends &&
-            sendreq->req_pipeline_depth >= mca_pml_ob1.send_pipeline_depth)
+       sendreq->req_pipeline_depth >= mca_pml_ob1.send_pipeline_depth)
         return OMPI_SUCCESS;
 
     range = get_send_range(sendreq);
 
     while(range && (false == sendreq->req_throttle_sends ||
-            sendreq->req_pipeline_depth < mca_pml_ob1.send_pipeline_depth)) {
+          sendreq->req_pipeline_depth < mca_pml_ob1.send_pipeline_depth)) {
         mca_pml_ob1_frag_hdr_t* hdr;
         mca_btl_base_descriptor_t* des;
         int rc, btl_idx;
@@ -1154,7 +1154,7 @@ cannot_pack:
             range->range_btls[btl_idx].length -= size;
             range->range_send_length -= size;
             range->range_send_offset += size;
-            OPAL_THREAD_ADD_SIZE_T(&sendreq->req_pipeline_depth, 1);
+            OPAL_THREAD_ADD32(&sendreq->req_pipeline_depth, 1);
             if(range->range_send_length == 0) {
                 range = get_next_send_range(sendreq, range);
                 prev_bytes_remaining = 0;
@@ -1170,7 +1170,7 @@ cannot_pack:
             range->range_btls[btl_idx].length -= size;
             range->range_send_length -= size;
             range->range_send_offset += size;
-            OPAL_THREAD_ADD_SIZE_T(&sendreq->req_pipeline_depth, 1);
+            OPAL_THREAD_ADD32(&sendreq->req_pipeline_depth, 1);
             if(range->range_send_length == 0) {
                 range = get_next_send_range(sendreq, range);
                 prev_bytes_remaining = 0;

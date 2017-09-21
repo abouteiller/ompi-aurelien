@@ -129,8 +129,8 @@ typedef struct opal_atomic_lock_t opal_atomic_lock_t;
  * Enumeration of lock states
  */
 enum {
-    OPAL_ATOMIC_UNLOCKED = 0,
-    OPAL_ATOMIC_LOCKED = 1
+    OPAL_ATOMIC_LOCK_UNLOCKED = 0,
+    OPAL_ATOMIC_LOCK_LOCKED = 1
 };
 
 /**********************************************************************
@@ -277,7 +277,7 @@ void opal_atomic_wmb(void);
 #if OPAL_HAVE_ATOMIC_SPINLOCKS == 0
 static inline
 #endif
-void opal_atomic_init(opal_atomic_lock_t* lock, int32_t value);
+void opal_atomic_lock_init(opal_atomic_lock_t* lock, int32_t value);
 
 
 /**
@@ -447,7 +447,7 @@ int64_t opal_atomic_sub_64(volatile int64_t *addr, int64_t delta);
  */
 #if defined(DOXYGEN) || OPAL_ENABLE_DEBUG
 static inline size_t
-opal_atomic_add_size_t(volatile size_t *addr, int delta)
+opal_atomic_add_size_t(volatile size_t *addr, size_t delta)
 {
 #if SIZEOF_SIZE_T == 4
     return (size_t) opal_atomic_add_32((int32_t*) addr, delta);
@@ -458,7 +458,7 @@ opal_atomic_add_size_t(volatile size_t *addr, int delta)
 #endif
 }
 static inline size_t
-opal_atomic_sub_size_t(volatile size_t *addr, int delta)
+opal_atomic_sub_size_t(volatile size_t *addr, size_t delta)
 {
 #if SIZEOF_SIZE_T == 4
     return (size_t) opal_atomic_sub_32((int32_t*) addr, delta);

@@ -129,6 +129,7 @@ examples/ring_oshmem
 examples/hello_oshmem
 examples/ring_oshmemfh
 examples/hello_oshmemfh
+examples/hello_oshmemcxx
 examples/oshmem_circular_shift
 examples/oshmem_max_reduction
 examples/oshmem_shmalloc
@@ -322,6 +323,17 @@ opal/mca/pmix/pmix2x/pmix/include/pmix_rename.h
 opal/mca/pmix/pmix2x/pmix/include/pmix_version.h
 opal/mca/pmix/pmix2x/pmix/src/util/keyval/keyval_lex.c
 opal/mca/pmix/pmix2x/pmix/src/util/show_help_lex.c
+opal/mca/pmix/pmix2x/pmix/examples/alloc
+opal/mca/pmix/pmix2x/pmix/examples/client
+opal/mca/pmix/pmix2x/pmix/examples/debugger
+opal/mca/pmix/pmix2x/pmix/examples/debuggerd
+opal/mca/pmix/pmix2x/pmix/examples/dmodex
+opal/mca/pmix/pmix2x/pmix/examples/dynamic
+opal/mca/pmix/pmix2x/pmix/examples/fault
+opal/mca/pmix/pmix2x/pmix/examples/jctrl
+opal/mca/pmix/pmix2x/pmix/examples/pub
+opal/mca/pmix/pmix2x/pmix/examples/server
+opal/mca/pmix/pmix2x/pmix/examples/tool
 
 opal/tools/opal-checkpoint/opal-checkpoint
 opal/tools/opal-checkpoint/opal-checkpoint.1
@@ -508,6 +520,8 @@ orte/tools/orted/orted
 orte/tools/orted/orted.1
 orte/tools/orterun/orterun
 orte/tools/orterun/orterun.1
+orte/tools/prun/prun
+orte/tools/prun/prun.1
 orte/tools/wrappers/ortecc-wrapper-data.txt
 orte/tools/wrappers/ortec++-wrapper-data.txt
 orte/tools/wrappers/ortecc.1
@@ -568,6 +582,13 @@ oshmem/tools/wrappers/shmemfort.1
 oshmem/tools/wrappers/shmemrun.1
 oshmem/tools/wrappers/shmemcc-wrapper-data.txt
 oshmem/tools/wrappers/shmemfort-wrapper-data.txt
+oshmem/tools/wrappers/oshCC.1
+oshmem/tools/wrappers/oshc++.1
+oshmem/tools/wrappers/oshcxx.1
+oshmem/tools/wrappers/shmemCC.1
+oshmem/tools/wrappers/shmemc++-wrapper-data.txt
+oshmem/tools/wrappers/shmemc++.1
+oshmem/tools/wrappers/shmemcxx.1
 
 test/asm/atomic_math_noinline
 test/asm/atomic_barrier
@@ -660,3 +681,7 @@ test/util/opal_sos
 test/util/opal_path_nfs
 test/util/opal_path_nfs.out
 test/util/opal_bit_ops
+test/util/bipartite_graph
+
+opal/test/reachable/reachable_netlink
+opal/test/reachable/reachable_weighted

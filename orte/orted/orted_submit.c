@@ -537,11 +537,6 @@ int orte_submit_init(int argc, char *argv[],
      */
     opal_finalize();
 
-    /* clear params from the environment so our children
-     * don't pick them up */
-    opal_unsetenv(OPAL_MCA_PREFIX"ess", &environ);
-    opal_unsetenv(OPAL_MCA_PREFIX"pmix", &environ);
-
     if (ORTE_PROC_IS_TOOL) {
         opal_value_t val;
         /* extract the name */
@@ -553,7 +548,7 @@ int orte_submit_init(int argc, char *argv[],
         OBJ_CONSTRUCT(&val, opal_value_t);
         val.key = OPAL_PMIX_PROC_URI;
         val.type = OPAL_STRING;
-        val.data.string = orte_process_info.my_daemon_uri;
+        val.data.string = orte_process_info.my_hnp_uri;
         if (OPAL_SUCCESS != opal_pmix.store_local(ORTE_PROC_MY_HNP, &val)) {
             val.key = NULL;
             val.data.string = NULL;
@@ -589,6 +584,10 @@ int orte_submit_init(int argc, char *argv[],
          * orterun
          */
         orte_launch_environ = opal_argv_copy(environ);
+        /* clear params from the environment so our children
+         * don't pick them up */
+        opal_unsetenv(OPAL_MCA_PREFIX"ess", &orte_launch_environ);
+        opal_unsetenv(OPAL_MCA_PREFIX"pmix", &orte_launch_environ);
     }
 
     return ORTE_SUCCESS;
@@ -1669,7 +1668,7 @@ static int create_app(int argc, char* argv[],
             orte_set_attribute(&app->attributes, ORTE_APP_SSNDIR_CWD, ORTE_ATTR_GLOBAL, NULL, OPAL_BOOL);
             orte_set_attribute(&app->attributes, ORTE_APP_PRELOAD_BIN, ORTE_ATTR_GLOBAL, NULL, OPAL_BOOL);
             /* no harm in setting this attribute twice as the function will simply ignore it */
-            orte_set_attribute(&app->attributes, ORTE_APP_SSNDIR_CWD, ORTE_ATTR_GLOBAL, NULL, OPAL_BOOL);
+            orte_set_attribute(&app->attributes, ORTE_APP_USER_CWD, ORTE_ATTR_GLOBAL, NULL, OPAL_BOOL);
         }
     }
     if (NULL != orte_cmd_options.preload_files) {

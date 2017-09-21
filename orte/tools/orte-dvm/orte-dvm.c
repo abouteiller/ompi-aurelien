@@ -57,6 +57,7 @@
 #include "opal/mca/event/event.h"
 #include "opal/mca/installdirs/installdirs.h"
 #include "opal/mca/base/base.h"
+#include "opal/mca/pmix/pmix.h"
 #include "opal/util/argv.h"
 #include "opal/util/output.h"
 #include "opal/util/basename.h"
@@ -100,11 +101,11 @@ static bool want_prefix_by_default = (bool) ORTE_WANT_ORTERUN_PREFIX_BY_DEFAULT;
 static struct {
     bool help;
     bool version;
-    char *report_uri;
     char *prefix;
     bool run_as_root;
     bool set_sid;
     bool daemonize;
+    bool system_server;
 } myglobals;
 
 static opal_cmd_line_init_t cmd_line_init[] = {
@@ -115,10 +116,6 @@ static opal_cmd_line_init_t cmd_line_init[] = {
     { NULL, 'V', NULL, "version", 0,
       &myglobals.version, OPAL_CMD_LINE_TYPE_BOOL,
       "Print version and exit" },
-
-    { NULL, '\0', "report-uri", "report-uri", 1,
-      &myglobals.report_uri, OPAL_CMD_LINE_TYPE_STRING,
-      "Printout URI on stdout [-], stderr [+], or a file [anything else]" },
 
     { NULL, '\0', "prefix", "prefix", 1,
       &myglobals.prefix, OPAL_CMD_LINE_TYPE_STRING,
@@ -169,6 +166,10 @@ static opal_cmd_line_init_t cmd_line_init[] = {
       NULL, OPAL_CMD_LINE_TYPE_STRING,
       "List of hosts to invoke processes on" },
 
+    { NULL, '\0', "system-server", "system-server", 0,
+      &myglobals.system_server, OPAL_CMD_LINE_TYPE_BOOL,
+      "Provide a system-level server connection point - only one allowed per node" },
+
     /* End of list */
     { NULL, '\0', NULL, NULL, 0,
       NULL, OPAL_CMD_LINE_TYPE_NULL, NULL }
@@ -183,7 +184,6 @@ int main(int argc, char *argv[])
     char *param, *value;
     orte_job_t *jdata=NULL;
     orte_app_context_t *app;
-    char *uri, *ptr;
 
     /* Setup and parse the command line */
     memset(&myglobals, 0, sizeof(myglobals));
@@ -285,6 +285,13 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
+    if (myglobals.system_server) {
+        /* we should act as system-level PMIx server */
+        opal_setenv(OPAL_MCA_PREFIX"pmix_system_server", "1", true, &environ);
+    }
+    /* always act as session-level PMIx server */
+    opal_setenv(OPAL_MCA_PREFIX"pmix_session_server", "1", true, &environ);
+
     /* Setup MCA params */
     orte_register_params();
 
@@ -324,43 +331,7 @@ int main(int argc, char *argv[])
      */
     opal_finalize();
 
-    /* check for request to report uri */
-    orte_oob_base_get_addr(&uri);
-    if (NULL != myglobals.report_uri) {
-        FILE *fp;
-        if (0 == strcmp(myglobals.report_uri, "-")) {
-            /* if '-', then output to stdout */
-            printf("VMURI: %s\n", uri);
-        } else if (0 == strcmp(myglobals.report_uri, "+")) {
-            /* if '+', output to stderr */
-            fprintf(stderr, "VMURI: %s\n", uri);
-        } else if (0 == strncasecmp(myglobals.report_uri, "file:", strlen("file:"))) {
-            ptr = strchr(myglobals.report_uri, ':');
-            ++ptr;
-            fp = fopen(ptr, "w");
-            if (NULL == fp) {
-                orte_show_help("help-orterun.txt", "orterun:write_file", false,
-                               orte_basename, "pid", ptr);
-                exit(0);
-            }
-            fprintf(fp, "%s\n", uri);
-            fclose(fp);
-        } else {
-            fp = fopen(myglobals.report_uri, "w");
-            if (NULL == fp) {
-                orte_show_help("help-orterun.txt", "orterun:write_file", false,
-                               orte_basename, "pid", myglobals.report_uri);
-                exit(0);
-            }
-            fprintf(fp, "%s\n", uri);
-            fclose(fp);
-        }
-        free(uri);
-    } else {
-        printf("VMURI: %s\n", uri);
-    }
-
-    /* get the daemon job object - was created by ess/hnp component */
+     /* get the daemon job object - was created by ess/hnp component */
     if (NULL == (jdata = orte_get_job_data_object(ORTE_PROC_MY_NAME->jobid))) {
         orte_show_help("help-orterun.txt", "bad-job-object", true,
                        orte_basename);
@@ -503,17 +474,10 @@ int main(int argc, char *argv[])
     exit(orte_exit_status);
 }
 
-static void send_callback(int status, orte_process_name_t *peer,
-                          opal_buffer_t* buffer, orte_rml_tag_t tag,
-                          void* cbdata)
-
+static void notify_complete(int status, void *cbdata)
 {
-    orte_job_t *jdata = (orte_job_t*)cbdata;
-
-    OBJ_RELEASE(buffer);
-    /* cleanup the job object */
-    opal_hash_table_set_value_uint32(orte_job_data, jdata->jobid, NULL);
-    OBJ_RELEASE(jdata);
+    opal_list_t *info = (opal_list_t*)cbdata;
+    OPAL_LIST_RELEASE(info);
 }
 
 static void notify_requestor(int sd, short args, void *cbdata)
@@ -521,13 +485,13 @@ static void notify_requestor(int sd, short args, void *cbdata)
     orte_state_caddy_t *caddy = (orte_state_caddy_t*)cbdata;
     orte_job_t *jdata = caddy->jdata;
     orte_proc_t *pptr;
-    int ret, id, *idptr;
+    int ret;
     opal_buffer_t *reply;
     orte_daemon_cmd_flag_t command;
     orte_grpcomm_signature_t *sig;
-
-    /* notify the requestor */
-    reply = OBJ_NEW(opal_buffer_t);
+    bool notify = true;
+    opal_list_t *info;
+    opal_value_t *val;
 
     /* see if there was any problem */
     if (orte_get_attribute(&jdata->attributes, ORTE_JOB_ABORTED_PROC, (void**)&pptr, OPAL_PTR) && NULL != pptr) {
@@ -538,30 +502,49 @@ static void notify_requestor(int sd, short args, void *cbdata)
     } else {
         ret = 0;
     }
-    /* return the completion status */
-    opal_dss.pack(reply, &ret, 1, OPAL_INT);
 
-    /* pack the jobid to be returned */
-    opal_dss.pack(reply, &jdata->jobid, 1, ORTE_JOBID);
-
-    /* return the tracker ID */
-    idptr = &id;
-    if (orte_get_attribute(&jdata->attributes, ORTE_JOB_ROOM_NUM, (void**)&idptr, OPAL_INT)) {
-        /* pack the sender's index to the tracking object */
-        opal_dss.pack(reply, idptr, 1, OPAL_INT);
+    if (0 == ret && orte_get_attribute(&jdata->attributes, ORTE_JOB_SILENT_TERMINATION, NULL, OPAL_BOOL)) {
+        notify = false;
     }
 
-    /* if there was a problem, we need to send the requestor more info about what happened */
-    if (0 < ret) {
-        opal_dss.pack(reply, &jdata->state, 1, ORTE_JOB_STATE_T);
-        opal_dss.pack(reply, &pptr, 1, ORTE_PROC);
-        opal_dss.pack(reply, &pptr->node, 1, ORTE_NODE);
+    if (notify) {
+        info = OBJ_NEW(opal_list_t);
+        /* ensure this only goes to the job terminated event handler */
+        val = OBJ_NEW(opal_value_t);
+        val->key = strdup(OPAL_PMIX_EVENT_NON_DEFAULT);
+        val->type = OPAL_BOOL;
+        val->data.flag = true;
+        opal_list_append(info, &val->super);
+        /* tell the server not to cache the event as subsequent jobs
+         * do not need to know about it */
+        val = OBJ_NEW(opal_value_t);
+        val->key = strdup(OPAL_PMIX_EVENT_DO_NOT_CACHE);
+        val->type = OPAL_BOOL;
+        val->data.flag = true;
+        opal_list_append(info, &val->super);
+        /* provide the status */
+        val = OBJ_NEW(opal_value_t);
+        val->key = strdup(OPAL_PMIX_JOB_TERM_STATUS);
+        val->type = OPAL_STATUS;
+        val->data.status = ret;
+        opal_list_append(info, &val->super);
+        /* if there was a problem, we need to send the requestor more info about what happened */
+        if (0 < ret) {
+            val = OBJ_NEW(opal_value_t);
+            val->key = strdup(OPAL_PMIX_PROCID);
+            val->type = OPAL_NAME;
+            val->data.name.jobid = jdata->jobid;
+            if (NULL != pptr) {
+                val->data.name.vpid = pptr->name.vpid;
+            } else {
+                val->data.name.vpid = ORTE_VPID_WILDCARD;
+            }
+            opal_list_append(info, &val->super);
+        }
+        opal_pmix.notify_event(OPAL_ERR_JOB_TERMINATED, NULL,
+                               OPAL_PMIX_RANGE_GLOBAL, info,
+                               notify_complete, info);
     }
-
-    orte_rml.send_buffer_nb(orte_mgmt_conduit,
-                            &jdata->originator, reply,
-                            ORTE_RML_TAG_NOTIFY_COMPLETE,
-                            send_callback, jdata);
 
     /* now ensure that _all_ daemons know that this job has terminated so even
      * those that did not participate in it will know to cleanup the resources
@@ -580,9 +563,4 @@ static void notify_requestor(int sd, short args, void *cbdata)
     orte_grpcomm.xcast(sig, ORTE_RML_TAG_DAEMON, reply);
     OBJ_RELEASE(reply);
     OBJ_RELEASE(sig);
-
-    /* we cannot cleanup the job object as we might
-     * hit an error during transmission, so clean it
-     * up in the send callback */
-    OBJ_RELEASE(caddy);
 }
