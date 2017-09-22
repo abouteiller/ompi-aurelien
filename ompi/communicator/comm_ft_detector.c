@@ -550,6 +550,13 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
                         detector->hb_timeout - (stamp - detector->hb_rstamp), detector->hb_observing);
         /* mark this process dead and forward */
         ompi_errhandler_proc_failed(proc);
+        /* special case for finalize; avoid waiting NP timeouts */
+        if( MPI_PROC_NULL == detector->hb_observer ) {
+            detector->hb_observing = MPI_PROC_NULL;
+            detector->hb_rstamp = INFINITY;
+            opal_atomic_mb();
+            return;
+        }
         /* change the observed proc */
         detector->hb_rdma_flag = -2;
         fd_heartbeat_request(detector);
