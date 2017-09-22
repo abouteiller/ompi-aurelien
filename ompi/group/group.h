@@ -452,7 +452,7 @@ static inline int ompi_group_proc_lookup_rank (ompi_group_t* group, ompi_proc_t*
     }
     return -1;
 }
-#endif
+#endif /* OPAL_ENABLE_FT_MPI */
 
 bool ompi_group_have_remote_peers (ompi_group_t *group);
 
