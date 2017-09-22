@@ -185,6 +185,7 @@ int ompi_comm_start_failure_detector(void) {
 
 int ompi_comm_finalize_failure_detector(void) {
     int ret;
+    int observing;
     comm_detector_t* detector = &comm_world_detector;
     int np = ompi_comm_size(detector->comm);
     int rank = ompi_comm_rank(detector->comm);
@@ -199,17 +200,19 @@ int ompi_comm_finalize_failure_detector(void) {
     }
     /* wait until the observed process confirms he is not putting in our
      * memory (or everybody else is dead) */
-    if( MPI_PROC_NULL != detector->hb_observing ) {
-        ompi_proc_t* proc = ompi_comm_peer_lookup(detector->comm, detector->hb_observing);
+    while( MPI_PROC_NULL != (observing = detector->hb_observing) ) {
+        ompi_proc_t* proc = ompi_comm_peer_lookup(detector->comm, observing);
         assert( NULL != proc );
-        if( !OPAL_PROC_ON_LOCAL_NODE(proc->super.proc_flags) ) {
-            while( MPI_PROC_NULL != detector->hb_observing ) {
+        if( OPAL_PROC_ON_LOCAL_NODE(proc->super.proc_flags) ) {
+            break;
+        }
+        while( observing == detector->hb_observing ) {
+            /* If observed process changed, recheck if local*/
 #if OPAL_ENABLE_MULTI_THREADS
-                if( !(0 < fd_thread_active) )
+            if( !(0 < fd_thread_active) )
 #endif
-                {
-                    opal_progress();
-                }
+            {
+                opal_progress();
             }
         }
     }
@@ -327,6 +330,7 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
             detector->hb_observer = detector->hb_observing = MPI_PROC_NULL;
             detector->hb_rstamp = INFINITY;
             detector->hb_period = INFINITY;
+            opal_atomic_mb();
             return OMPI_SUCCESS;
         }
 
@@ -517,11 +521,23 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
          * recv grace and do not check for another timeout, all is fine. */
         if( OPAL_PROC_ON_LOCAL_NODE(proc->super.proc_flags)
          && ompi_proc_is_active(proc) ) {
-            OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
-                        "%s %s: evtimer triggered at stamp %g, recv grace IGNORED by %.1e, proc %d is local and still active.",
+            /* special case for finalize */
+            if( detector->hb_observer == MPI_PROC_NULL) {
+               OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
+                        "%s %s: evtimer triggered at stamp %g, proc %d is local and still active but this is FINALIZE.",
                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
                         stamp-startdate,
                         detector->hb_timeout - (stamp - detector->hb_rstamp), detector->hb_observing));
+                detector->hb_observing = MPI_PROC_NULL;
+                detector->hb_rstamp = INFINITY;
+                opal_atomic_mb();
+                return;
+            }
+            OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
+                        "%s %s: evtimer triggered at stamp %g, recv grace IGNORED by %.1e, proc %d is local and still active (I am observed by %d w/ period %g).",
+                        OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
+                        stamp-startdate,
+                        detector->hb_timeout - (stamp - detector->hb_rstamp), detector->hb_observing, detector->hb_observer, detector->hb_period));
             detector->hb_rstamp = stamp;
             return;
         }
