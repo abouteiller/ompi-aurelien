@@ -1261,8 +1261,7 @@ static int ompi_comm_ft_allreduce_intra_nb(int *inbuf, int *outbuf, int count,
 
     /** Repurpose the inbuf to store the failed_group */
     ompi_group_t** failed_group = (ompi_group_t**) &context->inbuf;
-    *failed_group = MPI_GROUP_EMPTY;
-    OBJ_RETAIN(*failed_group);
+    ompi_group_intersection(comm->c_remote_group, ompi_group_all_failed_procs, failed_group);
 
     rc = comm->c_coll->coll_iagreement(context->outbuf, context->count, &ompi_mpi_int.dt, context->op,
                                        failed_group, true,
