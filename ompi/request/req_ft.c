@@ -63,7 +63,7 @@ bool ompi_request_state_ok(ompi_request_t *req)
      * If so unless we are in the FT part (propagate revoke, agreement or
      * shrink) this should fail.
      */
-    if( OPAL_UNLIKELY(ompi_comm_is_revoked(req->req_mpi_object.comm) && !ompi_request_tag_is_ft(req->req_tag)) ) {
+    if( OPAL_UNLIKELY(ompi_comm_is_revoked(req->req_mpi_object.comm) && req->req_type == OMPI_REQUEST_PML && !ompi_request_tag_is_ft(req->req_tag)) ) {
         /* Do not set req->req_status.MPI_SOURCE */
         req->req_status.MPI_ERROR  = MPI_ERR_REVOKED;
 
