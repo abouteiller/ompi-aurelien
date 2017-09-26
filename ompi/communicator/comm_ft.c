@@ -131,8 +131,12 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
                          "%s ompi: comm_shrink: Agreement on failed processes",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
-    failed_group = MPI_GROUP_EMPTY;
-    OBJ_RETAIN(failed_group);
+    start = MPI_Wtime();
+    ompi_group_intersection(comm->c_remote_group, ompi_group_all_failed_procs, &failed_group);
+    stop = MPI_Wtime();
+    OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
+                         "%s ompi: comm_shrink: group_inter: %g seconds",
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-start));
     start = MPI_Wtime();
     do {
         /* We need to create the list of alive processes. Thus, we don't care about
