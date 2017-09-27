@@ -73,7 +73,7 @@
 #include "ompi/mca/pml/base/base.h"
 #include "ompi/mca/bml/base/base.h"
 #include "ompi/mca/osc/base/base.h"
-#include "ompi/mca/coll/base/base.h"
+#include "ompi/mca/coll/base/coll_base_functions.h"
 #include "ompi/mca/rte/rte.h"
 #include "ompi/mca/rte/base/base.h"
 #include "ompi/mca/topo/base/base.h"
