@@ -3210,7 +3210,7 @@ int mca_coll_ftbasic_agreement_era_free_comm(ompi_communicator_t* comm,
                          comm->c_contextid,
                          comm->c_epoch));
 
-    ompi_comm_failure_get_acked_internal( comm, &acked );
+    ompi_group_intersection(comm->c_remote_group, ompi_group_all_failed_procs, &acked);
     do {
         rc = mca_coll_ftbasic_agreement_era_intra(NULL,
                                                   0,
