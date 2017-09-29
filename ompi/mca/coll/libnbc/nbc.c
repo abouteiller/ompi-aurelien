@@ -329,18 +329,11 @@ int NBC_Progress(NBC_Handle *handle) {
 #endif
     res = ompi_request_test_all(handle->req_count, handle->req_array, &flag, MPI_STATUSES_IGNORE);
     if(res != OMPI_SUCCESS) {
-#if OPAL_ENABLE_FT_MPI
-      if( MPI_ERR_PROC_FAILED == res
-       || MPI_ERR_REVOKED == res ) {
-        ompi_coll_base_free_reqs(handle->req_array, handle->req_count);
-        NBC_Free(handle);
-        return res;
-      }
-#endif /* OPAL_ENABLE_FT_MPI */
-       // Attempt to cancel outstanding requests
+      NBC_Error ("MPI Error in MPI_Testall() return %d", res);
+      // Attempt to cancel outstanding requests
       for(i = 0; i < handle->req_count; ++i ) {
         // If the request is complete, then try to report the error code
-        if( handle->req_array[i]->req_complete ) {
+        if( REQUEST_COMPLETE(handle->req_array[i]) ) {
           if( OMPI_SUCCESS != handle->req_array[i]->req_status.MPI_ERROR ) {
             NBC_Error ("MPI Error in MPI_Testall() (req %d = %d)", i, handle->req_array[i]->req_status.MPI_ERROR);
           }
@@ -360,7 +353,7 @@ int NBC_Progress(NBC_Handle *handle) {
         }
       }
 
-      return OMPI_ERROR;
+      return res;
     }
 #ifdef NBC_TIMING
     Test_time += MPI_Wtime();
