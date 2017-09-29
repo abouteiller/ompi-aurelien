@@ -329,12 +329,19 @@ int NBC_Progress(NBC_Handle *handle) {
 #endif
     res = ompi_request_test_all(handle->req_count, handle->req_array, &flag, MPI_STATUSES_IGNORE);
     if(res != OMPI_SUCCESS) {
-      NBC_Error ("MPI Error in MPI_Testall() return %d", res);
+        NBC_DEBUG(1, "NBC_Progress: testing for %i requests ended with error %d\n", handle->req_count, res);
       // Attempt to cancel outstanding requests
       for(i = 0; i < handle->req_count; ++i ) {
         // If the request is complete, then try to report the error code
         if( REQUEST_COMPLETE(handle->req_array[i]) ) {
           if( OMPI_SUCCESS != handle->req_array[i]->req_status.MPI_ERROR ) {
+#if defined(OPAL_ENABLE_FT_MPI)
+            if( MPI_ERR_PROC_FAILED == handle->req_array[i]->req_status.MPI_ERROR ||
+                MPI_ERR_PROC_FAILED_PENDING == handle->req_array[i]->req_status.MPI_ERROR ||
+                MPI_ERR_REVOKED == handle->req_array[i]->req_status.MPI_ERROR ) {
+              NBC_DEBUG ("MPI Error in MPI_Testall() (req %d = %d)", i, handle->req_array[i]->req_status.MPI_ERROR);
+            } else // this intentionally spills outside the ifdef
+#endif /* OPAL_ENABLE_FT_MPI */
             NBC_Error ("MPI Error in MPI_Testall() (req %d = %d)", i, handle->req_array[i]->req_status.MPI_ERROR);
           }
         }
