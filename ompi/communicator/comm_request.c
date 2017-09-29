@@ -260,6 +260,7 @@ ompi_comm_request_t *ompi_comm_request_get (void)
     }
 
     OMPI_REQUEST_INIT((ompi_request_t *) item, false);
+    ((ompi_request_t*)item)->req_status.MPI_ERROR = OMPI_SUCCESS;
 
     return (ompi_comm_request_t *) item;
 }
