@@ -1006,6 +1006,7 @@ int ompi_comm_dup_with_info ( ompi_communicator_t * comm, opal_info_t *info, omp
     /* Determine context id. It is identical to f_2_c_handle */
     rc = ompi_comm_nextcid (newcomp, comm, NULL, NULL, NULL, false, mode);
     if ( OMPI_SUCCESS != rc ) {
+        OBJ_RELEASE(newcomp);
         return rc;
     }
 
@@ -1022,6 +1023,7 @@ int ompi_comm_dup_with_info ( ompi_communicator_t * comm, opal_info_t *info, omp
     /* activate communicator and init coll-module */
     rc = ompi_comm_activate (&newcomp, comm, NULL, NULL, NULL, false, mode);
     if ( OMPI_SUCCESS != rc ) {
+        OBJ_RELEASE(newcomp);
         return rc;
     }
 
@@ -1139,6 +1141,7 @@ static int ompi_comm_idup_getcid (ompi_comm_request_t *request)
                                NULL, false, mode, subreq);
     if (OMPI_SUCCESS != rc) {
         ompi_comm_request_return (request);
+        OBJ_RELEASE(context->newcomp);
         return rc;
     }
 
@@ -1167,6 +1170,7 @@ static int ompi_comm_idup_with_info_activate (ompi_comm_request_t *request)
     /* activate communicator and init coll-module */
     rc = ompi_comm_activate_nb (&context->newcomp, context->comm, NULL, NULL, NULL, false, mode, subreq);
     if ( OMPI_SUCCESS != rc ) {
+        OBJ_RELEASE(context->newcomp);
         return rc;
     }
 
@@ -1209,6 +1213,7 @@ int ompi_comm_create_group (ompi_communicator_t *comm, ompi_group_t *group, int 
     /* Determine context id. It is identical to f_2_c_handle */
     rc = ompi_comm_nextcid (newcomp, comm, NULL, &tag, NULL, false, mode);
     if ( OMPI_SUCCESS != rc ) {
+        OBJ_RELEASE(newcomp);
         return rc;
     }
 
@@ -1219,6 +1224,7 @@ int ompi_comm_create_group (ompi_communicator_t *comm, ompi_group_t *group, int 
     /* activate communicator and init coll-module */
     rc = ompi_comm_activate (&newcomp, comm, NULL, &tag, NULL, false, mode);
     if ( OMPI_SUCCESS != rc ) {
+        OBJ_RELEASE(newcomp);
         return rc;
     }
 
