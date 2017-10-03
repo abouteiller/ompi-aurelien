@@ -528,7 +528,8 @@ static void proc_errors(int fd, short args, void *cbdata)
         child->state = state;
         /* report this as abnormal termination to the HNP, unless we already have
          * done so for this job */
-        if (!orte_get_attribute(&jdata->attributes, ORTE_JOB_FAIL_NOTIFIED, NULL, OPAL_BOOL)) {
+        if (!orte_get_attribute(&jdata->attributes, ORTE_JOB_FAIL_NOTIFIED, NULL, OPAL_BOOL)
+         || (orte_enable_recovery && !ORTE_FLAG_TEST(child, ORTE_PROC_FLAG_RECORDED))) {
             alert = OBJ_NEW(opal_buffer_t);
             /* pack update state command */
             cmd = ORTE_PLM_UPDATE_PROC_STATE;
@@ -631,7 +632,8 @@ static void proc_errors(int fd, short args, void *cbdata)
          * terminated, then we need to alert the HNP right away - but
          * only do this once!
          */
-        if (!orte_get_attribute(&jdata->attributes, ORTE_JOB_FAIL_NOTIFIED, NULL, OPAL_BOOL)) {
+        if (!orte_get_attribute(&jdata->attributes, ORTE_JOB_FAIL_NOTIFIED, NULL, OPAL_BOOL)
+         || (orte_enable_recovery && !ORTE_FLAG_TEST(child, ORTE_PROC_FLAG_RECORDED))) {
             alert = OBJ_NEW(opal_buffer_t);
             /* pack update state command */
             cmd = ORTE_PLM_UPDATE_PROC_STATE;
