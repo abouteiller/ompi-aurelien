@@ -165,7 +165,7 @@ AC_DEFUN([MCA_opal_event_libevent2022_CONFIG],[
 
     CPPFLAGS="$CPPFLAGS -Drandom=opal_random"
     OPAL_CONFIG_SUBDIR([$libevent_basedir/libevent],
-        [$event_args $opal_subdir_args 'CPPFLAGS=$CPPFLAGS'],
+        [$event_args $opal_subdir_args 'CPPFLAGS=$CPPFLAGS' 'CFLAGS=$CFLAGS'],
         [libevent_happy="yes"], [libevent_happy="no"])
     if test "$libevent_happy" = "no"; then
         AC_MSG_WARN([Event library failed to configure])
