@@ -10,3 +10,6 @@ enable_mca_no_build=\
 mtl,pml-bfo,pml-cm,pml-crcpw,pml-yalla,pml-ucx,\
 coll-cuda,coll-fca,coll-hcoll,coll-portals4,\
 btl-usnic,btl-portals4,btl-scif,btl-smcuda,pml-monitoring,pml-v,vprotocol,crcp,\
+
+# xpmem generates bus errors when the other end is dead.
+with_cray_xpmem=no
