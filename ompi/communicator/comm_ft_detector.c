@@ -269,7 +269,7 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
     detector->hb_period = comm_heartbeat_period;
     detector->hb_timeout = comm_heartbeat_timeout;
     detector->hb_sstamp = 0.;
-    detector->hb_rstamp = PMPI_Wtime()+comm_heartbeat_period*log((double)np); /* give some slack for MPI_Init */
+    detector->hb_rstamp = PMPI_Wtime()+comm_heartbeat_timeout*(1.+log((double)np)); /* give some slack for MPI_Init */
 
     detector->hb_rdma_bml_btl_observer = NULL;
     detector->hb_rdma_bml_btl_observing = NULL;
