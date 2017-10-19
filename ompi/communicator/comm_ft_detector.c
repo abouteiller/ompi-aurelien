@@ -269,7 +269,7 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
     detector->hb_period = comm_heartbeat_period;
     detector->hb_timeout = comm_heartbeat_timeout;
     detector->hb_sstamp = 0.;
-    detector->hb_rstamp = PMPI_Wtime()+(double)np; /* give some slack for MPI_Init */
+    detector->hb_rstamp = PMPI_Wtime()+comm_heartbeat_period*log((double)np); /* give some slack for MPI_Init */
 
     detector->hb_rdma_bml_btl_observer = NULL;
     detector->hb_rdma_bml_btl_observing = NULL;
@@ -279,10 +279,7 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
     detector->hb_rdma_raddr = 0;
     detector->hb_rdma_rreg = NULL;
 
-    if( comm_detector_use_rdma_hb ) {
-        OBJ_CONSTRUCT(&detector->fd_mutex, opal_mutex_t);
-        fd_heartbeat_request(detector);
-    }
+    OBJ_CONSTRUCT(&detector->fd_mutex, opal_mutex_t);
 
     detector->fd_event = opal_event_new(fd_event_base, -1, OPAL_EV_TIMEOUT | OPAL_EV_PERSIST, fd_event_cb, detector);
     struct timeval tv;
@@ -291,13 +288,22 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
      * would cause drifts in emissions). */
     tv.tv_sec = (int)(detector->hb_period / 10.);
     tv.tv_usec = (-tv.tv_sec + (detector->hb_period / 10.)) * 1e6;
+    OPAL_OUTPUT_VERBOSE((20, ompi_ftmpi_output_handle,
+                         "%s %s: Installing an event every %g for a detector with period %g",
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
+                         detector->hb_period, detector->hb_period / 10.));
     opal_event_add(detector->fd_event, &tv);
     if( 10e-6 > detector->hb_period ) {
         /* do not overpoll the event progress loop except if
          * super aggressive heartbeat rate is required */
         opal_progress_event_users_increment();
     }
-    return OMPI_SUCCESS;
+
+    if( comm_detector_use_rdma_hb ) {
+        fd_heartbeat_request(detector);
+    }
+
+   return OMPI_SUCCESS;
 }
 
 static int fd_heartbeat_request(comm_detector_t* detector) {
