@@ -113,6 +113,11 @@ int mca_pml_ob1_revoke_comm( struct ompi_communicator_t* ompi_comm, bool coll_on
     opal_list_t nack_list;
     opal_list_item_t *it;
 
+    /* For intercomm, also work with the local_comm */
+    if( OMPI_COMM_IS_INTER(ompi_comm) ) {
+       mca_pml_ob1_revoke_comm(ompi_comm->c_local_comm, coll_only);
+    }
+
     OPAL_THREAD_LOCK(&comm->matching_lock);
     /* these assignement need to be here because we need the matching_lock */
     ompi_comm->coll_revoked = true;
