@@ -342,19 +342,20 @@ int orte_ess_base_app_finalize(void)
 
     /* close frameworks */
     (void) mca_base_framework_close(&orte_filem_base_framework);
-    (void) mca_base_framework_close(&orte_errmgr_base_framework);
 
     /* now can close the rml and its friendly group comm */
     (void) mca_base_framework_close(&orte_grpcomm_base_framework);
     (void) mca_base_framework_close(&orte_dfs_base_framework);
     (void) mca_base_framework_close(&orte_routed_base_framework);
 
+    orte_errmgr.finalize();
     (void) mca_base_framework_close(&orte_rml_base_framework);
     if (NULL != opal_pmix.finalize) {
         opal_pmix.finalize();
         (void) mca_base_framework_close(&opal_pmix_base_framework);
     }
     (void) mca_base_framework_close(&orte_oob_base_framework);
+    (void) mca_base_framework_close(&orte_errmgr_base_framework);
     (void) mca_base_framework_close(&orte_state_base_framework);
 
     orte_session_dir_finalize(ORTE_PROC_MY_NAME);
