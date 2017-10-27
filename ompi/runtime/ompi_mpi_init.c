@@ -993,7 +993,6 @@ int ompi_mpi_init(int argc, char **argv, int requested, int *provided)
         opal_progress_set_event_poll_rate(ompi_mpi_event_tick_rate);
     }
 
-
     /* At this point, we are fully configured and in MPI mode.  Any
        communication calls here will work exactly like they would in
        the user's code.  Setup the connections between procs and warm
