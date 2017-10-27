@@ -611,25 +611,17 @@ static int mca_btl_tcp_endpoint_recv_connect_ack(mca_btl_base_endpoint_t* btl_en
                upstream. */
             return OPAL_ERROR;
         }
-#if OPAL_ENABLE_FT_MPI == 0
         opal_show_help("help-mpi-btl-tcp.txt", "client handshake fail",
                        true, opal_process_info.nodename,
                        getpid(), "did not receive entire connect ACK from peer");
         return OPAL_ERR_BAD_PARAM;
-#else
-        return OPAL_ERR_UNREACH;
-#endif /* OPAL_ENABLE_FT_MPI */
     }
     if (0 != strncmp(hs_msg.magic_id, mca_btl_tcp_magic_id_string, len)) {
-#if OPAL_ENABLE_FT_MPI == 0
         opal_show_help("help-mpi-btl-tcp.txt", "server did not receive magic string",
                        true, opal_process_info.nodename,
                        getpid(), "client", hs_msg.magic_id,
                        "string value");
         return OPAL_ERR_BAD_PARAM;
-#else
-        return OPAL_ERR_UNREACH;
-#endif /* OPAL_ENABLE_FT_MPI */
     }
 
     guid = hs_msg.guid;
@@ -906,12 +898,15 @@ static void mca_btl_tcp_endpoint_recv_handler(int sd, short flags, void* user)
                 OPAL_THREAD_UNLOCK(&btl_endpoint->endpoint_send_lock);
                 MCA_BTL_TCP_ENDPOINT_DUMP(10, btl_endpoint, true, "connected");
             }
-            else if (OPAL_ERR_BAD_PARAM == rc) {
+            else if (OPAL_ERR_BAD_PARAM == rc
+                  || OPAL_ERROR == rc) {
                 /* If we get a BAD_PARAM, it means that it probably wasn't
                    an OMPI process on the other end of the socket (e.g.,
-                   the magic string ID failed).  So we can probably just
-                   close the socket and ignore this connection. */
-                CLOSE_THE_SOCKET(sd);
+                   the magic string ID failed). recv_connect_ack already cleaned
+                   up the socket. */
+                /* If we get OPAL_ERROR, the other end closed the connection
+                 * because it has initiated a symetrical connexion on its end. 
+                 * recv_connect_ack already cleaned up the socket. */
             }
             else {
                 /* Otherwise, it probably *was* an OMPI peer process on
@@ -1049,6 +1044,8 @@ static void mca_btl_tcp_endpoint_send_handler(int sd, short flags, void* user)
             MCA_BTL_TCP_ENDPOINT_DUMP(10, btl_endpoint, false, "event_del(send) [endpoint_send_handler]");
             opal_event_del(&btl_endpoint->endpoint_send_event);
         }
+        break;
+    case MCA_BTL_TCP_FAILED:
         break;
     default:
         BTL_ERROR(("invalid connection state (%d)", btl_endpoint->endpoint_state));
