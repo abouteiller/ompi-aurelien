@@ -378,11 +378,21 @@ int ompi_coll_base_barrier_intra_basic_linear(struct ompi_communicator_t *comm,
     /* All done */
     return MPI_SUCCESS;
  err_hndl:
+    if( NULL != requests ) {
+        /* find a real error code */
+        if (MPI_ERR_IN_STATUS == err) {
+            for( i = 0; i < size; i++ ) {
+                if (MPI_REQUEST_NULL == requests[i]) continue;
+                if (MPI_ERR_PENDING == requests[i]->req_status.MPI_ERROR) continue;
+                err = requests[i]->req_status.MPI_ERROR;
+                break;
+            }
+        }
+        ompi_coll_base_free_reqs(requests, size);
+    }
     OPAL_OUTPUT( (ompi_coll_base_framework.framework_output,"%s:%4d\tError occurred %d, rank %2d",
                   __FILE__, line, err, rank) );
     (void)line;  // silence compiler warning
-    if( NULL != requests )
-        ompi_coll_base_free_reqs(requests, size);
     return err;
 }
 /* copied function (with appropriate renaming) ends here */
