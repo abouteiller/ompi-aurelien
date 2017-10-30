@@ -408,7 +408,12 @@ static void mca_pml_ob1_rget_completion (mca_btl_base_module_t* btl, struct mca_
         if (OPAL_UNLIKELY(OMPI_SUCCESS != status)) {
             size_t skipped_bytes = recvreq->req_send_offset - recvreq->req_rdma_offset;
             opal_output_verbose(mca_pml_ob1_output, 1, "pml:ob1: %s: operation failed with code %d", __func__, status);
-            recvreq->req_recv.req_base.req_ompi.req_status.MPI_ERROR = status;
+            recvreq->req_recv.req_base.req_ompi.req_status.MPI_ERROR =
+#if OPAL_ENABLE_FT_MPI
+                (OMPI_ERR_UNREACH == status ? MPI_ERR_PROC_FAILED : status);
+#else
+                status;
+#endif /* OPAL_ENABLE_FT_MPI */
             recvreq->req_rdma_offset = recvreq->req_send_offset; /* prevent posting of more RDMA */
             /* Account for the skipped RDMA bytes when waiting for completion */
             OPAL_THREAD_ADD_SIZE_T(&recvreq->req_bytes_received, skipped_bytes);

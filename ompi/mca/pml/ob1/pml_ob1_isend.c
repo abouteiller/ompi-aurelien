@@ -147,6 +147,11 @@ int mca_pml_ob1_isend(const void *buf,
     int rc;
 
     if (OPAL_UNLIKELY(NULL == endpoint)) {
+#if OPAL_ENABLE_FT_MPI
+        if (!dst_proc->proc_active) {
+            return MPI_ERR_PROC_FAILED;
+        }
+#endif /* OPAL_ENABLE_FT_MPI */
         return OMPI_ERR_UNREACH;
     }
 
@@ -202,6 +207,11 @@ int mca_pml_ob1_send(const void *buf,
     int rc;
 
     if (OPAL_UNLIKELY(NULL == endpoint)) {
+#if OPAL_ENABLE_FT_MPI
+        if (!dst_proc->proc_active) {
+            return MPI_ERR_PROC_FAILED;
+        }
+#endif /* OPAL_ENABLE_FT_MPI */
         return OMPI_ERR_UNREACH;
     }
 

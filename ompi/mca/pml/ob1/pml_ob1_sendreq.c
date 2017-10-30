@@ -229,7 +229,7 @@ mca_pml_ob1_match_completion_free( struct mca_btl_base_module_t* btl,
             (OMPI_ERR_UNREACH == status ? MPI_ERR_PROC_FAILED : status);
 #else
             status;
-#endif
+#endif /* OPAL_ENABLE_FT_MPI */
         mca_bml_base_btl_array_remove(&sendreq->req_endpoint->btl_eager, btl);
         /**
          * Ideally we should release the BTL at this point. Unfortunately as we don't

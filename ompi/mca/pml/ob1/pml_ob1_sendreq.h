@@ -464,6 +464,16 @@ mca_pml_ob1_send_request_start_seq (mca_pml_ob1_send_request_t* sendreq, mca_bml
         /* select a btl */
         bml_btl = mca_bml_base_btl_array_get_next(&endpoint->btl_eager);
         rc = mca_pml_ob1_send_request_start_btl(sendreq, bml_btl);
+#if OPAL_ENABLE_FT_MPI
+        /* this first condition to keep the optimized path with as 
+         * little tests as possible */
+        if( OPAL_LIKELY(MPI_SUCCESS == rc) ) {
+            return rc;
+        }
+        if( OPAL_UNLIKELY(OMPI_ERR_UNREACH == rc) ) {
+            return MPI_ERR_PROC_FAILED;
+        }
+#endif /* OPAL_ENABLE_FT_MPI */
         if( OPAL_LIKELY(OMPI_ERR_OUT_OF_RESOURCE != rc) )
             return rc;
     }
@@ -481,6 +491,11 @@ mca_pml_ob1_send_request_start( mca_pml_ob1_send_request_t* sendreq )
     int32_t seqn;
 
     if (OPAL_UNLIKELY(NULL == endpoint)) {
+#if OPAL_ENABLE_FT_MPI
+        if (!sendreq->req_send.req_base.req_proc->proc_active) {
+            return MPI_ERR_PROC_FAILED;
+        }
+#endif /* OPAL_ENABLE_FT_MPI */
         return OMPI_ERR_UNREACH;
     }
 
