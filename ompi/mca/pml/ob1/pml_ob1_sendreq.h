@@ -471,7 +471,9 @@ mca_pml_ob1_send_request_start_seq (mca_pml_ob1_send_request_t* sendreq, mca_bml
             return rc;
         }
         if( OPAL_UNLIKELY(OMPI_ERR_UNREACH == rc) ) {
-            return MPI_ERR_PROC_FAILED;
+            sendreq->req_send.req_base.req_ompi.req_status.MPI_ERROR = MPI_ERR_PROC_FAILED;
+            MCA_PML_OB1_SEND_REQUEST_MPI_COMPLETE(sendreq, false);
+            return MPI_SUCCESS;
         }
 #endif /* OPAL_ENABLE_FT_MPI */
         if( OPAL_LIKELY(OMPI_ERR_OUT_OF_RESOURCE != rc) )

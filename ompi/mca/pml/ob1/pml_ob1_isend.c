@@ -149,7 +149,7 @@ int mca_pml_ob1_isend(const void *buf,
     if (OPAL_UNLIKELY(NULL == endpoint)) {
 #if OPAL_ENABLE_FT_MPI
         if (!dst_proc->proc_active) {
-            return MPI_ERR_PROC_FAILED;
+            goto alloc_ft_req;
         }
 #endif /* OPAL_ENABLE_FT_MPI */
         return OMPI_ERR_UNREACH;
@@ -171,6 +171,9 @@ int mca_pml_ob1_isend(const void *buf,
         }
     }
 
+#if OPAL_ENABLE_FT_MPI
+alloc_ft_req:
+#endif /* OPAL_ENABLE_FT_MPI */
     MCA_PML_OB1_SEND_REQUEST_ALLOC(comm, dst, sendreq);
     if (NULL == sendreq)
         return OMPI_ERR_OUT_OF_RESOURCE;
