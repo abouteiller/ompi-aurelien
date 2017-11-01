@@ -2302,9 +2302,11 @@ static void udcm_send_timeout (evutil_socket_t fd, short event, void *arg)
         }
 
         if (msg->tries == udcm_max_retry) {
+#if !OPAL_ENABLE_FT_MPI || OPAL_ENABLE_DEBUG
             opal_output (0, "too many retries sending message to 0x%04x:0x%08x, giving up",
                          UDCM_ENDPOINT_REM_MODEX(lcl_ep)->mm_lid,
                          UDCM_ENDPOINT_REM_MODEX(lcl_ep)->mm_qp_num);
+#endif /* OPAL_ENABLE_FT_MPI */
 
             /* We are running in the timeout thread. Invoke the error in the
              * "main thread" because it may call up into the pml or another

@@ -1034,6 +1034,7 @@ void *mca_btl_openib_endpoint_invoke_error(void *context)
         }
     } else {
         btl = endpoint->endpoint_btl;
+        endpoint->endpoint_state = MCA_BTL_IB_FAILED;
     }
 
     /* If we didn't find a BTL, then just bail :-( */
