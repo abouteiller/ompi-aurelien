@@ -3636,8 +3636,8 @@ error:
     }
 #endif
 
-    if(IBV_WC_WR_FLUSH_ERR != wc->status || !flush_err_printed[cq]++) {
 #if !OPAL_ENABLE_FT_MPI || OPAL_ENABLE_DEBUG
+    if(IBV_WC_WR_FLUSH_ERR != wc->status || !flush_err_printed[cq]++) {
         BTL_PEER_ERROR(remote_proc, ("error polling %s with status %s"
                     "status number %d for wr_id %" PRIx64 " opcode %d  vendor error %d qp_idx %d",
                     cq_name[cq], btl_openib_component_status_to_string(wc->status),
