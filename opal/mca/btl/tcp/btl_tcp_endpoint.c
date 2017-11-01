@@ -546,7 +546,9 @@ void mca_btl_tcp_endpoint_close(mca_btl_base_endpoint_t* btl_endpoint)
             frag = (mca_btl_tcp_frag_t*)opal_list_remove_first(&btl_endpoint->endpoint_frags);
         while(NULL != frag) {
             frag->base.des_cbfunc(&frag->btl->super, frag->endpoint, &frag->base, OPAL_ERR_UNREACH);
-
+            if( frag->base.des_flags & MCA_BTL_DES_FLAGS_BTL_OWNERSHIP ) {
+                MCA_BTL_TCP_FRAG_RETURN(frag);
+            }
             frag = (mca_btl_tcp_frag_t*)opal_list_remove_first(&btl_endpoint->endpoint_frags);
         }
         btl_endpoint->endpoint_send_frag = NULL;
