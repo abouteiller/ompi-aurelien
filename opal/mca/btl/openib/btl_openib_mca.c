@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2005 The University of Tennessee and The University
+ * Copyright (c) 2004-2017 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -391,12 +391,26 @@ int btl_openib_register_mca_params(void)
     CHECK(reg_uint("ib_timeout", NULL,
                   "InfiniBand transmit timeout, plugged into formula: 4.096 microseconds * (2^btl_openib_ib_timeout) "
                   "(must be >= 0 and <= 31)",
-                  20, &mca_btl_openib_component.ib_timeout, 0));
+#if OPAL_ENABLE_FT_MPI
+      /* shorted timeout when ft is enabled, otherwise credits don't get 
+       * liberated fast enough in post-failure cases. */
+                  16,
+#else
+                  20,
+#endif /* OPAL_ENABLE_FT_MPI */
+                  &mca_btl_openib_component.ib_timeout, 0));
 
     CHECK(reg_uint("ib_retry_count", NULL,
                   "InfiniBand transmit retry count "
                   "(must be >= 0 and <= 7)",
-                  7, &mca_btl_openib_component.ib_retry_count, 0));
+#if OPAL_ENABLE_FT_MPI
+      /* less retry when ft is enabled, otherwise credits don't get 
+       * liberated fast enough in post-failure cases. */
+                  3,
+#else
+                  7,
+#endif /* OPAL_ENABLE_FT_MPI */
+                  &mca_btl_openib_component.ib_retry_count, 0));
 
     CHECK(reg_uint("ib_rnr_retry", NULL,
                    "InfiniBand \"receiver not ready\" "
@@ -404,7 +418,14 @@ int btl_openib_register_mca_params(void)
                    "use RNR retry values of 0 because Open MPI performs "
                    "software flow control to guarantee that RNRs never occur "
                    "(must be >= 0 and <= 7; 7 = \"infinite\")",
-                   7, &mca_btl_openib_component.ib_rnr_retry, 0));
+ #if OPAL_ENABLE_FT_MPI
+      /* less retry when ft is enabled, otherwise credits don't get 
+       * liberated fast enough in post-failure cases. */
+                  3,
+#else
+                  7,
+#endif /* OPAL_ENABLE_FT_MPI */
+                  &mca_btl_openib_component.ib_rnr_retry, 0));
 
     CHECK(reg_uint("ib_max_rdma_dst_ops", NULL, "InfiniBand maximum pending RDMA "
                   "destination operations "
