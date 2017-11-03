@@ -105,7 +105,7 @@ static double startdate;
 
 int ompi_comm_init_failure_detector(void) {
     int ret;
-    bool detect = true;
+    bool detect = false;
     fd_event_base = opal_sync_event_base;
 
     (void) mca_base_var_register ("ompi", "mpi", "ft", "detector",

@@ -12,7 +12,7 @@ Features
 ========
 This implementation conforms to the User Level Failure Mitigation (ULFM)
 MPI Standard draft proposal. The ULFM proposal is developed by the MPI
-Forum’s Fault Tolerance Working Group to support the continued operation of
+Forum's Fault Tolerance Working Group to support the continued operation of
 MPI programs after crash (node failures) have impacted the execution. The key
 principle is that no MPI call (point-to-point, collective, RMA, IO, ...) can
 block indefinitely after a failure, but must either succeed or raise an MPI
@@ -232,7 +232,7 @@ cases. You can change the default settings with `--mca mpi_ft_foo <value>`.
   to `MPIX_Comm_agree`).
 - `mpi_ft_verbose <int> (default: 0)` increases the output of the fault
   tolerance activities. A value of 1 will report detected failures.
-- `mpi_ft_detector <true|false> (default: true)` controls the activation
+- `mpi_ft_detector <true|false> (default: false)` controls the activation
   of the OMPI level failure detector. When this detector if turned
   off, all failure detection is delegated to ORTE, which may be
   slow and/or incomplete.
@@ -260,6 +260,11 @@ cases. You can change the default settings with `--mca mpi_ft_foo <value>`.
   occasionally not be detected when they fail.
 - Failures during NBC collective may not be recovered properly in some rare
   cases.
+- Return of OpenIB credits spent toward a failed process can take several
+  seconds. Until the `btl_openib_ib_timeout` and `btl_openib_ib_retry_count`
+  controlled timeout triggers, lack of send credits may cause a temporary
+  stall under certain communication patterns. Impacted users can try to
+  adjust the value of these mca parameters.
 ___________________________________________________________________________
 
 
@@ -270,8 +275,8 @@ Changelog
 Focus has been toward integration with current Open MPI master, performance,
 and stability.
 
-- ULFM is now based upon Open MPI master branch. It will be regularly updated
-  until it will eventually be merged.
+- ULFM is now based upon Open MPI master branch (#689f1be9). It will be
+  regularly updated until it will eventually be merged.
 - Fault Tolerance is enabled by default and is controlled with MCA variables.
 - Added support for multithreaded modes (MPI_THREAD_MULTIPLE, etc.)
 - Added support for non-blocking collective operations (NBC).
@@ -327,7 +332,7 @@ Focus has been toward improving performance, both before and after the occurence
 The list of new features includes:
 
 - Support for the non-blocking version of the agreement, MPI_COMM_IAGREE.
-- Compliance with the latest ULFM specification draft. In particular, the 
+- Compliance with the latest ULFM specification draft. In particular, the
   MPI_COMM_(I)AGREE semantic has changed.
 - New algorithm to perform agreements, with a truly logarithmic complexity in number of
   ranks, which translates into huge performance boosts in MPI_COMM_(I)AGREE and
