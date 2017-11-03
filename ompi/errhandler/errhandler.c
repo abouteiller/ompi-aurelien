@@ -425,7 +425,7 @@ void ompi_errhandler_callback(int status,
     }
     else {
         if (NULL != cbfunc) {
-            cbfunc(status, source, info, results, cbdata);
+            cbfunc(status, results, NULL, NULL, cbdata);
         }
     }
 }
