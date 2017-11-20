@@ -594,9 +594,6 @@ static void proc_errors(int fd, short args, void *cbdata)
         if (ORTE_FLAG_TEST(child, ORTE_PROC_FLAG_ALIVE)) {
             ORTE_FLAG_UNSET(child, ORTE_PROC_FLAG_ALIVE);
         }
-        if (!ORTE_FLAG_TEST(child, ORTE_PROC_FLAG_WAITPID)) {
-            ORTE_FLAG_SET(child, ORTE_PROC_FLAG_WAITPID);
-        }
         /* if we were ordered to terminate, see if
          * any of our routes or local children remain alive - if not, then
          * terminate ourselves. */

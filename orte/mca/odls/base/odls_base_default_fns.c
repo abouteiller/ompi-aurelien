@@ -1416,6 +1416,9 @@ void ompi_odls_base_default_wait_local_proc(orte_proc_t *proc, void* cbdata)
 
         /* provide a default state */
         state = ORTE_PROC_STATE_WAITPID_FIRED;
+        /* regardless of our eventual code path, we need to
+         * flag that this proc has had its waitpid fired */
+        ORTE_FLAG_SET(proc, ORTE_PROC_FLAG_WAITPID);
 
         /* check to see if a sync was required and if it was received */
         if (ORTE_FLAG_TEST(proc, ORTE_PROC_FLAG_REG)) {
@@ -1521,6 +1524,9 @@ void ompi_odls_base_default_wait_local_proc(orte_proc_t *proc, void* cbdata)
                              "%s odls:waitpid_fired child process %s terminated with signal",
                              ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
                              ORTE_NAME_PRINT(&proc->name) ));
+        /* regardless of our eventual code path, we need to
+         * flag that this proc has had its waitpid fired */
+        ORTE_FLAG_SET(proc, ORTE_PROC_FLAG_WAITPID);
         /* Do not decrement the number of local procs here. That is handled in the errmgr */
     }
 
