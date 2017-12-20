@@ -41,7 +41,7 @@ end interface MPIX_Comm_failure_ack
 interface MPIX_Comm_failure_get_acked
     subroutine mpix_comm_failure_get_acked(comm, failedgrp, ierr)
         integer, intent(IN) :: comm
-        logical, intent(OUT) :: failedgrp, ierr
+        integer, intent(OUT) :: failedgrp, ierr
     end subroutine mpix_comm_failure_get_acked
 end interface MPIX_Comm_failure_get_acked
 
@@ -85,7 +85,7 @@ end interface OMPI_Comm_failure_ack
 interface OMPI_Comm_failure_get_acked
     subroutine ompi_comm_failure_get_acked(comm, failedgrp, ierr)
         integer, intent(IN) :: comm
-        logical, intent(OUT) :: failedgrp, ierr
+        integer, intent(OUT) :: failedgrp, ierr
     end subroutine ompi_comm_failure_get_acked
 end interface OMPI_Comm_failure_get_acked
 
