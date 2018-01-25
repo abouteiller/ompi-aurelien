@@ -426,6 +426,7 @@ pmix_status_t hash_cache_job_info(struct pmix_nspace_t *ns,
             /* an array of data pertaining to a specific proc */
             if (PMIX_DATA_ARRAY != info[n].value.type) {
                 PMIX_ERROR_LOG(PMIX_ERR_BAD_PARAM);
+                rc = PMIX_ERR_TYPE_MISMATCH;
                 goto release;
             }
             size = info[n].value.data.darray->size;
@@ -433,6 +434,7 @@ pmix_status_t hash_cache_job_info(struct pmix_nspace_t *ns,
             /* first element of the array must be the rank */
             if (0 != strcmp(iptr[0].key, PMIX_RANK) ||
                 PMIX_PROC_RANK != iptr[0].value.type) {
+                rc = PMIX_ERR_TYPE_MISMATCH;
                 PMIX_ERROR_LOG(PMIX_ERR_BAD_PARAM);
                 goto release;
             }
@@ -458,7 +460,7 @@ pmix_status_t hash_cache_job_info(struct pmix_nspace_t *ns,
                         if (NULL == tmp) {
                             PMIX_ERROR_LOG(PMIX_ERR_NOMEM);
                             rc = PMIX_ERR_NOMEM;
-                            return rc;
+                            goto release;
                         }
                         kp2->value->type = PMIX_COMPRESSED_STRING;
                         free(kp2->value->data.string);
@@ -493,10 +495,10 @@ pmix_status_t hash_cache_job_info(struct pmix_nspace_t *ns,
             if (PMIX_STRING_SIZE_CHECK(kp2->value)) {
                 if (pmix_util_compress_string(kp2->value->data.string, &tmp, &len)) {
                     if (NULL == tmp) {
-                        PMIX_ERROR_LOG(PMIX_ERR_NOMEM);
-                        PMIX_RELEASE(kp2);
                         rc = PMIX_ERR_NOMEM;
-                        return rc;
+                        PMIX_ERROR_LOG(rc);
+                        PMIX_RELEASE(kp2);
+                        goto release;
                     }
                     kp2->value->type = PMIX_COMPRESSED_STRING;
                     free(kp2->value->data.string);
@@ -1151,13 +1153,11 @@ static pmix_status_t hash_store_modex(struct pmix_nspace_t *nspace,
 {
     pmix_nspace_t *ns = (pmix_nspace_t*)nspace;
     pmix_hash_trkr_t *trk, *t;
-    pmix_server_caddy_t *scd;
     pmix_status_t rc = PMIX_SUCCESS;
     int32_t cnt;
     pmix_buffer_t pbkt;
     pmix_proc_t proc;
     pmix_kval_t *kv;
-    pmix_peer_t *peer;
 
     pmix_output_verbose(2, pmix_gds_base_framework.framework_output,
                         "[%s:%d] gds:hash:store_modex for nspace %s",
@@ -1184,26 +1184,15 @@ static pmix_status_t hash_store_modex(struct pmix_nspace_t *nspace,
      * REMOTE/GLOBAL data. The byte object contains
      * the rank followed by pmix_kval_t's. The list of callbacks
      * contains all local participants. */
-    peer = NULL;
-    PMIX_LIST_FOREACH(scd, cbs, pmix_server_caddy_t) {
-        if (scd->peer->nptr == ns) {
-            peer = scd->peer;
-            break;
-        }
-    }
-    if (NULL == peer) {
-        /* we can ignore this one */
-        return PMIX_SUCCESS;
-    }
 
     /* setup the byte object for unpacking */
     PMIX_CONSTRUCT(&pbkt, pmix_buffer_t);
     /* the next step unfortunately NULLs the byte object's
      * entries, so we need to ensure we restore them! */
-    PMIX_LOAD_BUFFER(peer, &pbkt, bo->bytes, bo->size);
+    PMIX_LOAD_BUFFER(pmix_globals.mypeer, &pbkt, bo->bytes, bo->size);
     /* unload the proc that provided this data */
     cnt = 1;
-    PMIX_BFROPS_UNPACK(rc, peer, &pbkt, &proc, &cnt, PMIX_PROC);
+    PMIX_BFROPS_UNPACK(rc, pmix_globals.mypeer, &pbkt, &proc, &cnt, PMIX_PROC);
     if (PMIX_SUCCESS != rc) {
         PMIX_ERROR_LOG(rc);
         bo->bytes = pbkt.base_ptr;
@@ -1215,7 +1204,7 @@ static pmix_status_t hash_store_modex(struct pmix_nspace_t *nspace,
     /* unpack the remaining values until we hit the end of the buffer */
     cnt = 1;
     kv = PMIX_NEW(pmix_kval_t);
-    PMIX_BFROPS_UNPACK(rc, peer, &pbkt, kv, &cnt, PMIX_KVAL);
+    PMIX_BFROPS_UNPACK(rc, pmix_globals.mypeer, &pbkt, kv, &cnt, PMIX_KVAL);
     while (PMIX_SUCCESS == rc) {
         /* store this in the hash table */
         if (PMIX_SUCCESS != (rc = pmix_hash_store(&trk->remote, proc.rank, kv))) {
@@ -1230,7 +1219,7 @@ static pmix_status_t hash_store_modex(struct pmix_nspace_t *nspace,
         /* continue along */
         kv = PMIX_NEW(pmix_kval_t);
         cnt = 1;
-        PMIX_BFROPS_UNPACK(rc, peer, &pbkt, kv, &cnt, PMIX_KVAL);
+        PMIX_BFROPS_UNPACK(rc, pmix_globals.mypeer, &pbkt, kv, &cnt, PMIX_KVAL);
     }
     PMIX_RELEASE(kv);  // maintain accounting
     if (PMIX_ERR_UNPACK_READ_PAST_END_OF_BUFFER != rc) {

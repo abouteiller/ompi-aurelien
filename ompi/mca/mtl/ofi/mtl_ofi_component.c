@@ -1,8 +1,8 @@
 /* -*- Mode: C; c-basic-offset:4 ; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2013-2016 Intel, Inc. All rights reserved
+ * Copyright (c) 2013-2017 Intel, Inc. All rights reserved
  *
- * Copyright (c) 2014-2015 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2014-2017 Cisco Systems, Inc.  All rights reserved
  * Copyright (c) 2015-2016 Los Alamos National Security, LLC.  All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -14,6 +14,7 @@
 
 #include "mtl_ofi.h"
 #include "opal/util/argv.h"
+#include "opal/util/show_help.h"
 
 static int ompi_mtl_ofi_component_open(void);
 static int ompi_mtl_ofi_component_query(mca_base_module_t **module, int *priority);
@@ -38,18 +39,20 @@ static int av_type;
 enum {
     MTL_OFI_PROG_AUTO=1,
     MTL_OFI_PROG_MANUAL,
-    MTL_OFI_PROG_UNKNOWN,
+    MTL_OFI_PROG_UNSPEC,
 };
 
 mca_base_var_enum_value_t control_prog_type[] = {
     {MTL_OFI_PROG_AUTO, "auto"},
     {MTL_OFI_PROG_MANUAL, "manual"},
+    {MTL_OFI_PROG_UNSPEC, "unspec"},
     {0, NULL}
 };
 
 mca_base_var_enum_value_t data_prog_type[] = {
     {MTL_OFI_PROG_AUTO, "auto"},
     {MTL_OFI_PROG_MANUAL, "manual"},
+    {MTL_OFI_PROG_UNSPEC, "unspec"},
     {0, NULL}
 };
 
@@ -127,10 +130,10 @@ ompi_mtl_ofi_component_register(void)
         return ret;
     }
 
-    control_progress = MTL_OFI_PROG_MANUAL;
+    control_progress = MTL_OFI_PROG_UNSPEC;
     mca_base_component_var_register (&mca_mtl_ofi_component.super.mtl_version,
                                      "control_progress",
-                                     "Specify control progress model (default: manual). Set to auto for auto progress.",
+                                     "Specify control progress model (default: unspecificed, use provider's default). Set to auto or manual for auto or manual progress respectively.",
                                      MCA_BASE_VAR_TYPE_INT, new_enum, 0, 0,
                                      OPAL_INFO_LVL_3,
                                      MCA_BASE_VAR_SCOPE_READONLY,
@@ -142,10 +145,10 @@ ompi_mtl_ofi_component_register(void)
         return ret;
     }
 
-    data_progress = MTL_OFI_PROG_AUTO;
+    data_progress = MTL_OFI_PROG_UNSPEC;
     mca_base_component_var_register(&mca_mtl_ofi_component.super.mtl_version,
                                     "data_progress",
-                                    "Specify data progress model (default: auto). Set to manual for manual progress.",
+                                    "Specify data progress model (default: unspecified, use provider's default). Set to auto or manual for auto or manual progress respectively.",
                                     MCA_BASE_VAR_TYPE_INT, new_enum, 0, 0,
                                     OPAL_INFO_LVL_3,
                                     MCA_BASE_VAR_SCOPE_READONLY,
@@ -325,16 +328,26 @@ ompi_mtl_ofi_component_init(bool enable_progress_threads,
 
     hints->domain_attr->threading        = FI_THREAD_UNSPEC;
 
-    if (MTL_OFI_PROG_AUTO == control_progress) {
-        hints->domain_attr->control_progress = FI_PROGRESS_AUTO;
-    } else {
+    switch (control_progress) {
+    case MTL_OFI_PROG_AUTO:
+	hints->domain_attr->control_progress = FI_PROGRESS_AUTO;
+	break;
+    case MTL_OFI_PROG_MANUAL:
         hints->domain_attr->control_progress = FI_PROGRESS_MANUAL;
+	break;
+    default:
+        hints->domain_attr->control_progress = FI_PROGRESS_UNSPEC;
     }
 
-    if (MTL_OFI_PROG_MANUAL == data_progress) {
+    switch (data_progress) {
+    case MTL_OFI_PROG_AUTO:
+	hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
+	break;
+    case MTL_OFI_PROG_MANUAL:
         hints->domain_attr->data_progress = FI_PROGRESS_MANUAL;
-    } else {
-        hints->domain_attr->data_progress = FI_PROGRESS_AUTO;
+	break;
+    default:
+        hints->domain_attr->data_progress = FI_PROGRESS_UNSPEC;
     }
 
     if (MTL_OFI_AV_TABLE == av_type) {
@@ -361,12 +374,16 @@ ompi_mtl_ofi_component_init(bool enable_progress_threads,
                      NULL,          /* Optional name or fabric to resolve       */
                      NULL,          /* Optional service name or port to request */
                      0ULL,          /* Optional flag                            */
-                     hints,        /* In: Hints to filter providers            */
+                     hints,         /* In: Hints to filter providers            */
                      &providers);   /* Out: List of matching providers          */
-    if (0 != ret) {
-        opal_output_verbose(1, ompi_mtl_base_framework.framework_output,
-                            "%s:%d: fi_getinfo failed: %s\n",
-                            __FILE__, __LINE__, fi_strerror(-ret));
+    if (FI_ENODATA == -ret) {
+        // It is not an error if no information is returned.
+        goto error;
+    } else if (0 != ret) {
+        opal_show_help("help-mtl-ofi.txt", "OFI call fail", true,
+                       "fi_getinfo",
+                       ompi_process_info.nodename, __FILE__, __LINE__,
+                       fi_strerror(-ret), -ret);
         goto error;
     }
 
@@ -392,9 +409,10 @@ ompi_mtl_ofi_component_init(bool enable_progress_threads,
                     &ompi_mtl_ofi.fabric, /* Out: Fabric handle                 */
                     NULL);                /* Optional context for fabric events */
     if (0 != ret) {
-        opal_output_verbose(1, ompi_mtl_base_framework.framework_output,
-                            "%s:%d: fi_fabric failed: %s\n",
-                            __FILE__, __LINE__, fi_strerror(-ret));
+        opal_show_help("help-mtl-ofi.txt", "OFI call fail", true,
+                       "fi_fabric",
+                       ompi_process_info.nodename, __FILE__, __LINE__,
+                       fi_strerror(-ret), -ret);
         goto error;
     }
 
@@ -408,9 +426,10 @@ ompi_mtl_ofi_component_init(bool enable_progress_threads,
                     &ompi_mtl_ofi.domain, /* Out: Domain oject                  */
                     NULL);                /* Optional context for domain events */
     if (0 != ret) {
-        opal_output_verbose(1, ompi_mtl_base_framework.framework_output,
-                            "%s:%d: fi_domain failed: %s\n",
-                            __FILE__, __LINE__, fi_strerror(-ret));
+        opal_show_help("help-mtl-ofi.txt", "OFI call fail", true,
+                       "fi_domain",
+                       ompi_process_info.nodename, __FILE__, __LINE__,
+                       fi_strerror(-ret), -ret);
         goto error;
     }
 
@@ -426,9 +445,10 @@ ompi_mtl_ofi_component_init(bool enable_progress_threads,
                       &ompi_mtl_ofi.ep,    /* Out: Endpoint object */
                       NULL);               /* Optional context     */
     if (0 != ret) {
-        opal_output_verbose(1, ompi_mtl_base_framework.framework_output,
-                            "%s:%d: fi_endpoint failed: %s\n",
-                            __FILE__, __LINE__, fi_strerror(-ret));
+        opal_show_help("help-mtl-ofi.txt", "OFI call fail", true,
+                       "fi_endpoint",
+                       ompi_process_info.nodename, __FILE__, __LINE__,
+                       fi_strerror(-ret), -ret);
         goto error;
     }
 
@@ -581,38 +601,40 @@ error:
 int
 ompi_mtl_ofi_finalize(struct mca_mtl_base_module_t *mtl)
 {
+    ssize_t ret;
+
     opal_progress_unregister(ompi_mtl_ofi_progress_no_inline);
 
-    /**
- *      * Close all the OFI objects
- *           */
-    if (fi_close((fid_t)ompi_mtl_ofi.ep)) {
-        opal_output(ompi_mtl_base_framework.framework_output,
-                "fi_close failed: %s", strerror(errno));
-        abort();
+    /* Close all the OFI objects */
+    if ((ret = fi_close((fid_t)ompi_mtl_ofi.ep))) {
+        goto finalize_err;
     }
-    if (fi_close((fid_t)ompi_mtl_ofi.cq)) {
-        opal_output(ompi_mtl_base_framework.framework_output,
-                "fi_close failed: %s", strerror(errno));
-        abort();
+
+    if ((ret = fi_close((fid_t)ompi_mtl_ofi.cq))) {
+        goto finalize_err;
     }
-    if (fi_close((fid_t)ompi_mtl_ofi.av)) {
-        opal_output(ompi_mtl_base_framework.framework_output,
-                "fi_close failed: %s", strerror(errno));
-        abort();
+
+    if ((ret = fi_close((fid_t)ompi_mtl_ofi.av))) {
+        goto finalize_err;
     }
-    if (fi_close((fid_t)ompi_mtl_ofi.domain)) {
-        opal_output(ompi_mtl_base_framework.framework_output,
-                "fi_close failed: %s", strerror(errno));
-        abort();
+
+    if ((ret = fi_close((fid_t)ompi_mtl_ofi.domain))) {
+        goto finalize_err;
     }
-    if (fi_close((fid_t)ompi_mtl_ofi.fabric)) {
-        opal_output(ompi_mtl_base_framework.framework_output,
-                "fi_close failed: %s", strerror(errno));
-        abort();
+
+    if ((ret = fi_close((fid_t)ompi_mtl_ofi.fabric))) {
+        goto finalize_err;
     }
 
     return OMPI_SUCCESS;
+
+finalize_err:
+    opal_show_help("help-mtl-ofi.txt", "OFI call fail", true,
+                   "fi_close",
+                   ompi_process_info.nodename, __FILE__, __LINE__,
+                   fi_strerror(-ret), -ret);
+
+    return OMPI_ERROR;
 }
 
 

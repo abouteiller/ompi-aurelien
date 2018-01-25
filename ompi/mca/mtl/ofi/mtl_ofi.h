@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2013-2016 Intel, Inc. All rights reserved
+ * Copyright (c) 2013-2017 Intel, Inc. All rights reserved
+ * Copyright (c) 2017      Los Alamos National Security, LLC. All rights
+ *                         reserved.
  *
  * $COPYRIGHT$
  *
@@ -14,6 +16,7 @@
 #include "ompi/mca/mtl/mtl.h"
 #include "ompi/mca/mtl/base/base.h"
 #include "opal/datatype/opal_convertor.h"
+#include "opal/util/show_help.h"
 
 #include <rdma/fabric.h>
 #include <rdma/fi_cm.h>
@@ -79,13 +82,14 @@ ompi_mtl_ofi_progress(void)
                 assert(ofi_req);
                 ret = ofi_req->event_callback(&wc, ofi_req);
                 if (OMPI_SUCCESS != ret) {
-                    opal_output(ompi_mtl_base_framework.framework_output,
-                                "Error returned by request event callback: %zd",
-                                ret);
-                    abort();
+                    opal_output(0, "%s:%d: Error returned by request event callback: %zd.\n"
+                                   "*** The Open MPI OFI MTL is aborting the MPI job (via exit(3)).\n",
+                                   __FILE__, __LINE__, ret);
+                    fflush(stderr);
+                    exit(1);
                 }
             }
-        } else if (ret == -FI_EAVAIL) {
+        } else if (OPAL_UNLIKELY(ret == -FI_EAVAIL)) {
             /**
              * An error occured and is being reported via the CQ.
              * Read the error and forward it to the upper layer.
@@ -94,9 +98,11 @@ ompi_mtl_ofi_progress(void)
                                 &error,
                                 0);
             if (0 > ret) {
-                opal_output(ompi_mtl_base_framework.framework_output,
-                            "Error returned from fi_cq_readerr: %zd", ret);
-                abort();
+                opal_output(0, "%s:%d: Error returned from fi_cq_readerr: %s(%zd).\n"
+                               "*** The Open MPI OFI MTL is aborting the MPI job (via exit(3)).\n",
+                               __FILE__, __LINE__, fi_strerror(-ret), ret);
+                fflush(stderr);
+                exit(1);
             }
 
             assert(error.op_context);
@@ -104,16 +110,22 @@ ompi_mtl_ofi_progress(void)
             assert(ofi_req);
             ret = ofi_req->error_callback(&error, ofi_req);
             if (OMPI_SUCCESS != ret) {
-                opal_output(ompi_mtl_base_framework.framework_output,
-                        "Error returned by request error callback: %zd",
-                        ret);
-                abort();
+                    opal_output(0, "%s:%d: Error returned by request error callback: %zd.\n"
+                                   "*** The Open MPI OFI MTL is aborting the MPI job (via exit(3)).\n",
+                                   __FILE__, __LINE__, ret);
+                fflush(stderr);
+                exit(1);
             }
         } else {
-            /**
-             * The CQ is empty. Return.
-             */
-            break;
+            if (ret == -FI_EAGAIN || ret == -EINTR) {
+                break;
+            } else {
+                opal_output(0, "%s:%d: Error returned from fi_cq_read: %s(%zd).\n"
+                               "*** The Open MPI OFI MTL is aborting the MPI job (via exit(3)).\n",
+                               __FILE__, __LINE__, fi_strerror(-ret), ret);
+                fflush(stderr);
+                exit(1);
+            }
         }
     }
     return count;
@@ -676,8 +688,8 @@ ompi_mtl_ofi_imrecv(struct mca_mtl_base_module_t *mtl,
     msg.desc = NULL;
     msg.iov_count = 1;
     msg.addr = 0;
-    msg.tag = 0;
-    msg.ignore = 0;
+    msg.tag = ofi_req->match_bits;
+    msg.ignore = ofi_req->mask_bits;
     msg.context = (void *)&ofi_req->ctx;
     msg.data = 0;
 
@@ -858,6 +870,7 @@ ompi_mtl_ofi_improbe(struct mca_mtl_base_module_t *mtl,
     ofi_req->error_callback = ompi_mtl_ofi_probe_error_callback;
     ofi_req->completion_count = 1;
     ofi_req->match_state = 0;
+    ofi_req->mask_bits = mask_bits;
 
     MTL_OFI_RETRY_UNTIL_DONE(fi_trecvmsg(ompi_mtl_ofi.ep, &msg, msgflags));
     if (-FI_ENOMSG == ret) {

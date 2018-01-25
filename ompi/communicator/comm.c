@@ -19,7 +19,7 @@
  * Copyright (c) 2012      Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2012-2016 Los Alamos National Security, LLC.
  *                         All rights reserved.
- * Copyright (c) 2014-2016 Research Organization for Information Science
+ * Copyright (c) 2014-2017 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2014-2015 Intel, Inc. All rights reserved.
  * Copyright (c) 2015      Mellanox Technologies. All rights reserved.
@@ -593,6 +593,14 @@ int ompi_comm_split( ompi_communicator_t* comm, int color, int key,
         }
     }
 
+    /* set the rank to MPI_UNDEFINED. This prevents this process from interfering
+     * in ompi_comm_nextcid() and the collective module selection in ompi_comm_activate()
+     * for a communicator that will be freed anyway.
+     */
+    if ( MPI_UNDEFINED == color || (inter && my_rsize==0)) {
+        newcomp->c_local_group->grp_my_rank = MPI_UNDEFINED;
+    }
+
     /* Determine context id. It is identical to f_2_c_handle */
     rc = ompi_comm_nextcid (newcomp, comm, NULL, NULL, NULL, false, mode);
     if ( OMPI_SUCCESS != rc ) {
@@ -603,13 +611,6 @@ int ompi_comm_split( ompi_communicator_t* comm, int color, int key,
     snprintf(newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMMUNICATOR %d SPLIT FROM %d",
              newcomp->c_contextid, comm->c_contextid );
 
-    /* set the rank to MPI_UNDEFINED. This prevents in comm_activate
-     * the collective module selection for a communicator that will
-     * be freed anyway.
-     */
-    if ( MPI_UNDEFINED == color || (inter && my_rsize==0)) {
-        newcomp->c_local_group->grp_my_rank = MPI_UNDEFINED;
-    }
 
 
     /* Activate the communicator and init coll-component */
@@ -1323,16 +1324,12 @@ int ompi_comm_compare(ompi_communicator_t *comm1, ompi_communicator_t *comm2, in
 int ompi_comm_set_name (ompi_communicator_t *comm, const char *name )
 {
 
-#ifdef USE_MUTEX_FOR_COMMS
     OPAL_THREAD_LOCK(&(comm->c_lock));
-#endif
     memset(comm->c_name, 0, MPI_MAX_OBJECT_NAME);
     strncpy(comm->c_name, name, MPI_MAX_OBJECT_NAME);
     comm->c_name[MPI_MAX_OBJECT_NAME - 1] = 0;
     comm->c_flags |= OMPI_COMM_NAMEISSET;
-#ifdef USE_MUTEX_FOR_COMMS
     OPAL_THREAD_UNLOCK(&(comm->c_lock));
-#endif
 
     return OMPI_SUCCESS;
 }

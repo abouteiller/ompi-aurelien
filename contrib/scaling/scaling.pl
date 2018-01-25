@@ -22,11 +22,12 @@ my $rawoutput = 0;
 my $myresults = "myresults";
 my $ppn = 1;
 my @csvrow;
+my $multiplier = 1;
 
 my @tests = qw(/bin/true ./orte_no_op ./mpi_no_op ./mpi_no_op ./mpi_no_op);
-my @options = ("", "", "", "-mca mpi_add_procs_cutoff 0 -mca pmix_base_async_modex 1", "-mca mpi_add_procs_cutoff 0 -mca pmix_base_async_modex 1 -mca async_mpi_init 1 -mca async_mpi_finalize 1");
+my @options = ("", "", "", "-mca mpi_add_procs_cutoff 0 -mca pmix_base_async_modex 1 -mca pmix_base_collect_data 0", "-mca mpi_add_procs_cutoff 0 -mca pmix_base_async_modex 1 -mca async_mpi_init 1 -mca async_mpi_finalize 1 -mca pmix_base_collect_data 0");
 my @starterlist = qw(mpirun prun srun aprun);
-my @starteroptionlist = (" --novm",
+my @starteroptionlist = (" --novm --timeout 600",
                          " --system-server-only",
                          " --distribution=cyclic --ntasks-per-node=",
                          " -N");
@@ -52,6 +53,7 @@ GetOptions(
     "results=s" => \$myresults,
     "rawout" => \$rawoutput,
     "ppn=s" => \$ppn,
+    "multiplier=s" => \$multiplier,
 ) or die "unable to parse options, stopped";
 
 if ($HELP) {
@@ -69,6 +71,7 @@ if ($HELP) {
 --results=file       File where results are to be stored in comma-separated value format
 --rawout             Provide raw timing output to the file
 --ppn=n              Run n procs/node
+--multiplier=n       Run n daemons/node (only for DVM and mpirun)
 ";
     exit(0);
 }
@@ -87,6 +90,7 @@ my $option;
 my $havedvm = 0;
 my @starters;
 my @starteroptions;
+my $pid;
 
 # if they explicitly requested specific starters, then
 # only use those
@@ -123,6 +127,9 @@ foreach $starter (@starterlist) {
         } elsif ($usempirun && $starter eq "mpirun") {
             push @starters, $starter;
             $opt = $starteroptionlist[$idx] . " --npernode " . $ppn;
+            if ($multiplier gt 1) {
+                $opt = $opt . " --mca rtc ^hwloc --mca ras_base_multiplier " . $multiplier;
+            }
             push @starteroptions, $opt;
         } elsif ($useaprun && $starter eq "aprun") {
             push @starters, $starter;
@@ -266,13 +273,22 @@ foreach $starter (@starters) {
     print "STARTER: $starter\n";
     # if we are going to use the dvm, then we
     if ($starter eq "prun") {
+        my $dvm = "orte-dvm --system-server";
+        if ($multiplier gt 1) {
+            $dvm = $dvm . " --mca rtc ^hwloc --mca ras_base_multiplier " . $multiplier;
+        }
         # need to start it
-        $cmd = "orte-dvm --system_server 2>&1 &";
         if ($myresults) {
-            print FILE "\n\n$cmd\n";
+            print FILE "\n\n$dvm\n";
         }
         if (!$SHOWME) {
-            system($cmd);
+            unless ($pid = fork) {
+                unless (fork) {
+                    exec "$dvm 2>&1";
+                    die "no exec";
+                }
+                exit 0;
+            }
             $havedvm = 1;
         }
         # give it a couple of seconds to start
@@ -297,7 +313,7 @@ foreach $starter (@starters) {
                 # pre-position the executable
                 $cmd = $starter . $starteroptions[$index] . " $test 2>&1";
                 my $error;
-                $error = system($cmd);
+                $error = `$cmd`;
                 if (0 != $error) {
                     if ($myresults) {
                         print FILE "Command $cmd returned error $error\n";
@@ -342,7 +358,8 @@ foreach $starter (@starters) {
     if ($havedvm) {
         if (!$SHOWME) {
             $cmd = "prun --system-server-only --terminate";
-            system($cmd);
+            my $rc = `$cmd`;
+            waitpid($pid, 0);
         }
         $havedvm = 0;
     }

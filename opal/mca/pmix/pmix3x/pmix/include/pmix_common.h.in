@@ -61,11 +61,15 @@
 #include <unistd.h> /* for uid_t and gid_t */
 #include <sys/types.h> /* for uid_t and gid_t */
 
-#ifdef PMIX_HAVE_VISIBILITY
+/* Whether C compiler supports -fvisibility */
+#undef PMIX_HAVE_VISIBILITY
+
+#if PMIX_HAVE_VISIBILITY == 1
 #define PMIX_EXPORT __attribute__((__visibility__("default")))
 #else
 #define PMIX_EXPORT
 #endif
+
 
 #include <pmix_rename.h>
 #include <pmix_version.h>
@@ -190,6 +194,7 @@ typedef uint32_t pmix_rank_t;
 #define PMIX_TDIR_RMCLEAN                   "pmix.tdir.rmclean"     // (bool)  Resource Manager will clean session directories
 
 /* information about relative ranks as assigned by the RM */
+#define PMIX_CLUSTER_ID                     "pmix.clid"             // (char*) a string name for the cluster this proc is executing on
 #define PMIX_PROCID                         "pmix.procid"           // (pmix_proc_t) process identifier
 #define PMIX_NSPACE                         "pmix.nspace"           // (char*) nspace of a job
 #define PMIX_JOBID                          "pmix.jobid"            // (char*) jobid assigned by scheduler
@@ -370,6 +375,7 @@ typedef uint32_t pmix_rank_t;
                                                                     //        terminate without having connected
 #define PMIX_CONNECT_XCHG_ONLY              "pmix.cnt.xchg"         // (bool) provide participants with job-level info for all participating
                                                                     //        nspaces, but do not assign a new nspace or rank
+#define PMIX_CONNECT_ID                     "pmix.cnt.id"           // (char*) an application-provided string identifier for a PMIx_Connect operation.
 
 
 /* query attributes */
@@ -456,6 +462,18 @@ typedef uint32_t pmix_rank_t;
 #define PMIX_JOB_CTRL_PROVISION_IMAGE       "pmix.jctrl.pvnimg"     // (char*) name of the image that is to be provisioned
 #define PMIX_JOB_CTRL_PREEMPTIBLE           "pmix.jctrl.preempt"    // (bool) job can be pre-empted
 #define PMIX_JOB_CTRL_TERMINATE             "pmix.jctrl.term"       // (bool) politely terminate the specified procs
+#define PMIX_REGISTER_CLEANUP               "pmix.reg.cleanup"      // (char*) comma-delimited list of files to
+                                                                    //         be removed upon process termination
+#define PMIX_REGISTER_CLEANUP_DIR           "pmix.reg.cleanupdir"   // (char*) comma-delimited list of directories to
+                                                                    //         be removed upon process termination
+#define PMIX_CLEANUP_RECURSIVE              "pmix.clnup.recurse"    // (bool) recursively cleanup all subdirectories under the
+                                                                    //        specified one(s)
+#define PMIX_CLEANUP_EMPTY                  "pmix.clnup.empty"      // (bool) only remove empty subdirectories
+#define PMIX_CLEANUP_IGNORE                 "pmix.clnup.ignore"     // (char*) comma-delimited list of filenames that are not
+                                                                    //         to be removed
+#define PMIX_CLEANUP_LEAVE_TOPDIR           "pmix.clnup.lvtop"      // (bool) when recursively cleaning subdirs, do not remove
+                                                                    //        the top-level directory (the one given in the
+                                                                    //        cleanup request)
 
 /* monitoring attributes */
 #define PMIX_MONITOR_ID                     "pmix.monitor.id"       // (char*) provide a string identifier for this request
@@ -578,6 +596,7 @@ typedef int pmix_status_t;
 #define PMIX_ERR_NOT_IMPLEMENTED                    -48
 #define PMIX_ERR_COMM_FAILURE                       -49
 #define PMIX_ERR_UNPACK_READ_PAST_END_OF_BUFFER     -50         // internal-only
+#define PMIX_ERR_CONFLICTING_CLEANUP_DIRECTIVES     -51
 
 /* define a starting point for v2.x error values */
 #define PMIX_ERR_V2X_BASE                   -100
@@ -850,6 +869,39 @@ typedef struct pmix_proc {
             free((m));                          \
         }                                       \
     } while (0)
+
+#define PMIX_PROC_LOAD(m, n, r)                             \
+    do {                                                    \
+        PMIX_PROC_CONSTRUCT((m));                           \
+        (void)strncpy((m)->nspace, (n), PMIX_MAX_NSLEN);    \
+        (m)->rank = (r);                                    \
+    } while(0)
+
+#define PMIX_MULTICLUSTER_NSPACE_CONSTRUCT(t, c, n)                         \
+    do {                                                                    \
+        size_t _len;                                                        \
+        memset((t), 0, PMIX_MAX_NSLEN+1);                                   \
+        _len = strlen((c));                                                 \
+        if ((_len + strlen((n))) < PMIX_MAX_NSLEN) {                        \
+            (void)strncpy((t), (c), PMIX_MAX_NSLEN);                        \
+            (t)[_len] = ':';                                                \
+            (void)strncpy(&(t)[_len+1], (n), PMIX_MAX_NSLEN - _len - 1);    \
+        }                                                                   \
+    } while(0)
+
+#define PMIX_MULTICLUSTER_NSPACE_PARSE(t, c, n)             \
+    do {                                                    \
+        size_t _n, _j;                                      \
+        for (_n=0; '\0' != (t)[_n] && ':' != (t)[_n] &&     \
+             _n <= PMIX_MAX_NSLEN; _n++) {                  \
+            (c)[_n] = (t)[_n];                              \
+        }                                                   \
+        _n++;                                               \
+        for (_j=0; _n <= PMIX_MAX_NSLEN &&                  \
+             '\0' != (t)[_n]; _n++, _j++) {                 \
+            (n)[_j] = (t)[_n];                              \
+        }                                                   \
+    } while(0)
 
 
 /****    PMIX PROC INFO STRUCT    ****/

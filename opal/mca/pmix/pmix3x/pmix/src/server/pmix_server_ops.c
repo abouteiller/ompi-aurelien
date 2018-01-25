@@ -70,7 +70,7 @@ pmix_status_t pmix_server_abort(pmix_peer_t *peer, pmix_buffer_t *buf,
     pmix_proc_t *procs = NULL;
     pmix_proc_t proc;
 
-    pmix_output_verbose(2, pmix_globals.debug_output, "recvd ABORT");
+    pmix_output_verbose(2, pmix_server_globals.base_output, "recvd ABORT");
 
     /* unpack the status */
     cnt = 1;
@@ -156,7 +156,7 @@ pmix_status_t pmix_server_commit(pmix_peer_t *peer, pmix_buffer_t *buf)
     (void)strncpy(proc.nspace, nptr->nspace, PMIX_MAX_NSLEN);
     proc.rank = info->pname.rank;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.base_output,
                         "%s:%d EXECUTE COMMIT FOR %s:%d",
                         pmix_globals.myid.nspace,
                         pmix_globals.myid.rank,
@@ -248,7 +248,7 @@ pmix_status_t pmix_server_commit(pmix_peer_t *peer, pmix_buffer_t *buf)
                 PMIX_LIST_FOREACH(kp, &cb.kvs, pmix_kval_t) {
                     /* we pack this in our native BFROPS form as it
                      * will be sent to another daemon */
-                    PMIX_BFROPS_PACK(rc, pmix_globals.mypeer, &pbkt, &kp, 1, PMIX_KVAL);
+                    PMIX_BFROPS_PACK(rc, pmix_globals.mypeer, &pbkt, kp, 1, PMIX_KVAL);
                 }
                 PMIX_UNLOAD_BUFFER(&pbkt, data, sz);
             }
@@ -264,7 +264,11 @@ pmix_status_t pmix_server_commit(pmix_peer_t *peer, pmix_buffer_t *buf)
         }
     }
     /* see if anyone local is waiting on this data- could be more than one */
-    return pmix_pending_resolve(nptr, info->pname.rank, PMIX_SUCCESS, NULL);
+    rc = pmix_pending_resolve(nptr, info->pname.rank, PMIX_SUCCESS, NULL);
+    if (PMIX_SUCCESS != rc) {
+        PMIX_ERROR_LOG(rc);
+    }
+    return rc;
 }
 
 /* get an existing object for tracking LOCAL participation in a collective
@@ -290,7 +294,7 @@ static pmix_server_trkr_t* get_tracker(pmix_proc_t *procs,
     size_t i, j;
     size_t matches;
 
-    pmix_output_verbose(5, pmix_globals.debug_output,
+    pmix_output_verbose(5, pmix_server_globals.base_output,
                         "get_tracker called with %d procs", (int)nprocs);
 
     /* bozo check - should never happen outside of programmer error */
@@ -360,7 +364,7 @@ static pmix_server_trkr_t* new_tracker(pmix_proc_t *procs,
     pmix_nspace_t *nptr, *ns;
     pmix_rank_info_t *info;
 
-    pmix_output_verbose(5, pmix_globals.debug_output,
+    pmix_output_verbose(5, pmix_server_globals.base_output,
                         "new_tracker called with %d procs", (int)nprocs);
 
     /* bozo check - should never happen outside of programmer error */
@@ -369,7 +373,7 @@ static pmix_server_trkr_t* new_tracker(pmix_proc_t *procs,
         return NULL;
     }
 
-    pmix_output_verbose(5, pmix_globals.debug_output,
+    pmix_output_verbose(5, pmix_server_globals.base_output,
                         "adding new tracker with %d procs", (int)nprocs);
 
     /* this tracker is new - create it */
@@ -406,7 +410,7 @@ static pmix_server_trkr_t* new_tracker(pmix_proc_t *procs,
         }
         if (NULL == nptr) {
             /* cannot be a local proc */
-            pmix_output_verbose(5, pmix_globals.debug_output,
+            pmix_output_verbose(5, pmix_server_globals.base_output,
                                 "new_tracker: unknown nspace %s",
                                 procs[i].nspace);
             continue;
@@ -416,7 +420,7 @@ static pmix_server_trkr_t* new_tracker(pmix_proc_t *procs,
             /* nope, so no point in going further on this one - we'll
              * process it once all the procs are known */
             all_def = false;
-            pmix_output_verbose(5, pmix_globals.debug_output,
+            pmix_output_verbose(5, pmix_server_globals.base_output,
                                 "new_tracker: all clients not registered nspace %s",
                                 procs[i].nspace);
             /* we have to continue processing the list of procs
@@ -427,7 +431,7 @@ static pmix_server_trkr_t* new_tracker(pmix_proc_t *procs,
         PMIX_LIST_FOREACH(info, &nptr->ranks, pmix_rank_info_t) {
             if (procs[i].rank == info->pname.rank ||
                 PMIX_RANK_WILDCARD == procs[i].rank) {
-                    pmix_output_verbose(5, pmix_globals.debug_output,
+                    pmix_output_verbose(5, pmix_server_globals.base_output,
                                         "adding local proc %s.%d to tracker",
                                         info->pname.nspace, info->pname.rank);
                 /* track the count */
@@ -466,7 +470,7 @@ pmix_status_t pmix_server_fence(pmix_server_caddy_t *cd,
     pmix_info_t *info = NULL;
     size_t ninfo=0, n;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.fence_output,
                         "recvd FENCE");
 
     if (NULL == pmix_host_server.fence_nb) {
@@ -480,7 +484,7 @@ pmix_status_t pmix_server_fence(pmix_server_caddy_t *cd,
     if (PMIX_SUCCESS != rc) {
         return rc;
     }
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.fence_output,
                         "recvd fence from %s:%u with %d procs",
                         cd->peer->info->pname.nspace, cd->peer->info->pname.rank, (int)nprocs);
     /* there must be at least one as the client has to at least provide
@@ -588,7 +592,7 @@ pmix_status_t pmix_server_fence(pmix_server_caddy_t *cd,
      * across all participants has been completed */
     if (trk->def_complete &&
         pmix_list_get_size(&trk->local_cbs) == trk->nlocal) {
-        pmix_output_verbose(2, pmix_globals.debug_output,
+        pmix_output_verbose(2, pmix_server_globals.base_output,
                             "fence complete");
         /* if the user asked us to collect data, then we have
          * to provide any locally collected data to the host
@@ -606,7 +610,7 @@ pmix_status_t pmix_server_fence(pmix_server_caddy_t *cd,
                          &tmp, 1, PMIX_BYTE);
 
         if (PMIX_COLLECT_YES == trk->collect_type) {
-            pmix_output_verbose(2, pmix_globals.debug_output,
+            pmix_output_verbose(2, pmix_server_globals.fence_output,
                                 "fence - assembling data");
             PMIX_LIST_FOREACH(scd, &trk->local_cbs, pmix_server_caddy_t) {
                 /* get any remote contribution - note that there
@@ -710,7 +714,7 @@ pmix_status_t pmix_server_publish(pmix_peer_t *peer,
     pmix_proc_t proc;
     uint32_t uid;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.pub_output,
                         "recvd PUBLISH");
 
     if (NULL == pmix_host_server.publish) {
@@ -805,7 +809,7 @@ pmix_status_t pmix_server_lookup(pmix_peer_t *peer,
     pmix_proc_t proc;
     uint32_t uid;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.pub_output,
                         "recvd LOOKUP");
 
     if (NULL == pmix_host_server.lookup) {
@@ -901,7 +905,7 @@ pmix_status_t pmix_server_unpublish(pmix_peer_t *peer,
     pmix_proc_t proc;
     uint32_t uid;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.pub_output,
                         "recvd UNPUBLISH");
 
     if (NULL == pmix_host_server.unpublish) {
@@ -1014,7 +1018,7 @@ pmix_status_t pmix_server_spawn(pmix_peer_t *peer,
     pmix_proc_t proc;
     size_t ninfo;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.spawn_output,
                         "recvd SPAWN");
 
     if (NULL == pmix_host_server.spawn) {
@@ -1225,7 +1229,7 @@ pmix_status_t pmix_server_connect(pmix_server_caddy_t *cd,
     size_t nprocs, ninfo;
     pmix_server_trkr_t *trk;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.connect_output,
                         "recvd CONNECT from peer %s:%d",
                         cd->peer->info->pname.nspace,
                         cd->peer->info->pname.rank);
@@ -1355,7 +1359,7 @@ pmix_status_t pmix_server_register_events(pmix_peer_t *peer,
     pmix_buffer_t *relay;
     pmix_cmd_t cmd = PMIX_NOTIFY_CMD;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.event_output,
                         "recvd register events");
 
     /* unpack the number of codes */
@@ -1528,7 +1532,7 @@ pmix_status_t pmix_server_register_events(pmix_peer_t *peer,
         scd->opcbfunc = cbfunc;
         scd->cbdata = cbdata;
         if (PMIX_SUCCESS != (rc = pmix_host_server.register_events(scd->codes, scd->ncodes, scd->info, scd->ninfo, opcbfunc, scd))) {
-            pmix_output_verbose(2, pmix_globals.debug_output,
+            pmix_output_verbose(2, pmix_server_globals.event_output,
                                  "server register events: host server reg events returned rc =%d", rc);
             if (NULL != scd->codes) {
                 free(scd->codes);
@@ -1543,7 +1547,7 @@ pmix_status_t pmix_server_register_events(pmix_peer_t *peer,
     }
 
   cleanup:
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.event_output,
                         "server register events: ninfo =%lu rc =%d", ninfo, rc);
     /* be sure to execute the callback */
     if (NULL != cbfunc) {
@@ -1659,7 +1663,7 @@ void pmix_server_deregister_events(pmix_peer_t *peer,
     pmix_regevents_info_t *reginfo_next;
     pmix_peer_events_info_t *prev;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.event_output,
                         "recvd deregister events");
 
     /* unpack codes and process until done */
@@ -1713,7 +1717,7 @@ pmix_status_t pmix_server_event_recvd_from_client(pmix_peer_t *peer,
     pmix_status_t rc;
     pmix_notify_caddy_t *cd;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.event_output,
                         "recvd event notification from client");
 
     if (NULL == pmix_host_server.notify_event) {
@@ -1804,7 +1808,7 @@ pmix_status_t pmix_server_query(pmix_peer_t *peer,
     pmix_query_caddy_t *cd;
     pmix_proc_t proc;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.base_output,
                         "recvd query from client");
 
     if (NULL == pmix_host_server.query) {
@@ -1872,7 +1876,7 @@ pmix_status_t pmix_server_log(pmix_peer_t *peer,
     pmix_shift_caddy_t *cd;
     pmix_proc_t proc;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.base_output,
                         "recvd log from client");
 
     if (NULL == pmix_host_server.log) {
@@ -1946,7 +1950,7 @@ pmix_status_t pmix_server_alloc(pmix_peer_t *peer,
     pmix_proc_t proc;
     pmix_alloc_directive_t directive;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.base_output,
                         "recvd query from client");
 
     if (NULL == pmix_host_server.allocate) {
@@ -2011,8 +2015,15 @@ pmix_status_t pmix_server_job_ctrl(pmix_peer_t *peer,
     pmix_status_t rc;
     pmix_query_caddy_t *cd;
     pmix_proc_t proc;
+    size_t n;
+    bool recurse, leave_topdir, duplicate;
+    pmix_list_t cachedirs, cachefiles;
+    pmix_epilog_t *epi;
+    pmix_cleanup_file_t *cf, *cf2;
+    pmix_cleanup_dir_t *cdir, *cdir2;
+    struct stat statbuf;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.base_output,
                         "recvd job control request from client");
 
     if (NULL == pmix_host_server.job_control) {
@@ -2041,6 +2052,22 @@ pmix_status_t pmix_server_job_ctrl(pmix_peer_t *peer,
             goto exit;
         }
     }
+
+    /* check targets to find proper place to put any epilog requests */
+    if (NULL == cd->targets) {
+        epi = &peer->nptr->epilog;
+    } else if (1 == cd->ntargets) {
+        if (0 == strncmp(cd->targets[0].nspace, peer->info->pname.nspace, PMIX_MAX_NSLEN)) {
+            if (PMIX_RANK_WILDCARD == cd->targets[0].rank) {
+                epi = &peer->nptr->epilog;
+            } else {
+                epi = &peer->epilog;
+            }
+        }
+    } else {
+        epi = NULL;  // do not allow epilog requests
+    }
+
     /* unpack the number of info objects */
     cnt = 1;
     PMIX_BFROPS_UNPACK(rc, peer, buf, &cd->ninfo, &cnt, PMIX_SIZE);
@@ -2056,6 +2083,179 @@ pmix_status_t pmix_server_job_ctrl(pmix_peer_t *peer,
         if (PMIX_SUCCESS != rc) {
             PMIX_ERROR_LOG(rc);
             goto exit;
+        }
+    }
+
+    /* if this includes a request for post-termination cleanup, we handle
+     * that request ourselves */
+    PMIX_CONSTRUCT(&cachedirs, pmix_list_t);
+    PMIX_CONSTRUCT(&cachefiles, pmix_list_t);
+    cnt = 0;  // track how many infos are cleanup related
+    for (n=0; n < cd->ninfo; n++) {
+        if (0 == strncmp(cd->info[n].key, PMIX_REGISTER_CLEANUP, PMIX_MAX_KEYLEN)) {
+            ++cnt;
+            /* see if we allow epilog requests */
+            if (NULL == epi) {
+                /* return an error */
+                rc = PMIX_ERR_BAD_PARAM;
+                goto exit;
+            }
+            if (PMIX_STRING != cd->info[n].value.type ||
+                NULL == cd->info[n].value.data.string) {
+                /* return an error */
+                rc = PMIX_ERR_BAD_PARAM;
+                goto exit;
+            }
+            cf = PMIX_NEW(pmix_cleanup_file_t);
+            if (NULL == cf) {
+                /* return an error */
+                rc = PMIX_ERR_NOMEM;
+                goto exit;
+            }
+            cf->path = strdup(cd->info[n].value.data.string);
+            pmix_list_append(&cachefiles, &cf->super);
+        } else if (0 == strncmp(cd->info[n].key, PMIX_REGISTER_CLEANUP_DIR, PMIX_MAX_KEYLEN)) {
+            ++cnt;
+            /* see if we allow epilog requests */
+            if (NULL == epi) {
+                /* return an error */
+                rc = PMIX_ERR_BAD_PARAM;
+                goto exit;
+            }
+            if (PMIX_STRING != cd->info[n].value.type ||
+                NULL == cd->info[n].value.data.string) {
+                /* return an error */
+                rc = PMIX_ERR_BAD_PARAM;
+                goto exit;
+            }
+            cdir = PMIX_NEW(pmix_cleanup_dir_t);
+            if (NULL == cdir) {
+                /* return an error */
+                rc = PMIX_ERR_NOMEM;
+                goto exit;
+            }
+            cdir->path = strdup(cd->info[n].value.data.string);
+            pmix_list_append(&cachedirs, &cdir->super);
+        } else if (0 == strncmp(cd->info[n].key, PMIX_CLEANUP_RECURSIVE, PMIX_MAX_KEYLEN)) {
+            /* see if we allow epilog requests */
+            if (NULL == epi) {
+                /* return an error */
+                rc = PMIX_ERR_BAD_PARAM;
+                goto exit;
+            }
+            recurse = PMIX_INFO_TRUE(&cd->info[n]);
+            ++cnt;
+        } else if (0 == strncmp(cd->info[n].key, PMIX_CLEANUP_IGNORE, PMIX_MAX_KEYLEN)) {
+            if (PMIX_STRING != cd->info[n].value.type ||
+                NULL == cd->info[n].value.data.string) {
+                /* return an error */
+                rc = PMIX_ERR_BAD_PARAM;
+                goto exit;
+            }
+            /* see if we allow epilog requests */
+            if (NULL == epi) {
+                /* return an error */
+                rc = PMIX_ERR_BAD_PARAM;
+                goto exit;
+            }
+            /* scan the list of ignores for any duplicate */
+            duplicate = false;
+            PMIX_LIST_FOREACH(cf, &epi->ignores, pmix_cleanup_file_t) {
+                if (0 == strcmp(cf->path, cd->info[n].value.data.string)) {
+                    /* we can drop this request */
+                    duplicate = true;
+                    break;
+                }
+            }
+            if (!duplicate) {
+                cf = PMIX_NEW(pmix_cleanup_file_t);
+                if (NULL == cf) {
+                    /* return an error */
+                    rc = PMIX_ERR_NOMEM;
+                    goto exit;
+                }
+                cf->path = strdup(cd->info[n].value.data.string);
+                pmix_list_append(&epi->ignores, &cf->super);
+            }
+            ++cnt;
+        } else if (0 == strncmp(cd->info[n].key, PMIX_CLEANUP_LEAVE_TOPDIR, PMIX_MAX_KEYLEN)) {
+            /* see if we allow epilog requests */
+            if (NULL == epi) {
+                /* return an error */
+                rc = PMIX_ERR_BAD_PARAM;
+                goto exit;
+            }
+            leave_topdir = PMIX_INFO_TRUE(&cd->info[n]);
+            ++cnt;
+        }
+    }
+    if (0 < cnt) {
+        while (NULL != (cdir = (pmix_cleanup_dir_t*)pmix_list_remove_first(&cachedirs))) {
+            /* scan the existing list of directories for any duplicate */
+            PMIX_LIST_FOREACH(cdir2, &epi->cleanup_dirs, pmix_cleanup_dir_t) {
+                if (0 == strcmp(cdir2->path, cdir->path)) {
+                    /* duplicate - check for difference in flags per RFC
+                     * precedence rules */
+                    if (!cdir->recurse && recurse) {
+                        cdir->recurse = recurse;
+                    }
+                    if (!cdir->leave_topdir && leave_topdir) {
+                        cdir->leave_topdir = leave_topdir;
+                    }
+                    PMIX_RELEASE(cdir);
+                    cdir = NULL;
+                    break;
+                }
+            }
+            if (NULL != cdir) {
+                /* check for conflict with ignore */
+                PMIX_LIST_FOREACH(cf, &epi->ignores, pmix_cleanup_file_t) {
+                    if (0 == strcmp(cf->path, cdir->path)) {
+                        /* return an error */
+                        rc = PMIX_ERR_CONFLICTING_CLEANUP_DIRECTIVES;
+                        PMIX_LIST_DESTRUCT(&cachedirs);
+                        PMIX_LIST_DESTRUCT(&cachefiles);
+                        goto exit;
+                    }
+                }
+                cdir->recurse = recurse;
+                cdir->leave_topdir = leave_topdir;
+                /* just append it to the end of the list */
+                pmix_list_append(&epi->cleanup_dirs, &cdir->super);
+            }
+        }
+        PMIX_DESTRUCT(&cachedirs);
+        while (NULL != (cf = (pmix_cleanup_file_t*)pmix_list_remove_first(&cachefiles))) {
+            /* scan the existing list of files for any duplicate */
+            PMIX_LIST_FOREACH(cf2, &epi->cleanup_files, pmix_cleanup_file_t) {
+                if (0 == strcmp(cf2->path, cf->path)) {
+                    PMIX_RELEASE(cf);
+                    cf = NULL;
+                    break;
+                }
+            }
+            if (NULL != cf) {
+                /* check for conflict with ignore */
+                PMIX_LIST_FOREACH(cf2, &epi->ignores, pmix_cleanup_file_t) {
+                    if (0 == strcmp(cf->path, cf2->path)) {
+                        /* return an error */
+                        rc = PMIX_ERR_CONFLICTING_CLEANUP_DIRECTIVES;
+                        PMIX_LIST_DESTRUCT(&cachedirs);
+                        PMIX_LIST_DESTRUCT(&cachefiles);
+                        goto exit;
+                    }
+                }
+                /* just append it to the end of the list */
+                pmix_list_append(&epi->cleanup_files, &cf->super);
+            }
+        }
+        PMIX_DESTRUCT(&cachefiles);
+        if (cnt == cd->ninfo) {
+            /* nothing more to do */
+            if (NULL != cbfunc) {
+                cbfunc(PMIX_SUCCESS, NULL, 0, cd, NULL, NULL);
+            }
+            return PMIX_SUCCESS;
         }
     }
 
@@ -2088,7 +2288,7 @@ pmix_status_t pmix_server_monitor(pmix_peer_t *peer,
     pmix_query_caddy_t *cd;
     pmix_proc_t proc;
 
-    pmix_output_verbose(2, pmix_globals.debug_output,
+    pmix_output_verbose(2, pmix_server_globals.base_output,
                         "recvd monitor request from client");
 
     if (NULL == pmix_host_server.monitor) {

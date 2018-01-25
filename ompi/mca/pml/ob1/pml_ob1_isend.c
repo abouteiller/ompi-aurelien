@@ -156,7 +156,7 @@ int mca_pml_ob1_isend(const void *buf,
     }
 
     if (!OMPI_COMM_CHECK_ASSERT_ALLOW_OVERTAKE(comm)) {
-        seqn = (uint16_t) OPAL_THREAD_ADD32(&ob1_proc->send_sequence, 1);
+        seqn = (uint16_t) OPAL_THREAD_ADD_FETCH32(&ob1_proc->send_sequence, 1);
     }
 
     if (MCA_PML_BASE_SEND_SYNCHRONOUS != sendmode) {
@@ -233,7 +233,7 @@ int mca_pml_ob1_send(const void *buf,
     }
 
     if (!OMPI_COMM_CHECK_ASSERT_ALLOW_OVERTAKE(comm)) {
-        seqn = (uint16_t) OPAL_THREAD_ADD32(&ob1_proc->send_sequence, 1);
+        seqn = (uint16_t) OPAL_THREAD_ADD_FETCH32(&ob1_proc->send_sequence, 1);
     }
 
     /**

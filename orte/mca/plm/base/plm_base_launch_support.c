@@ -13,7 +13,7 @@
  * Copyright (c) 2009      Institut National de Recherche en Informatique
  *                         et Automatique. All rights reserved.
  * Copyright (c) 2011-2012 Los Alamos National Security, LLC.
- * Copyright (c) 2013-2017 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Intel, Inc.  All rights reserved.
  * Copyright (c) 2014-2017 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2016      IBM Corporation.  All rights reserved.
@@ -49,14 +49,15 @@
 #include "orte/mca/errmgr/errmgr.h"
 #include "orte/mca/ess/ess.h"
 #include "orte/mca/iof/base/base.h"
+#include "orte/mca/odls/base/base.h"
 #include "orte/mca/ras/base/base.h"
+#include "orte/mca/regx/regx.h"
 #include "orte/mca/rmaps/rmaps.h"
 #include "orte/mca/rmaps/base/base.h"
 #include "orte/mca/rml/rml.h"
 #include "orte/mca/rml/rml_types.h"
 #include "orte/mca/routed/routed.h"
 #include "orte/mca/grpcomm/base/base.h"
-#include "orte/mca/odls/odls.h"
 #if OPAL_ENABLE_FT_CR == 1
 #include "orte/mca/snapc/base/base.h"
 #endif
@@ -71,10 +72,8 @@
 #include "orte/runtime/orte_quit.h"
 #include "orte/util/compress.h"
 #include "orte/util/name_fns.h"
-#include "orte/util/nidmap.h"
 #include "orte/util/pre_condition_transports.h"
 #include "orte/util/proc_info.h"
-#include "orte/util/regex.h"
 #include "orte/util/threads.h"
 #include "orte/mca/state/state.h"
 #include "orte/mca/state/base/base.h"
@@ -173,6 +172,8 @@ void orte_plm_base_daemons_reported(int fd, short args, void *cbdata)
     if (orte_display_allocation) {
         orte_ras_base_display_alloc();
     }
+    /* ensure we update the routing plan */
+    orte_routed.update_routing_plan(NULL);
 
     /* progress the job */
     caddy->jdata->state = ORTE_JOB_STATE_DAEMONS_REPORTED;
@@ -1346,8 +1347,9 @@ void orte_plm_base_daemon_callback(int status, orte_process_name_t* sender,
         } else {
             jdatorted->num_reported++;
             OPAL_OUTPUT_VERBOSE((5, orte_plm_base_framework.framework_output,
-                                 "%s plm:base:orted_report_launch recvd %d of %d reported daemons",
+                                 "%s plm:base:orted_report_launch job %s recvd %d of %d reported daemons",
                                  ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
+                                 ORTE_JOBID_PRINT(jdatorted->jobid),
                                  jdatorted->num_reported, jdatorted->num_procs));
             if (jdatorted->num_procs == jdatorted->num_reported) {
                 bool dvm = true;
@@ -1380,14 +1382,6 @@ void orte_plm_base_daemon_callback(int status, orte_process_name_t* sender,
     if (ORTE_ERR_UNPACK_READ_PAST_END_OF_BUFFER != rc) {
         ORTE_ERROR_LOG(rc);
         ORTE_ACTIVATE_JOB_STATE(jdatorted, ORTE_JOB_STATE_FAILED_TO_START);
-    } else if (NULL != orte_tree_launch_cmd) {
-        /* if a tree-launch is underway, send the cmd back */
-        relay = OBJ_NEW(opal_buffer_t);
-        opal_dss.copy_payload(relay, orte_tree_launch_cmd);
-        orte_rml.send_buffer_nb(orte_mgmt_conduit,
-                                sender, relay,
-                                ORTE_RML_TAG_DAEMON,
-                                orte_rml_send_callback, NULL);
     }
 }
 
@@ -1566,20 +1560,23 @@ int orte_plm_base_orted_append_basic_args(int *argc, char ***argv,
 
     /* convert the nodes with daemons to a regex */
     param = NULL;
-    if (ORTE_SUCCESS != (rc = orte_util_nidmap_create(orte_node_pool, &param))) {
+    if (ORTE_SUCCESS != (rc = orte_regx.nidmap_create(orte_node_pool, &param))) {
         ORTE_ERROR_LOG(rc);
         return rc;
     }
+    if (NULL != orte_node_regex) {
+        free(orte_node_regex);
+    }
+    orte_node_regex = param;
     /* if this is too long, then we'll have to do it with
      * a phone home operation instead */
-    if (strlen(param) < ORTE_MAX_REGEX_CMD_LENGTH) {
+    if (strlen(param) < orte_plm_globals.node_regex_threshold) {
         opal_argv_append(argc, argv, "-"OPAL_MCA_CMD_LINE_ID);
         opal_argv_append(argc, argv, "orte_node_regex");
-        opal_argv_append(argc, argv, param);
+        opal_argv_append(argc, argv, orte_node_regex);
         /* mark that the nidmap has been communicated */
         orte_nidmap_communicated = true;
     }
-    free(param);
 
     if (!orte_static_ports && !orte_fwd_mpirun_port) {
         /* if we are using static ports, or we are forwarding

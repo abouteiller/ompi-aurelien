@@ -14,7 +14,7 @@
  *                         reserved.
  * Copyright (c) 2009      Sun Microsystems, Inc.  All rights reserved.
  * Copyright (c) 2009      Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2017      Research Organization for Information Science
+ * Copyright (c) 2017-2018 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * $COPYRIGHT$
  *
@@ -64,7 +64,7 @@ BEGIN_C_DECLS
 /* flags for the datatypes. */
 #define OPAL_DATATYPE_FLAG_UNAVAILABLE   0x0001  /**< datatypes unavailable on the build (OS or compiler dependant) */
 #define OPAL_DATATYPE_FLAG_PREDEFINED    0x0002  /**< cannot be removed: initial and predefined datatypes */
-#define OPAL_DATATYPE_FLAG_COMMITTED      0x0004  /**< ready to be used for a send/recv operation */
+#define OPAL_DATATYPE_FLAG_COMMITTED     0x0004  /**< ready to be used for a send/recv operation */
 #define OPAL_DATATYPE_FLAG_OVERLAP       0x0008  /**< datatype is unpropper for a recv operation */
 #define OPAL_DATATYPE_FLAG_CONTIGUOUS    0x0010  /**< contiguous datatype */
 #define OPAL_DATATYPE_FLAG_NO_GAPS       0x0020  /**< no gaps around the datatype, aka OPAL_DATATYPE_FLAG_CONTIGUOUS and extent == size */
@@ -80,7 +80,6 @@ BEGIN_C_DECLS
                                           OPAL_DATATYPE_FLAG_NO_GAPS |    \
                                           OPAL_DATATYPE_FLAG_DATA |       \
                                           OPAL_DATATYPE_FLAG_COMMITTED)
-
 
 /**
  * The number of supported entries in the data-type definition and the
@@ -187,6 +186,7 @@ OPAL_DECLSPEC opal_datatype_t* opal_datatype_create( int32_t expectedSize );
 OPAL_DECLSPEC int32_t opal_datatype_create_desc( opal_datatype_t * datatype, int32_t expectedSize );
 OPAL_DECLSPEC int32_t opal_datatype_commit( opal_datatype_t * pData );
 OPAL_DECLSPEC int32_t opal_datatype_destroy( opal_datatype_t** );
+OPAL_DECLSPEC int32_t opal_datatype_is_monotonic( opal_datatype_t* type);
 
 static inline int32_t
 opal_datatype_is_committed( const opal_datatype_t* type )
@@ -349,13 +349,13 @@ static inline ptrdiff_t
 opal_datatype_span( const opal_datatype_t* pData, int64_t count,
                     ptrdiff_t* gap)
 {
-    ptrdiff_t extent = (pData->ub - pData->lb);
-    ptrdiff_t true_extent = (pData->true_ub - pData->true_lb);
     if (OPAL_UNLIKELY(0 == pData->size) || (0 == count)) {
         *gap = 0;
         return 0;
     }
     *gap = pData->true_lb;
+    ptrdiff_t extent = (pData->ub - pData->lb);
+    ptrdiff_t true_extent = (pData->true_ub - pData->true_lb);
     return true_extent + (count - 1) * extent;
 }
 

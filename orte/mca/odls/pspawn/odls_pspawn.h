@@ -9,51 +9,34 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2017      Intel, Inc.  All rights reserved.
+ * Copyright (c) 2017      Intel, Inc. All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
  */
-
-/** @file:
- *
+/**
+ * @file:
  */
 
-#ifndef _ORTE_REGEX_H_
-#define _ORTE_REGEX_H_
+#ifndef ORTE_ODLS_PSPAWN_H
+#define ORTE_ODLS_PSPAWN_H
 
 #include "orte_config.h"
 
-#include "opal/class/opal_value_array.h"
-#include "opal/class/opal_list.h"
+#include "orte/mca/mca.h"
 
-#include "orte/mca/odls/odls_types.h"
-#include "orte/runtime/orte_globals.h"
+#include "orte/mca/odls/odls.h"
 
 BEGIN_C_DECLS
 
-typedef struct {
-    opal_list_item_t super;
-    int vpid;
-    int cnt;
-    int slots;
-    orte_topology_t *t;
-} orte_regex_range_t;
-ORTE_DECLSPEC OBJ_CLASS_DECLARATION(orte_regex_range_t);
-
-typedef struct {
-    /* list object */
-    opal_list_item_t super;
-    char *prefix;
-    char *suffix;
-    int num_digits;
-    opal_list_t ranges;
-} orte_regex_node_t;
-ORTE_DECLSPEC OBJ_CLASS_DECLARATION(orte_regex_node_t);
-
-ORTE_DECLSPEC int orte_regex_extract_node_names(char *regexp, char ***names);
+/*
+ * ODLS Pspawn module
+ */
+extern orte_odls_base_module_t orte_odls_pspawn_module;
+ORTE_MODULE_DECLSPEC extern orte_odls_base_component_t mca_odls_pspawn_component;
 
 END_C_DECLS
-#endif
+
+#endif /* ORTE_ODLS_PSPAWN_H */

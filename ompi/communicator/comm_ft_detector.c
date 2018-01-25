@@ -174,7 +174,7 @@ int ompi_comm_start_failure_detector(void) {
 
 #if OPAL_ENABLE_MULTI_THREADS
     if( comm_detector_use_thread ) {
-        OPAL_THREAD_ADD32(&fd_thread_active, 1);
+        OPAL_THREAD_ADD_FETCH32(&fd_thread_active, 1);
         return OMPI_SUCCESS;
     }
 #endif /* OPAL_ENABLE_MULTI_THREADS */
@@ -222,7 +222,7 @@ int ompi_comm_finalize_failure_detector(void) {
         void* tret;
         /* this is not a race condition. Accesses are serialized, we use the
          * atomic for the mfence part of it. */
-        OPAL_THREAD_ADD32(&fd_thread_active, -fd_thread_active);
+        OPAL_THREAD_ADD_FETCH32(&fd_thread_active, -fd_thread_active);
         opal_event_base_loopbreak(fd_event_base);
         opal_thread_join(&fd_thread, &tret);
     }
@@ -574,10 +574,10 @@ void* fd_progress(opal_object_t* obj) {
     int ret;
     MPI_Request req;
     if( OMPI_SUCCESS != ompi_comm_start_detector(&ompi_mpi_comm_world.comm)) {
-        OPAL_THREAD_ADD32(&fd_thread_active, -1);
+        OPAL_THREAD_ADD_FETCH32(&fd_thread_active, -1);
         return OPAL_THREAD_CANCELLED;
     }
-    OPAL_THREAD_ADD32(&fd_thread_active, 1);
+    OPAL_THREAD_ADD_FETCH32(&fd_thread_active, 1);
     while( 1 == fd_thread_active ); /* wait for init stage 2: start_detector */
     ret = MCA_PML_CALL(irecv(NULL, 0, MPI_BYTE, 0, MCA_COLL_BASE_TAG_FT_END, &ompi_mpi_comm_self.comm, &req));
     while( fd_thread_active ) {

@@ -168,23 +168,8 @@ opal_progress_finalize(void)
     return OPAL_SUCCESS;
 }
 
-
-/*
- * Progress the event library and any functions that have registered to
- * be called.  We don't propogate errors from the progress functions,
- * so no action is taken if they return failures.  The functions are
- * expected to return the number of events progressed, to determine
- * whether or not we should call sched_yield() during MPI progress.
- * This is only losely tracked, as an error return can cause the number
- * of progressed events to appear lower than it actually is.  We don't
- * care, as the cost of that happening is far outweighed by the cost
- * of the if checks (they were resulting in bad pipe stalling behavior)
- */
-void
-opal_progress(void)
+static int opal_progress_events()
 {
-    static volatile uint32_t num_calls = 0;
-    size_t i;
     int events = 0;
 
     if( opal_progress_event_flag != 0 ) {
@@ -207,7 +192,7 @@ opal_progress(void)
 #else /* OPAL_PROGRESS_USE_TIMERS */
     /* trip the event library if we've reached our tick rate and we are
        enabled */
-        if (OPAL_THREAD_ADD32(&event_progress_counter, -1) <= 0 ) {
+        if (OPAL_THREAD_ADD_FETCH32(&event_progress_counter, -1) <= 0 ) {
                 event_progress_counter =
                     (num_event_users > 0) ? 0 : event_progress_delta;
                 events += opal_event_loop(opal_sync_event_base, opal_progress_event_flag);
@@ -217,16 +202,46 @@ opal_progress(void)
 #endif /* OPAL_HAVE_WORKING_EVENTOPS */
     }
 
+    return events;
+}
+
+/*
+ * Progress the event library and any functions that have registered to
+ * be called.  We don't propogate errors from the progress functions,
+ * so no action is taken if they return failures.  The functions are
+ * expected to return the number of events progressed, to determine
+ * whether or not we should call sched_yield() during MPI progress.
+ * This is only losely tracked, as an error return can cause the number
+ * of progressed events to appear lower than it actually is.  We don't
+ * care, as the cost of that happening is far outweighed by the cost
+ * of the if checks (they were resulting in bad pipe stalling behavior)
+ */
+void
+opal_progress(void)
+{
+    static uint32_t num_calls = 0;
+    size_t i;
+    int events = 0;
+
     /* progress all registered callbacks */
     for (i = 0 ; i < callbacks_len ; ++i) {
         events += (callbacks[i])();
     }
 
-    if (callbacks_lp_len > 0 && (OPAL_THREAD_ADD32((volatile int32_t *) &num_calls, 1) & 0x7) == 0) {
-        /* run low priority callbacks once every 8 calls to opal_progress() */
+    /* Run low priority callbacks and events once every 8 calls to opal_progress().
+     * Even though "num_calls" can be modified by multiple threads, we do not use
+     * atomic operations here, for performance reasons. In case of a race, the
+     * number of calls may be inaccurate, but since it will eventually be incremented,
+     * it's not a problem.
+     */
+    if (((num_calls++) & 0x7) == 0) {
         for (i = 0 ; i < callbacks_lp_len ; ++i) {
             events += (callbacks_lp[i])();
         }
+
+        opal_progress_events();
+    } else if (num_event_users > 0) {
+        opal_progress_events();
     }
 
 #if OPAL_HAVE_SCHED_YIELD
@@ -259,11 +274,11 @@ opal_progress_event_users_increment(void)
 {
 #if OPAL_ENABLE_DEBUG
     int32_t val;
-    val = opal_atomic_add_32(&num_event_users, 1);
+    val = opal_atomic_add_fetch_32(&num_event_users, 1);
 
     OPAL_OUTPUT((debug_output, "progress: event_users_increment setting count to %d", val));
 #else
-    (void)opal_atomic_add_32(&num_event_users, 1);
+    (void)opal_atomic_add_fetch_32(&num_event_users, 1);
 #endif
 
 #if OPAL_PROGRESS_USE_TIMERS
@@ -281,11 +296,11 @@ opal_progress_event_users_decrement(void)
 {
 #if OPAL_ENABLE_DEBUG || ! OPAL_PROGRESS_USE_TIMERS
     int32_t val;
-    val = opal_atomic_sub_32(&num_event_users, 1);
+    val = opal_atomic_sub_fetch_32(&num_event_users, 1);
 
     OPAL_OUTPUT((debug_output, "progress: event_users_decrement setting count to %d", val));
 #else
-    (void)opal_atomic_sub_32(&num_event_users, 1);
+    (void)opal_atomic_sub_fetch_32(&num_event_users, 1);
 #endif
 
 #if !OPAL_PROGRESS_USE_TIMERS

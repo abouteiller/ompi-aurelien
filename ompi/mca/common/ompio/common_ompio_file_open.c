@@ -90,6 +90,7 @@ int mca_common_ompio_file_open (ompi_communicator_t *comm,
     ompio_fh->f_amode  = amode;
     ompio_fh->f_info   = info;
     ompio_fh->f_atomicity = 0;
+    ompio_fh->f_fs_block_size = 4096;
 
     mca_common_ompio_set_file_defaults (ompio_fh);
     ompio_fh->f_filename = filename;
@@ -105,16 +106,17 @@ int mca_common_ompio_file_open (ompi_communicator_t *comm,
     ompio_fh->f_decode_datatype=ompi_io_ompio_decode_datatype;
     ompio_fh->f_generate_current_file_view=ompi_io_ompio_generate_current_file_view;
 
-    ompio_fh->f_get_num_aggregators=mca_io_ompio_get_num_aggregators;
-    ompio_fh->f_get_bytes_per_agg=mca_io_ompio_get_bytes_per_agg;
+    ompio_fh->f_get_mca_parameter_value=mca_io_ompio_get_mca_parameter_value;
     ompio_fh->f_set_aggregator_props=mca_io_ompio_set_aggregator_props;
 
     /* This fix is needed for data seiving to work with
        two-phase collective I/O */
-     if ((amode & MPI_MODE_WRONLY)){
-       amode -= MPI_MODE_WRONLY;
-       amode += MPI_MODE_RDWR;
-     }
+    if ( mca_io_ompio_overwrite_amode ) {
+        if ((amode & MPI_MODE_WRONLY)){
+            amode -= MPI_MODE_WRONLY;
+            amode += MPI_MODE_RDWR;
+        }
+    }
      /*--------------------------------------------------*/
 
 
@@ -156,7 +158,9 @@ int mca_common_ompio_file_open (ompi_communicator_t *comm,
 					ompio_fh);
 
     if ( OMPI_SUCCESS != ret ) {
-	ret = MPI_ERR_FILE;
+#ifdef OMPIO_DEBUG
+        opal_output(1, "fs_file failed, error code %d\n", ret);
+#endif
         goto fn_fail;
     }
 

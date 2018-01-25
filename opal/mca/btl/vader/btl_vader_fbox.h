@@ -22,12 +22,12 @@ typedef union mca_btl_vader_fbox_hdr_t {
          * in multiple instructions. To ensure that seq is never loaded before tag
          * and the tag is never read before seq put them in the same 32-bits of the
          * header. */
+        /** message size */
+        uint32_t  size;
         /** message tag */
         uint16_t  tag;
         /** sequence number */
         uint16_t  seq;
-        /** message size */
-        uint32_t  size;
     } data;
     uint64_t ival;
 } mca_btl_vader_fbox_hdr_t;
@@ -52,20 +52,24 @@ static inline void mca_btl_vader_fbox_set_header (mca_btl_vader_fbox_hdr_t *hdr,
 {
     mca_btl_vader_fbox_hdr_t tmp = {.data = {.tag = tag, .seq = seq, .size = size}};
     hdr->ival = tmp.ival;
+    opal_atomic_wmb ();
 }
 
 /* attempt to reserve a contiguous segment from the remote ep */
-static inline unsigned char *mca_btl_vader_reserve_fbox (mca_btl_base_endpoint_t *ep, size_t size)
+static inline bool mca_btl_vader_fbox_sendi (mca_btl_base_endpoint_t *ep, unsigned char tag,
+                                             void * restrict header, const size_t header_size,
+                                             void * restrict payload, const size_t payload_size)
 {
     const unsigned int fbox_size = mca_btl_vader_component.fbox_size;
+    size_t size = header_size + payload_size;
     unsigned int start, end, buffer_free;
     size_t data_size = size;
-    unsigned char *dst;
+    unsigned char *dst, *data;
     bool hbs, hbm;
 
     /* don't try to use the per-peer buffer for messages that will fill up more than 25% of the buffer */
     if (OPAL_UNLIKELY(NULL == ep->fbox_out.buffer || size > (fbox_size >> 2))) {
-        return NULL;
+        return false;
     }
 
     OPAL_THREAD_LOCK(&ep->lock);
@@ -119,15 +123,23 @@ static inline unsigned char *mca_btl_vader_reserve_fbox (mca_btl_base_endpoint_t
             ep->fbox_out.end = (hbs << 31) | end;
             opal_atomic_wmb ();
             OPAL_THREAD_UNLOCK(&ep->lock);
-            return NULL;
+            return false;
         }
     }
 
     BTL_VERBOSE(("writing fragment of size %u to offset %u {start: 0x%x, end: 0x%x (hbs: %d)} of peer's buffer. free = %u",
                  (unsigned int) size, end, start, end, hbs, buffer_free));
 
+    data = dst + sizeof (mca_btl_vader_fbox_hdr_t);
+
+    memcpy (data, header, header_size);
+    if (payload) {
+        /* inline sends are typically just pml headers (due to MCA_BTL_FLAGS_SEND_INPLACE) */
+        memcpy (data + header_size, payload, payload_size);
+    }
+
     /* write out part of the header now. the tag will be written when the data is available */
-    mca_btl_vader_fbox_set_header (MCA_BTL_VADER_FBOX_HDR(dst), 0, ep->fbox_out.seq++, data_size);
+    mca_btl_vader_fbox_set_header (MCA_BTL_VADER_FBOX_HDR(dst), tag, ep->fbox_out.seq++, data_size);
 
     end += size;
 
@@ -145,40 +157,6 @@ static inline unsigned char *mca_btl_vader_reserve_fbox (mca_btl_base_endpoint_t
     opal_atomic_wmb ();
     OPAL_THREAD_UNLOCK(&ep->lock);
 
-    return dst + sizeof (mca_btl_vader_fbox_hdr_t);
-}
-
-static inline void mca_btl_vader_fbox_send (unsigned char * restrict fbox, unsigned char tag)
-{
-    /* ensure data writes have completed before we mark the data as available */
-    opal_atomic_wmb ();
-
-    /* the header proceeds the fbox buffer */
-    MCA_BTL_VADER_FBOX_HDR ((intptr_t) fbox)[-1].data.tag = tag;
-}
-
-static inline bool mca_btl_vader_fbox_sendi (mca_btl_base_endpoint_t *ep, unsigned char tag,
-                                             void * restrict header, const size_t header_size,
-                                             void * restrict payload, const size_t payload_size)
-{
-    const size_t total_size = header_size + payload_size;
-    unsigned char * restrict fbox;
-
-    fbox = mca_btl_vader_reserve_fbox(ep, total_size);
-    if (OPAL_UNLIKELY(NULL == fbox)) {
-        return false;
-    }
-
-    memcpy (fbox, header, header_size);
-    if (payload) {
-        /* inline sends are typically just pml headers (due to MCA_BTL_FLAGS_SEND_INPLACE) */
-        memcpy (fbox + header_size, payload, payload_size);
-    }
-
-    /* mark the fbox as sent */
-    mca_btl_vader_fbox_send (fbox, tag);
-
-    /* send complete */
     return true;
 }
 
@@ -261,14 +239,14 @@ static inline bool mca_btl_vader_check_fboxes (void)
 
 static inline void mca_btl_vader_try_fbox_setup (mca_btl_base_endpoint_t *ep, mca_btl_vader_hdr_t *hdr)
 {
-    if (OPAL_UNLIKELY(NULL == ep->fbox_out.buffer && mca_btl_vader_component.fbox_threshold == OPAL_THREAD_ADD_SIZE_T (&ep->send_count, 1))) {
+    if (OPAL_UNLIKELY(NULL == ep->fbox_out.buffer && mca_btl_vader_component.fbox_threshold == OPAL_THREAD_ADD_FETCH_SIZE_T (&ep->send_count, 1))) {
         /* protect access to mca_btl_vader_component.segment_offset */
         OPAL_THREAD_LOCK(&mca_btl_vader_component.lock);
 
         if (mca_btl_vader_component.segment_size >= mca_btl_vader_component.segment_offset + mca_btl_vader_component.fbox_size &&
             mca_btl_vader_component.fbox_max > mca_btl_vader_component.fbox_count) {
             /* verify the remote side will accept another fbox */
-            if (0 <= opal_atomic_add_32 (&ep->fifo->fbox_available, -1)) {
+            if (0 <= opal_atomic_add_fetch_32 (&ep->fifo->fbox_available, -1)) {
                 void *fbox_base = mca_btl_vader_component.my_segment + mca_btl_vader_component.segment_offset;
                 mca_btl_vader_component.segment_offset += mca_btl_vader_component.fbox_size;
 
@@ -280,7 +258,7 @@ static inline void mca_btl_vader_try_fbox_setup (mca_btl_base_endpoint_t *ep, mc
                 hdr->fbox_base = virtual2relative((char *) ep->fbox_out.buffer);
                 ++mca_btl_vader_component.fbox_count;
             } else {
-                opal_atomic_add_32 (&ep->fifo->fbox_available, 1);
+                opal_atomic_add_fetch_32 (&ep->fifo->fbox_available, 1);
             }
 
             opal_atomic_wmb ();

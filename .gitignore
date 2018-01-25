@@ -319,6 +319,7 @@ opal/mca/pmix/pmix*/pmix/src/mca/pinstalldirs/config/pinstall_dirs.h
 opal/mca/pmix/pmix*/pmix/config/autogen_found_items.m4
 opal/mca/pmix/pmix*/pmix/src/include/pmix_config.h
 opal/mca/pmix/pmix*/pmix/src/include/pmix_config.h.in
+opal/mca/pmix/pmix*/pmix/include/pmix_common.h
 opal/mca/pmix/pmix*/pmix/include/pmix_rename.h
 opal/mca/pmix/pmix*/pmix/include/pmix_version.h
 opal/mca/pmix/pmix*/pmix/src/util/keyval/keyval_lex.c
@@ -383,6 +384,7 @@ orte/test/mpi/hello_output
 orte/test/mpi/hello_show_help
 orte/test/mpi/hello
 orte/test/mpi/hello++
+orte/test/mpi/interlib
 orte/test/mpi/loop_child
 orte/test/mpi/loop_spawn
 orte/test/mpi/mpi_barrier
@@ -393,6 +395,7 @@ orte/test/mpi/parallel_r8
 orte/test/mpi/parallel_r64
 orte/test/mpi/parallel_w8
 orte/test/mpi/parallel_w64
+orte/test/mpi/pinterlib
 orte/test/mpi/pmix
 orte/test/mpi/pubsub
 orte/test/mpi/read_write
@@ -432,6 +435,7 @@ orte/test/mpi/badcoll
 orte/test/mpi/iof
 orte/test/mpi/no-disconnect
 orte/test/mpi/nonzero
+orte/test/mpi/add_host
 
 orte/test/system/radix
 orte/test/system/sigusr_trap
@@ -471,6 +475,7 @@ orte/test/system/orte_sensor
 orte/test/system/event-threads
 orte/test/system/test-time
 orte/test/system/psm_keygen
+orte/test/system/pspawn
 orte/test/system/regex
 orte/test/system/orte_errors
 orte/test/system/evthread-test
@@ -629,6 +634,7 @@ test/datatype/ddt_raw
 test/datatype/opal_datatype_test
 test/datatype/position_noncontig
 test/datatype/unpack_ooo
+test/datatype/unpack_hetero
 
 test/dss/dss_buffer
 test/dss/dss_copy

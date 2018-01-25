@@ -13,7 +13,7 @@
  * Copyright (c) 2006-2010 QLogic Corporation. All rights reserved.
  * Copyright (c) 2012-2017 Los Alamos National Security, LLC. All rights
  *                         reserved.
- * Copyright (c) 2013-2015 Intel, Inc. All rights reserved
+ * Copyright (c) 2013-2017 Intel, Inc. All rights reserved
  * Copyright (c) 2017      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * $COPYRIGHT$
@@ -28,6 +28,7 @@
 #include "opal/mca/event/event.h"
 #include "opal/util/output.h"
 #include "opal/util/show_help.h"
+#include "opal/util/opal_environ.h"
 #include "ompi/proc/proc.h"
 
 #include "mtl_psm2.h"
@@ -42,6 +43,12 @@
 #include <glob.h>
 
 static int param_priority;
+/* MPI_THREAD_MULTIPLE_SUPPORT */
+opal_mutex_t mtl_psm2_mq_mutex = OPAL_MUTEX_STATIC_INIT;
+
+#if OPAL_CUDA_SUPPORT
+static bool cuda_envvar_set = false;
+#endif
 
 static int ompi_mtl_psm2_component_open(void);
 static int ompi_mtl_psm2_component_close(void);
@@ -85,29 +92,33 @@ struct ompi_mtl_psm2_shadow_variable {
     mca_base_var_info_lvl_t info_level;
     const char *mca_name;
     const char *description;
+    mca_base_var_flag_t flags;
 };
 
 struct ompi_mtl_psm2_shadow_variable ompi_mtl_psm2_shadow_variables[] = {
     {MCA_BASE_VAR_TYPE_STRING, &ompi_mtl_psm2.psm2_devices, {.stringval = "self,shm,hfi"}, "PSM2_DEVICES", OPAL_INFO_LVL_3,
-     "devices", "Comma-delimited list of PSM2 devices. Valid values: self, shm, hfi (default: self,shm,hfi)"},
+     "devices",
+     "Comma-delimited list of PSM2 devices. Valid values: self, shm, hfi (default: self,shm,hfi. Reduced to self,shm in single node jobs)",0},
     {MCA_BASE_VAR_TYPE_STRING, &ompi_mtl_psm2.psm2_memory, {.stringval = "normal"}, "PSM2_MEMORY", OPAL_INFO_LVL_9,
-     "memory_model", "PSM2 memory usage mode (default: normal)"},
-    {MCA_BASE_VAR_TYPE_UNSIGNED_LONG, &ompi_mtl_psm2.psm2_mq_sendreqs_max, {.ulval = 1048576}, "PSM2_MQ_SENDREQS_MAX", OPAL_INFO_LVL_3,
-     "mq_sendreqs_max", "PSM2 maximum number of isend requests in flight (default: 1M)"},
-    {MCA_BASE_VAR_TYPE_UNSIGNED_LONG, &ompi_mtl_psm2.psm2_mq_recvreqs_max, {.ulval = 1048576}, "PSM2_MQ_RECVREQS_MAX", OPAL_INFO_LVL_3,
-     "mq_recvreqs_max", "PSM2 maximum number of irecv requests in flight (default: 1M)"},
-    {MCA_BASE_VAR_TYPE_UNSIGNED_LONG, &ompi_mtl_psm2.psm2_mq_rndv_hfi_threshold, {.ulval = 64000}, "PSM2_MQ_RNDV_HFI_THRESH", OPAL_INFO_LVL_3,
-     "hfi_eager_limit", "PSM2 eager to rendezvous threshold (default: 64000)"},
-    {MCA_BASE_VAR_TYPE_UNSIGNED_LONG, &ompi_mtl_psm2.psm2_mq_rndv_shm_threshold, {.ulval = 16000}, "PSM2_MQ_RNDV_SHM_THRESH", OPAL_INFO_LVL_3,
-     "shm_eager_limit", "PSM2 shared memory eager to rendezvous threshold (default: 16000)"},
+     "memory_model", "PSM2 memory usage mode. Valid values: min, normal, large (default: normal)", 0},
+    {MCA_BASE_VAR_TYPE_UNSIGNED_LONG, &ompi_mtl_psm2.psm2_mq_sendreqs_max, {.ulval = 0}, "PSM2_MQ_SENDREQS_MAX", OPAL_INFO_LVL_3,
+     "mq_sendreqs_max", "PSM2 maximum number of isend requests in flight (default: unset, let libpsm2 use its default)", MCA_BASE_VAR_FLAG_DEF_UNSET},
+    {MCA_BASE_VAR_TYPE_UNSIGNED_LONG, &ompi_mtl_psm2.psm2_mq_recvreqs_max, {.ulval = 0}, "PSM2_MQ_RECVREQS_MAX", OPAL_INFO_LVL_3,
+     "mq_recvreqs_max", "PSM2 maximum number of irecv requests in flight (default:  unset, let libpsm2 use its default)", MCA_BASE_VAR_FLAG_DEF_UNSET},
+    {MCA_BASE_VAR_TYPE_UNSIGNED_LONG, &ompi_mtl_psm2.psm2_mq_rndv_hfi_threshold, {.ulval = 0}, "PSM2_MQ_RNDV_HFI_THRESH", OPAL_INFO_LVL_3,
+     "hfi_eager_limit", "PSM2 eager to rendezvous threshold (default: unset, let libpsm2 use its defaults)", MCA_BASE_VAR_FLAG_DEF_UNSET},
+    {MCA_BASE_VAR_TYPE_UNSIGNED_LONG, &ompi_mtl_psm2.psm2_mq_rndv_shm_threshold, {.ulval = 0}, "PSM2_MQ_RNDV_SHM_THRESH", OPAL_INFO_LVL_3,
+     "shm_eager_limit", "PSM2 shared memory eager to rendezvous threshold (default: unset, let libpsm2 use its default)", MCA_BASE_VAR_FLAG_DEF_UNSET},
     {MCA_BASE_VAR_TYPE_BOOL, &ompi_mtl_psm2.psm2_recvthread, {.boolval = true}, "PSM2_RCVTHREAD", OPAL_INFO_LVL_3,
      "use_receive_thread", "Use PSM2 progress thread (default: true)"},
     {MCA_BASE_VAR_TYPE_BOOL, &ompi_mtl_psm2.psm2_shared_contexts, {.boolval = true}, "PSM2_SHAREDCONTEXTS", OPAL_INFO_LVL_6,
      "use_shared_contexts", "Share PSM contexts between MPI processes (default: true)"},
-    {MCA_BASE_VAR_TYPE_UNSIGNED_LONG, &ompi_mtl_psm2.psm2_shared_contexts_max, {.ulval = 8}, "PSM2_SHAREDCONTEXTS_MAX", OPAL_INFO_LVL_9,
-     "max_shared_contexts", "Maximum number of contexts available on a node (default: 8, max: 8)"},
+    {MCA_BASE_VAR_TYPE_UNSIGNED_LONG, &ompi_mtl_psm2.psm2_max_contexts_per_job, {.ulval = 0}, "PSM2_MAX_CONTEXTS_PER_JOB", OPAL_INFO_LVL_9,
+     "max_contexts_per_job", "Maximum number of contexts available on a node (default: unset, let libpsm2 use its default)", MCA_BASE_VAR_FLAG_DEF_UNSET},
     {MCA_BASE_VAR_TYPE_UNSIGNED_LONG, &ompi_mtl_psm2.psm2_tracemask, {.ulval = 1}, "PSM2_TRACEMASK", OPAL_INFO_LVL_9,
-     "trace_mask", "PSM2 tracemask value. See PSM2 documentation for accepted values (default: 1)"},
+     "trace_mask", "PSM2 tracemask value. See PSM2 documentation for accepted values in 0x (default: 1)"},
+    {MCA_BASE_VAR_TYPE_UNSIGNED_LONG, &ompi_mtl_psm2.psm2_opa_sl, {.ulval = 0}, "HFI_SL", OPAL_INFO_LVL_9,
+     "opa_service_level", "HFI Service Level (default: unset, let libpsm2 use its defaults)", MCA_BASE_VAR_FLAG_DEF_UNSET},
     {-1},
 };
 
@@ -116,10 +127,27 @@ static void ompi_mtl_psm2_set_shadow_env (struct ompi_mtl_psm2_shadow_variable *
     mca_base_var_storage_t *storage = variable->storage;
     char *env_value;
     int ret = 0;
+    int var_index = 0;
+    const mca_base_var_t *mca_base_var;
+
+    var_index = mca_base_var_find("ompi", "mtl", "psm2", variable->mca_name);
+    ret = mca_base_var_get (var_index,&mca_base_var);
+    /* Something is fundamentally broken if registered variables are
+     * not found */
+    if (OPAL_SUCCESS != ret) {
+        fprintf (stderr, "ERROR setting PSM2 environment variable: %s\n", variable->env_name);
+        return;
+    }
+
+    /** Skip setting variables for which the default behavior is "unset" */
+    if ((mca_base_var->mbv_flags & MCA_BASE_VAR_FLAG_DEF_UNSET) &&
+        (MCA_BASE_VAR_SOURCE_DEFAULT == mca_base_var->mbv_source)){
+        return ;
+    }
 
     switch (variable->variable_type) {
     case MCA_BASE_VAR_TYPE_BOOL:
-        ret = asprintf (&env_value, "%s=%s", variable->env_name, storage->boolval ? "YES" : "NO");
+        ret = asprintf (&env_value, "%s=%d", variable->env_name, storage->boolval ? 1 : 0);
         break;
     case MCA_BASE_VAR_TYPE_UNSIGNED_LONG:
         if (0 == strcmp (variable->env_name, "PSM2_TRACEMASK")) {
@@ -175,7 +203,7 @@ static void ompi_mtl_psm2_register_shadow_env (struct ompi_mtl_psm2_shadow_varia
     }
 
     (void) mca_base_component_var_register (&mca_mtl_psm2_component.super.mtl_version, variable->mca_name, variable->description,
-                                            variable->variable_type, NULL, 0, 0, variable->info_level, MCA_BASE_VAR_SCOPE_READONLY,
+                                            variable->variable_type, NULL, 0, variable->flags, variable->info_level, MCA_BASE_VAR_SCOPE_READONLY,
                                             variable->storage);
 }
 
@@ -199,9 +227,6 @@ static int
 ompi_mtl_psm2_component_register(void)
 {
     int num_local_procs, num_total_procs;
-#if OPAL_CUDA_SUPPORT
-    char *cuda_env;
-#endif
 
     ompi_mtl_psm2.connect_timeout = 180;
     (void) mca_base_component_var_register(&mca_mtl_psm2_component.super.mtl_version,
@@ -217,38 +242,16 @@ ompi_mtl_psm2_component_register(void)
     (void) get_num_total_procs(&num_total_procs);
 
     /* set priority high enough to beat ob1's default (also set higher than psm) */
-    if (num_local_procs == num_total_procs) {
-        /* disable hfi if all processes are local */
+    if ((num_local_procs == num_total_procs) && (1 < num_total_procs)) {
+        /* Disable hfi if all processes are local. However, if running only one
+         * process assume it is ompi_info or this is most likely going to spawn, for
+         * which all PSM2 devices are needed */
         setenv("PSM2_DEVICES", "self,shm", 0);
         /* ob1 is much faster than psm2 with shared memory */
         param_priority = 10;
     } else {
         param_priority = 40;
     }
-
-#if OPAL_CUDA_SUPPORT
-    /*
-     * If using CUDA enabled OpenMPI, the user likely intends to
-     * run with CUDA buffers. So, force-set the envvar here if user failed
-     * to set it.
-     */
-    cuda_env = getenv("PSM2_CUDA");
-    if (!cuda_env) {
-        opal_show_help("help-mtl-psm2.txt",
-                       "no psm2 cuda env", true,
-                       "not set",
-                       "Host buffers,\nthere will be a performance penalty"
-                       " due to OMPI force setting this variable now.\n"
-                       "Set environment variable to 0 if using Host buffers" );
-        setenv("PSM2_CUDA", "1", 0);
-    } else if (strcmp(cuda_env, "0") == 0) {
-        opal_show_help("help-mtl-psm2.txt",
-                       "no psm2 cuda env", true,
-                       "set to 0",
-                       "CUDA buffers,\nthe execution will SEGFAULT."
-                       " Set environment variable to 1 if using CUDA buffers");
-    }
-#endif
 
     (void) mca_base_component_var_register (&mca_mtl_psm2_component.super.mtl_version,
                                             "priority", "Priority of the PSM2 MTL component",
@@ -270,17 +273,16 @@ static int
 ompi_mtl_psm2_component_open(void)
 {
   int res;
-  glob_t globbuf;
-  globbuf.gl_offs = 0;
+  glob_t globbuf = {0};
 
   /* Component available only if Omni-Path hardware is present */
   res = glob("/dev/hfi1_[0-9]", GLOB_DOOFFS, NULL, &globbuf);
-  if (0 == res || GLOB_NOMATCH == res) {
+  if (globbuf.gl_pathc > 0) {
       globfree(&globbuf);
   }
   if (0 != res) {
       res = glob("/dev/hfi1_[0-9][0-9]", GLOB_APPEND, NULL, &globbuf);
-      if (0 == res || GLOB_NOMATCH == res) {
+      if (globbuf.gl_pathc > 0) {
           globfree(&globbuf);
       }
       if (0 != res) {
@@ -334,6 +336,11 @@ ompi_mtl_psm2_component_query(mca_base_module_t **module, int *priority)
 static int
 ompi_mtl_psm2_component_close(void)
 {
+#if OPAL_CUDA_SUPPORT
+    if (cuda_envvar_set) {
+        opal_unsetenv("PSM2_CUDA", &environ);
+    }
+#endif
     return OMPI_SUCCESS;
 }
 
@@ -360,6 +367,11 @@ ompi_mtl_psm2_component_init(bool enable_progress_threads,
     int	verno_major = PSM2_VERNO_MAJOR;
     int verno_minor = PSM2_VERNO_MINOR;
     int local_rank = -1, num_local_procs = 0;
+#if OPAL_CUDA_SUPPORT
+    int ret;
+    char *cuda_env;
+    glob_t globbuf = {0};
+#endif
 
     /* Compute the total number of processes on this host and our local rank
      * on that node. We need to provide PSM2 with these values so it can
@@ -386,6 +398,27 @@ ompi_mtl_psm2_component_init(bool enable_progress_threads,
     for (int i = 0 ; ompi_mtl_psm2_shadow_variables[i].variable_type >= 0 ; ++i) {
         ompi_mtl_psm2_set_shadow_env (ompi_mtl_psm2_shadow_variables + i);
     }
+
+#if OPAL_CUDA_SUPPORT
+    /*
+     * If using CUDA enabled Open MPI, the user likely intends to
+     * run with CUDA buffers. So, force-set the envvar here if user failed
+     * to set it.
+     */
+    ret = glob("/sys/module/nvidia", GLOB_DOOFFS, NULL, &globbuf);
+    if (globbuf.gl_pathc > 0) {
+        globfree(&globbuf);
+    }
+
+    cuda_env = getenv("PSM2_CUDA");
+    if (!cuda_env && (0 == ret)) {
+        opal_show_help("help-mtl-psm2.txt",
+                       "no psm2 cuda env", true,
+                       ompi_process_info.nodename);
+        opal_setenv("PSM2_CUDA", "1", false, &environ);
+        cuda_envvar_set = true;
+    }
+#endif
 
     err = psm2_init(&verno_major, &verno_minor);
     if (err) {

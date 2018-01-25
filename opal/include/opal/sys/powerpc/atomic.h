@@ -11,7 +11,7 @@
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
  * Copyright (c) 2010-2017 IBM Corporation.  All rights reserved.
- * Copyright (c) 2015-2016 Los Alamos National Security, LLC. All rights
+ * Copyright (c) 2015-2017 Los Alamos National Security, LLC. All rights
  *                         reserved.
  * $COPYRIGHT$
  *
@@ -40,21 +40,27 @@
  *********************************************************************/
 #define OPAL_HAVE_ATOMIC_MEM_BARRIER 1
 
-#define OPAL_HAVE_ATOMIC_CMPSET_32 1
+#define OPAL_HAVE_ATOMIC_COMPARE_EXCHANGE_32 1
 #define OPAL_HAVE_ATOMIC_SWAP_32 1
 #define OPAL_HAVE_ATOMIC_LLSC_32 1
 
 #define OPAL_HAVE_ATOMIC_MATH_32 1
 #define OPAL_HAVE_ATOMIC_ADD_32 1
+#define OPAL_HAVE_ATOMIC_AND_32 1
+#define OPAL_HAVE_ATOMIC_OR_32 1
+#define OPAL_HAVE_ATOMIC_XOR_32 1
 #define OPAL_HAVE_ATOMIC_SUB_32 1
 
 
 #if (OPAL_ASSEMBLY_ARCH == OPAL_POWERPC64) || OPAL_ASM_SUPPORT_64BIT
-#define OPAL_HAVE_ATOMIC_CMPSET_64 1
+#define OPAL_HAVE_ATOMIC_COMPARE_EXCHANGE_64 1
 #define OPAL_HAVE_ATOMIC_SWAP_64 1
 #define OPAL_HAVE_ATOMIC_LLSC_64 1
 #define OPAL_HAVE_ATOMIC_MATH_64 1
 #define OPAL_HAVE_ATOMIC_ADD_64 1
+#define OPAL_HAVE_ATOMIC_AND_64 1
+#define OPAL_HAVE_ATOMIC_OR_64 1
+#define OPAL_HAVE_ATOMIC_XOR_64 1
 #define OPAL_HAVE_ATOMIC_SUB_64 1
 #endif
 
@@ -83,7 +89,7 @@ void opal_atomic_rmb(void)
 static inline
 void opal_atomic_wmb(void)
 {
-    RMB();
+    WMB();
 }
 
 static inline
@@ -109,7 +115,7 @@ void opal_atomic_isync(void)
 #pragma mc_func opal_atomic_rmb { "7c2004ac" }         /* lwsync  */
 #pragma reg_killed_by opal_atomic_rmb                  /* none */
 
-#pragma mc_func opal_atomic_wmb { "7c0006ac" }         /* eieio */
+#pragma mc_func opal_atomic_wmb { "7c2004ac" }         /* lwsync */
 #pragma reg_killed_by opal_atomic_wmb                  /* none */
 
 #endif
@@ -138,24 +144,25 @@ void opal_atomic_isync(void)
 #define OPAL_ASM_VALUE64(x) x
 #endif
 
-
-static inline int opal_atomic_cmpset_32(volatile int32_t *addr,
-                                        int32_t oldval, int32_t newval)
+static inline bool opal_atomic_compare_exchange_strong_32 (volatile int32_t *addr, int32_t *oldval, int32_t newval)
 {
-   int32_t ret;
+    int32_t prev;
+    bool ret;
 
-   __asm__ __volatile__ (
-                         "1: lwarx   %0, 0, %2  \n\t"
-                         "   cmpw    0, %0, %3  \n\t"
-                         "   bne-    2f         \n\t"
-                         "   stwcx.  %4, 0, %2  \n\t"
-                         "   bne-    1b         \n\t"
-                         "2:"
-                         : "=&r" (ret), "=m" (*addr)
-                         : "r" OPAL_ASM_ADDR(addr), "r" (oldval), "r" (newval), "m" (*addr)
-                         : "cc", "memory");
+    __asm__ __volatile__ (
+                          "1: lwarx   %0, 0, %2  \n\t"
+                          "   cmpw    0, %0, %3  \n\t"
+                          "   bne-    2f         \n\t"
+                          "   stwcx.  %4, 0, %2  \n\t"
+                          "   bne-    1b         \n\t"
+                          "2:"
+                          : "=&r" (prev), "=m" (*addr)
+                          : "r" OPAL_ASM_ADDR(addr), "r" (*oldval), "r" (newval), "m" (*addr)
+                          : "cc", "memory");
 
-   return (ret == oldval);
+    ret = (prev == *oldval);
+    *oldval = prev;
+    return ret;
 }
 
 static inline int32_t opal_atomic_ll_32 (volatile int32_t *addr)
@@ -189,23 +196,21 @@ static inline int opal_atomic_sc_32 (volatile int32_t *addr, int32_t newval)
    atomic_?mb can be inlined).  Instead, we "inline" them by hand in
    the assembly, meaning there is one function call overhead instead
    of two */
-static inline int opal_atomic_cmpset_acq_32(volatile int32_t *addr,
-                                            int32_t oldval, int32_t newval)
+static inline bool opal_atomic_compare_exchange_strong_acq_32 (volatile int32_t *addr, int32_t *oldval, int32_t newval)
 {
-    int rc;
+    bool rc;
 
-    rc = opal_atomic_cmpset_32(addr, oldval, newval);
+    rc = opal_atomic_compare_exchange_strong_32 (addr, oldval, newval);
     opal_atomic_rmb();
 
     return rc;
 }
 
 
-static inline int opal_atomic_cmpset_rel_32(volatile int32_t *addr,
-                                            int32_t oldval, int32_t newval)
+static inline bool opal_atomic_compare_exchange_strong_rel_32 (volatile int32_t *addr, int32_t *oldval, int32_t newval)
 {
     opal_atomic_wmb();
-    return opal_atomic_cmpset_32(addr, oldval, newval);
+    return opal_atomic_compare_exchange_strong_32 (addr, oldval, newval);
 }
 
 static inline int32_t opal_atomic_swap_32(volatile int32_t *addr, int32_t newval)
@@ -229,55 +234,48 @@ static inline int32_t opal_atomic_swap_32(volatile int32_t *addr, int32_t newval
 
 #if  OPAL_GCC_INLINE_ASSEMBLY
 
-static inline int64_t opal_atomic_add_64 (volatile int64_t* v, int64_t inc)
-{
-   int64_t t;
-
-   __asm__ __volatile__("1:   ldarx   %0, 0, %3    \n\t"
-                        "     add     %0, %2, %0   \n\t"
-                        "     stdcx.  %0, 0, %3    \n\t"
-                        "     bne-    1b           \n\t"
-                        : "=&r" (t), "=m" (*v)
-                        : "r" (OPAL_ASM_VALUE64(inc)), "r" OPAL_ASM_ADDR(v), "m" (*v)
-                        : "cc");
-
-   return t;
+#define OPAL_ATOMIC_POWERPC_DEFINE_ATOMIC_64(type, instr)               \
+static inline int64_t opal_atomic_fetch_ ## type ## _64(volatile int64_t* v, int64_t val) \
+{                                                                       \
+    int64_t t, old;                                                     \
+                                                                        \
+    __asm__ __volatile__(                                               \
+                         "1:   ldarx   %1, 0, %4    \n\t"               \
+                         "     " #instr "     %0, %3, %1   \n\t"        \
+                         "     stdcx.  %0, 0, %4    \n\t"               \
+                         "     bne-    1b           \n\t"               \
+                         : "=&r" (t), "=&r" (old), "=m" (*v)            \
+                         : "r" (OPAL_ASM_VALUE64(val)), "r" OPAL_ASM_ADDR(v), "m" (*v) \
+                         : "cc");                                       \
+                                                                        \
+    return old;                                                         \
 }
 
+OPAL_ATOMIC_POWERPC_DEFINE_ATOMIC_64(add, add)
+OPAL_ATOMIC_POWERPC_DEFINE_ATOMIC_64(and, and)
+OPAL_ATOMIC_POWERPC_DEFINE_ATOMIC_64(or, or)
+OPAL_ATOMIC_POWERPC_DEFINE_ATOMIC_64(xor, xor)
+OPAL_ATOMIC_POWERPC_DEFINE_ATOMIC_64(sub, subf)
 
-static inline int64_t opal_atomic_sub_64 (volatile int64_t* v, int64_t dec)
+static inline bool opal_atomic_compare_exchange_strong_64 (volatile int64_t *addr, int64_t *oldval, int64_t newval)
 {
-   int64_t t;
+    int64_t prev;
+    bool ret;
 
-   __asm__ __volatile__(
-                        "1:   ldarx   %0,0,%3      \n\t"
-                        "     subf    %0,%2,%0     \n\t"
-                        "     stdcx.  %0,0,%3      \n\t"
-                        "     bne-    1b           \n\t"
-                        : "=&r" (t), "=m" (*v)
-                        : "r" (OPAL_ASM_VALUE64(dec)), "r" OPAL_ASM_ADDR(v), "m" (*v)
-                        : "cc");
+    __asm__ __volatile__ (
+                          "1: ldarx   %0, 0, %2  \n\t"
+                          "   cmpd    0, %0, %3  \n\t"
+                          "   bne-    2f         \n\t"
+                          "   stdcx.  %4, 0, %2  \n\t"
+                          "   bne-    1b         \n\t"
+                          "2:"
+                          : "=&r" (prev), "=m" (*addr)
+                          : "r" (addr), "r" (OPAL_ASM_VALUE64(*oldval)), "r" (OPAL_ASM_VALUE64(newval)), "m" (*addr)
+                          : "cc", "memory");
 
-   return t;
-}
-
-static inline int opal_atomic_cmpset_64(volatile int64_t *addr,
-                                        int64_t oldval, int64_t newval)
-{
-   int64_t ret;
-
-   __asm__ __volatile__ (
-                         "1: ldarx   %0, 0, %2  \n\t"
-                         "   cmpd    0, %0, %3  \n\t"
-                         "   bne-    2f         \n\t"
-                         "   stdcx.  %4, 0, %2  \n\t"
-                         "   bne-    1b         \n\t"
-                         "2:"
-                         : "=&r" (ret), "=m" (*addr)
-                         : "r" (addr), "r" (OPAL_ASM_VALUE64(oldval)), "r" (OPAL_ASM_VALUE64(newval)), "m" (*addr)
-                         : "cc", "memory");
-
-   return (ret == oldval);
+    ret = (prev == *oldval);
+    *oldval = prev;
+    return ret;
 }
 
 static inline int64_t opal_atomic_ll_64(volatile int64_t *addr)
@@ -306,29 +304,6 @@ static inline int opal_atomic_sc_64(volatile int64_t *addr, int64_t newval)
     return ret;
 }
 
-/* these two functions aren't inlined in the non-gcc case because then
-   there would be two function calls (since neither cmpset_64 nor
-   atomic_?mb can be inlined).  Instead, we "inline" them by hand in
-   the assembly, meaning there is one function call overhead instead
-   of two */
-static inline int opal_atomic_cmpset_acq_64(volatile int64_t *addr,
-                                            int64_t oldval, int64_t newval)
-{
-    int rc;
-
-    rc = opal_atomic_cmpset_64(addr, oldval, newval);
-    opal_atomic_rmb();
-
-    return rc;
-}
-
-
-static inline int opal_atomic_cmpset_rel_64(volatile int64_t *addr,
-                                            int64_t oldval, int64_t newval)
-{
-    opal_atomic_wmb();
-    return opal_atomic_cmpset_64(addr, oldval, newval);
-}
 
 static inline int64_t opal_atomic_swap_64(volatile int64_t *addr, int64_t newval)
 {
@@ -355,9 +330,9 @@ static inline int64_t opal_atomic_swap_64(volatile int64_t *addr, int64_t newval
 
 #if  OPAL_GCC_INLINE_ASSEMBLY
 
-static inline int opal_atomic_cmpset_64(volatile int64_t *addr,
-                                        int64_t oldval, int64_t newval)
+static inline bool opal_atomic_compare_exchange_strong_64 (volatile int64_t *addr, int64_t *oldval, int64_t newval)
 {
+    int64_t prev;
     int ret;
 
     /*
@@ -372,89 +347,76 @@ static inline int opal_atomic_cmpset_64(volatile int64_t *addr,
      * is very similar to the pure 64 bit version.
      */
    __asm__ __volatile__ (
-                         "ld r4,%2         \n\t"
-                         "ld r5,%3        \n\t"
-                         "1: ldarx   r9, 0, %1  \n\t"
-                         "   cmpd    0, r9, r4  \n\t"
+                         "ld r4,%3         \n\t"
+                         "ld r5,%4        \n\t"
+                         "1: ldarx   %1, 0, %2  \n\t"
+                         "   cmpd    0, %1, r4  \n\t"
                          "   bne-    2f         \n\t"
-                         "   stdcx.  r5, 0, %1  \n\t"
+                         "   stdcx.  r5, 0, %2  \n\t"
                          "   bne-    1b         \n\t"
                          "2:                    \n\t"
-                         "xor r5,r4,r9          \n\t"
+                         "xor r5,r4,%1          \n\t"
                          "subfic r9,r5,0        \n\t"
                          "adde %0,r9,r5         \n\t"
-                         : "=&r" (ret)
+                         : "=&r" (ret), "+r" (prev)
                          : "r"OPAL_ASM_ADDR(addr),
-                           "m"(oldval), "m"(newval)
+                           "m"(*oldval), "m"(newval)
                          : "r4", "r5", "r9", "cc", "memory");
-
-     return ret;
-}
-
-/* these two functions aren't inlined in the non-gcc case because then
-   there would be two function calls (since neither cmpset_64 nor
-   atomic_?mb can be inlined).  Instead, we "inline" them by hand in
-   the assembly, meaning there is one function call overhead instead
-   of two */
-static inline int opal_atomic_cmpset_acq_64(volatile int64_t *addr,
-                                            int64_t oldval, int64_t newval)
-{
-    int rc;
-
-    rc = opal_atomic_cmpset_64(addr, oldval, newval);
-    opal_atomic_rmb();
-
-    return rc;
-}
-
-
-static inline int opal_atomic_cmpset_rel_64(volatile int64_t *addr,
-                                            int64_t oldval, int64_t newval)
-{
-    opal_atomic_wmb();
-    return opal_atomic_cmpset_64(addr, oldval, newval);
+   *oldval = prev;
+   return (bool) ret;
 }
 
 #endif /* OPAL_GCC_INLINE_ASSEMBLY */
 
 #endif /* OPAL_ASM_SUPPORT_64BIT */
 
-
 #if OPAL_GCC_INLINE_ASSEMBLY
 
-static inline int32_t opal_atomic_add_32(volatile int32_t* v, int inc)
+/* these two functions aren't inlined in the non-gcc case because then
+   there would be two function calls (since neither cmpset_64 nor
+   atomic_?mb can be inlined).  Instead, we "inline" them by hand in
+   the assembly, meaning there is one function call overhead instead
+   of two */
+static inline bool opal_atomic_compare_exchange_strong_acq_64 (volatile int64_t *addr, int64_t *oldval, int64_t newval)
 {
-   int32_t t;
+    bool rc;
 
-   __asm__ __volatile__(
-                        "1:   lwarx   %0, 0, %3    \n\t"
-                        "     add     %0, %2, %0   \n\t"
-                        "     stwcx.  %0, 0, %3    \n\t"
-                        "     bne-    1b           \n\t"
-                        : "=&r" (t), "=m" (*v)
-                        : "r" (inc), "r" OPAL_ASM_ADDR(v), "m" (*v)
-                        : "cc");
+    rc = opal_atomic_compare_exchange_strong_64 (addr, oldval, newval);
+    opal_atomic_rmb();
 
-   return t;
+    return rc;
 }
 
 
-static inline int32_t opal_atomic_sub_32(volatile int32_t* v, int dec)
+static inline bool opal_atomic_compare_exchange_strong_rel_64 (volatile int64_t *addr, int64_t *oldval, int64_t newval)
 {
-   int32_t t;
-
-   __asm__ __volatile__(
-                        "1:   lwarx   %0,0,%3      \n\t"
-                        "     subf    %0,%2,%0     \n\t"
-                        "     stwcx.  %0,0,%3      \n\t"
-                        "     bne-    1b           \n\t"
-                        : "=&r" (t), "=m" (*v)
-                        : "r" (dec), "r" OPAL_ASM_ADDR(v), "m" (*v)
-                        : "cc");
-
-   return t;
+    opal_atomic_wmb();
+    return opal_atomic_compare_exchange_strong_64 (addr, oldval, newval);
 }
 
+
+#define OPAL_ATOMIC_POWERPC_DEFINE_ATOMIC_32(type, instr)               \
+static inline int32_t opal_atomic_fetch_ ## type ## _32(volatile int32_t* v, int val) \
+{                                                                       \
+    int32_t t, old;                                                     \
+                                                                        \
+    __asm__ __volatile__(                                               \
+                         "1:   lwarx   %1, 0, %4    \n\t"               \
+                         "     " #instr "     %0, %3, %1   \n\t"        \
+                         "     stwcx.  %0, 0, %4    \n\t"               \
+                         "     bne-    1b           \n\t"               \
+                         : "=&r" (t), "=&r" (old), "=m" (*v)            \
+                         : "r" (val), "r" OPAL_ASM_ADDR(v), "m" (*v)    \
+                         : "cc");                                       \
+                                                                        \
+    return t;                                                           \
+}
+
+OPAL_ATOMIC_POWERPC_DEFINE_ATOMIC_32(add, add)
+OPAL_ATOMIC_POWERPC_DEFINE_ATOMIC_32(and, and)
+OPAL_ATOMIC_POWERPC_DEFINE_ATOMIC_32(or, or)
+OPAL_ATOMIC_POWERPC_DEFINE_ATOMIC_32(xor, xor)
+OPAL_ATOMIC_POWERPC_DEFINE_ATOMIC_32(sub, subf)
 
 #endif /* OPAL_GCC_INLINE_ASSEMBLY */
 

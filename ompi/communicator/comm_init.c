@@ -159,7 +159,7 @@ int ompi_comm_init(void)
        in the most generic sense. This is used by OMPIO for deciding which
        ranks to use for aggregators
     */
-    opal_process_name_t wildcard = {ORTE_PROC_MY_NAME->jobid, OPAL_VPID_WILDCARD};
+    opal_process_name_t wildcard = {OMPI_PROC_MY_NAME->jobid, OPAL_VPID_WILDCARD};
     char *str=NULL;
     int rc;
 
@@ -387,6 +387,7 @@ static void ompi_comm_construct(ompi_communicator_t* comm)
 #ifdef OMPI_WANT_PERUSE
     comm->c_peruse_handles = NULL;
 #endif
+    OBJ_CONSTRUCT(&comm->c_lock, opal_mutex_t);
 
 #if OPAL_ENABLE_FT_MPI
     comm->any_source_enabled  = true;
@@ -479,6 +480,8 @@ static void ompi_comm_destruct(ompi_communicator_t* comm)
         opal_pointer_array_set_item ( &ompi_comm_f_to_c_table,
                                       comm->c_f_to_c_index, NULL);
     }
+
+    OBJ_DESTRUCT(&comm->c_lock);
 }
 
 #define OMPI_COMM_SET_INFO_FN(name, flag)       \

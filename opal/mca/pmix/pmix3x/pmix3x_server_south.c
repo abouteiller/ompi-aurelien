@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2014-2017 Intel, Inc. All rights reserved.
+ * Copyright (c) 2014-2018 Intel, Inc. All rights reserved.
  * Copyright (c) 2014-2017 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2014-2016 Intel, Inc.  All rights reserved.
@@ -128,6 +128,11 @@ int pmix3x_server_init(opal_pmix_server_module_t *module,
         }
     }
 
+    /* check for direct modex use-case */
+    if (opal_pmix_base_async_modex && !opal_pmix_collect_all_data) {
+        opal_setenv("PMIX_MCA_gds", "hash", true, &environ);
+    }
+
     /* insert ourselves into our list of jobids - it will be the
      * first, and so we'll check it first */
     job = OBJ_NEW(opal_pmix3x_jobid_trkr_t);
@@ -196,7 +201,6 @@ int pmix3x_server_finalize(void)
         }
     }
     OPAL_PMIX_RELEASE_THREAD(&opal_pmix_base.lock);
-
     rc = PMIx_server_finalize();
     return pmix3x_convert_rc(rc);
 }

@@ -14,8 +14,8 @@
  *                         reserved.
  * Copyright (c) 2008-2009 Sun Microsystems, Inc.  All rights reserved.
  * Copyright (c) 2011-2017 IBM Corporation.  All rights reserved.
- * Copyright (c) 2014-2017 Intel, Inc.  All rights reserved.
- * Copyright (c) 2015-2017 Research Organization for Information Science
+ * Copyright (c) 2014-2018 Intel, Inc. All rights reserved.
+ * Copyright (c) 2015-2018 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * $COPYRIGHT$
  *
@@ -78,7 +78,6 @@
 #include "orte/runtime/orte_wait.h"
 #include "orte/runtime/orte_globals.h"
 #include "orte/util/name_fns.h"
-#include "orte/util/nidmap.h"
 #include "orte/util/proc_info.h"
 #include "orte/util/threads.h"
 
@@ -88,6 +87,7 @@
 #include "orte/mca/ess/base/base.h"
 #include "orte/mca/errmgr/errmgr.h"
 #include "orte/mca/grpcomm/base/base.h"
+#include "orte/mca/oob/base/base.h"
 #include "orte/mca/rmaps/rmaps.h"
 #include "orte/mca/routed/routed.h"
 #include "orte/mca/rml/base/rml_contact.h"
@@ -100,7 +100,7 @@
 
 static int rsh_init(void);
 static int rsh_launch(orte_job_t *jdata);
-static int remote_spawn(opal_buffer_t *launch);
+static int remote_spawn(void);
 static int rsh_terminate_orteds(void);
 static int rsh_finalize(void);
 
@@ -259,10 +259,12 @@ static int rsh_init(void)
 /**
  * Callback on daemon exit.
  */
-static void rsh_wait_daemon(orte_proc_t *daemon, void* cbdata)
+static void rsh_wait_daemon(int sd, short flags, void *cbdata)
 {
     orte_job_t *jdata;
-    orte_plm_rsh_caddy_t *caddy=(orte_plm_rsh_caddy_t*)cbdata;
+    orte_wait_tracker_t *t2 = (orte_wait_tracker_t*)cbdata;
+    orte_plm_rsh_caddy_t *caddy=(orte_plm_rsh_caddy_t*)t2->cbdata;
+    orte_proc_t *daemon = caddy->daemon;
     char *rtmod;
 
     if (orte_orteds_term_ordered || orte_abnormal_term_ordered) {
@@ -270,6 +272,7 @@ static void rsh_wait_daemon(orte_proc_t *daemon, void* cbdata)
          * session attached, e.g., while debugging
          */
         OBJ_RELEASE(caddy);
+        OBJ_RELEASE(t2);
         return;
     }
 
@@ -323,7 +326,7 @@ static void rsh_wait_daemon(orte_proc_t *daemon, void* cbdata)
         opal_event_active(&launch_event, EV_WRITE, 1);
     }
     /* cleanup */
-    OBJ_RELEASE(caddy);
+    OBJ_RELEASE(t2);
 }
 
 static int setup_launch(int *argcptr, char ***argvptr,
@@ -604,7 +607,6 @@ static int setup_launch(int *argcptr, char ***argvptr,
          (mca_plm_rsh_component.using_qrsh && mca_plm_rsh_component.daemonize_qrsh)) &&
         ((!mca_plm_rsh_component.using_llspawn) ||
          (mca_plm_rsh_component.using_llspawn && mca_plm_rsh_component.daemonize_llspawn))) {
-        opal_argv_append(&argc, &argv, "--daemonize");
     }
 
     /*
@@ -616,9 +618,20 @@ static int setup_launch(int *argcptr, char ***argvptr,
                                           proc_vpid_index);
 
     /* ensure that only the ssh plm is selected on the remote daemon */
-    opal_argv_append_nosize(&argv, "-"OPAL_MCA_CMD_LINE_ID);
-    opal_argv_append_nosize(&argv, "plm");
-    opal_argv_append_nosize(&argv, "rsh");
+    opal_argv_append(&argc, &argv, "-"OPAL_MCA_CMD_LINE_ID);
+    opal_argv_append(&argc, &argv, "plm");
+    opal_argv_append(&argc, &argv, "rsh");
+
+    /* if we are tree-spawning, tell our child daemons the
+     * uri of their parent (me) */
+    if (!mca_plm_rsh_component.no_tree_spawn) {
+        opal_argv_append(&argc, &argv, "--tree-spawn");
+        orte_oob_base_get_addr(&param);
+        opal_argv_append(&argc, &argv, "-"OPAL_MCA_CMD_LINE_ID);
+        opal_argv_append(&argc, &argv, "orte_parent_uri");
+        opal_argv_append(&argc, &argv, param);
+        free(param);
+    }
 
     /* unless told otherwise... */
     if (mca_plm_rsh_component.pass_environ_mca_params) {
@@ -770,7 +783,7 @@ static void ssh_child(int argc, char **argv)
 /*
  * launch a set of daemons from a remote daemon
  */
-static int remote_spawn(opal_buffer_t *launch)
+static int remote_spawn(void)
 {
     int node_name_index1;
     int proc_vpid_index;
@@ -779,7 +792,6 @@ static int remote_spawn(opal_buffer_t *launch)
     int argc;
     int rc=ORTE_SUCCESS;
     bool failed_launch = true;
-    orte_std_cntr_t n;
     orte_process_name_t target;
     orte_plm_rsh_caddy_t *caddy;
     orte_job_t *daemons;
@@ -794,11 +806,13 @@ static int remote_spawn(opal_buffer_t *launch)
     /* if we hit any errors, tell the HNP it was us */
     target.vpid = ORTE_PROC_MY_NAME->vpid;
 
-    /* extract the prefix from the launch buffer */
-    n = 1;
-    if (ORTE_SUCCESS != (rc = opal_dss.unpack(launch, &prefix, &n, OPAL_STRING))) {
-        ORTE_ERROR_LOG(rc);
-        goto cleanup;
+    /* check to see if enable-orterun-prefix-by-default was given - if
+     * this is being done by a singleton, then orterun will not be there
+     * to put the prefix in the app. So make sure we check to find it */
+    if ((bool)ORTE_WANT_ORTERUN_PREFIX_BY_DEFAULT) {
+        prefix = strdup(opal_install_dirs.prefix);
+    } else {
+        prefix = NULL;
     }
 
     /* get the updated routing list */
@@ -873,6 +887,10 @@ static int remote_spawn(opal_buffer_t *launch)
         opal_list_append(&launch_list, &caddy->super);
     }
     OPAL_LIST_DESTRUCT(&coll);
+    /* we NEVER use tree-spawn for secondary launches - e.g.,
+     * due to a dynamic launch requesting add_hosts - so be
+     * sure to turn it off here */
+    mca_plm_rsh_component.no_tree_spawn = true;
 
     /* trigger the event to start processing the launch list */
     OPAL_OUTPUT_VERBOSE((1, orte_plm_base_framework.framework_output,
@@ -938,7 +956,7 @@ static void process_launch_list(int fd, short args, void *cbdata)
         caddy = (orte_plm_rsh_caddy_t*)item;
         /* register the sigchild callback */
         ORTE_FLAG_SET(caddy->daemon, ORTE_PROC_FLAG_ALIVE);
-        orte_wait_cb(caddy->daemon, rsh_wait_daemon, (void*)caddy);
+        orte_wait_cb(caddy->daemon, rsh_wait_daemon, orte_event_base, (void*)caddy);
 
         /* fork a child to exec the rsh/ssh session */
         pid = fork();
@@ -1156,23 +1174,7 @@ static void launch_daemons(int fd, short args, void *cbdata)
 
     /* if we are tree launching, find our children and create the launch cmd */
     if (!mca_plm_rsh_component.no_tree_spawn) {
-        orte_daemon_cmd_flag_t command = ORTE_DAEMON_TREE_SPAWN;
         orte_job_t *jdatorted;
-
-        /* get the tree spawn buffer */
-        orte_tree_launch_cmd = OBJ_NEW(opal_buffer_t);
-        /* insert the tree_spawn cmd */
-        if (ORTE_SUCCESS != (rc = opal_dss.pack(orte_tree_launch_cmd, &command, 1, ORTE_DAEMON_CMD))) {
-            ORTE_ERROR_LOG(rc);
-            OBJ_RELEASE(orte_tree_launch_cmd);
-            goto cleanup;
-        }
-        /* pack the prefix since this will be needed by the next wave */
-        if (ORTE_SUCCESS != (rc = opal_dss.pack(orte_tree_launch_cmd, &prefix_dir, 1, OPAL_STRING))) {
-            ORTE_ERROR_LOG(rc);
-            OBJ_RELEASE(orte_tree_launch_cmd);
-            goto cleanup;
-        }
 
         /* get the orted job data object */
         if (NULL == (jdatorted = orte_get_job_data_object(ORTE_PROC_MY_NAME->jobid))) {
@@ -1282,6 +1284,10 @@ static void launch_daemons(int fd, short args, void *cbdata)
         OBJ_RETAIN(caddy->daemon);
         opal_list_append(&launch_list, &caddy->super);
     }
+    /* we NEVER use tree-spawn for secondary launches - e.g.,
+     * due to a dynamic launch requesting add_hosts - so be
+     * sure to turn it off here */
+    mca_plm_rsh_component.no_tree_spawn = true;
 
     /* set the job state to indicate the daemons are launched */
     state->jdata->state = ORTE_JOB_STATE_DAEMONS_LAUNCHED;

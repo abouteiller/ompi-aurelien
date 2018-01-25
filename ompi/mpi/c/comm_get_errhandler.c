@@ -11,9 +11,9 @@
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
  * Copyright (c) 2007-2009 Cisco Systems, Inc.  All rights reserved.
- * Copyright (c) 2015      Research Organization for Information Science
+ * Copyright (c) 2015-2017 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
- * Copyright (c) 2016      Los Alamos National Security, LLC. All rights
+ * Copyright (c) 2016-2017 Los Alamos National Security, LLC. All rights
  *                         reserved.
  * $COPYRIGHT$
  *
@@ -43,8 +43,6 @@ static const char FUNC_NAME[] = "MPI_Comm_get_errhandler";
 
 int MPI_Comm_get_errhandler(MPI_Comm comm, MPI_Errhandler *errhandler)
 {
-    MPI_Errhandler tmp;
-
     /* Error checking */
     MEMCHECKER(
         memchecker_comm(comm);
@@ -52,31 +50,27 @@ int MPI_Comm_get_errhandler(MPI_Comm comm, MPI_Errhandler *errhandler)
 
     OPAL_CR_NOOP_PROGRESS();
 
-  /* Error checking */
+    /* Error checking */
 
-  if (MPI_PARAM_CHECK) {
-    OMPI_ERR_INIT_FINALIZE(FUNC_NAME);
-    if (ompi_comm_invalid(comm)) {
-      return OMPI_ERRHANDLER_INVOKE(MPI_COMM_WORLD, MPI_ERR_COMM,
-                                    FUNC_NAME);
-    } else if (NULL == errhandler) {
-      return OMPI_ERRHANDLER_INVOKE(MPI_COMM_WORLD, MPI_ERR_ARG,
-                                    FUNC_NAME);
+    if (MPI_PARAM_CHECK) {
+      OMPI_ERR_INIT_FINALIZE(FUNC_NAME);
+      if (ompi_comm_invalid(comm)) {
+        return OMPI_ERRHANDLER_INVOKE(MPI_COMM_WORLD, MPI_ERR_COMM,
+                                      FUNC_NAME);
+      } else if (NULL == errhandler) {
+        return OMPI_ERRHANDLER_INVOKE(MPI_COMM_WORLD, MPI_ERR_ARG,
+                                      FUNC_NAME);
+      }
     }
-  }
 
-  /* On 64 bits environments we have to make sure the reading of the
-     error_handler became atomic. */
-  do {
-      tmp = comm->error_handler;
-  } while (!OPAL_ATOMIC_CMPSET_PTR(&(comm->error_handler), tmp, tmp));
+    OPAL_THREAD_LOCK(&(comm->c_lock));
+    /* Retain the errhandler, corresponding to object refcount decrease
+       in errhandler_free.c. */
+    OBJ_RETAIN(comm->error_handler);
+    *errhandler = comm->error_handler;
+    OPAL_THREAD_UNLOCK(&(comm->c_lock));
 
-  /* Retain the errhandler, corresponding to object refcount decrease
-     in errhandler_free.c. */
-  *errhandler = tmp;
-  OBJ_RETAIN(tmp);
+    /* All done */
 
-  /* All done */
-
-  return MPI_SUCCESS;
+    return MPI_SUCCESS;
 }

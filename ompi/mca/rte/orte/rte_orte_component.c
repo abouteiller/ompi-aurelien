@@ -1,7 +1,7 @@
 /* -*- Mode: C; c-basic-offset:4 ; indent-tabs-mode:nil -*- */
 /*
  * Copyright (c) 2012      Los Alamos National Security, LLC.  All rights reserved.
- * Copyright (c) 2014-2016 Intel, Inc. All rights reserved.
+ * Copyright (c) 2014-2017 Intel, Inc. All rights reserved.
  * Copyright (c) 2015      Los Alamos National Security, LLC. All rights
  *                         reserved.
  *
@@ -47,59 +47,34 @@ static int rte_orte_close(void);
  * and pointers to our public functions in it
  */
 
-ompi_rte_orte_component_t mca_rte_orte_component = {
-    {
-        /* First, the mca_component_t struct containing meta information
-           about the component itself */
+ompi_rte_component_t mca_rte_orte_component = {
+    /* First, the mca_component_t struct containing meta information
+       about the component itself */
 
-        .base_version = {
-            OMPI_RTE_BASE_VERSION_1_0_0,
+    .base_version = {
+        OMPI_RTE_BASE_VERSION_1_0_0,
 
-            /* Component name and version */
-            .mca_component_name = "orte",
-            MCA_BASE_MAKE_VERSION(component, OMPI_MAJOR_VERSION, OMPI_MINOR_VERSION,
-                                  OMPI_RELEASE_VERSION),
+        /* Component name and version */
+        .mca_component_name = "orte",
+        MCA_BASE_MAKE_VERSION(component, OMPI_MAJOR_VERSION, OMPI_MINOR_VERSION,
+                              OMPI_RELEASE_VERSION),
 
-            /* Component open and close functions */
-            .mca_open_component = rte_orte_open,
-            .mca_close_component = rte_orte_close,
-        },
-        .base_data = {
-            /* The component is checkpoint ready */
-            MCA_BASE_METADATA_PARAM_CHECKPOINT
-        },
-    }
+        /* Component open and close functions */
+        .mca_open_component = rte_orte_open,
+        .mca_close_component = rte_orte_close,
+    },
+    .base_data = {
+        /* The component is checkpoint ready */
+        MCA_BASE_METADATA_PARAM_CHECKPOINT
+    },
 };
 
 static int rte_orte_open(void)
 {
-    OBJ_CONSTRUCT(&mca_rte_orte_component.lock, opal_mutex_t);
-    OBJ_CONSTRUCT(&mca_rte_orte_component.modx_reqs, opal_list_t);
-
     return OMPI_SUCCESS;
 }
 
 static int rte_orte_close(void)
 {
-    opal_mutex_lock(&mca_rte_orte_component.lock);
-    OPAL_LIST_DESTRUCT(&mca_rte_orte_component.modx_reqs);
-    opal_mutex_unlock(&mca_rte_orte_component.lock);
-    OBJ_DESTRUCT(&mca_rte_orte_component.lock);
-
     return OMPI_SUCCESS;
 }
-
-static void con(ompi_orte_tracker_t *p)
-{
-    p->active = true;
-    OBJ_CONSTRUCT(&p->lock, opal_mutex_t);
-    OBJ_CONSTRUCT(&p->cond, opal_condition_t);
-}
-static void des(ompi_orte_tracker_t *p)
-{
-    OBJ_DESTRUCT(&p->lock);
-    OBJ_DESTRUCT(&p->cond);
-}
-OBJ_CLASS_INSTANCE(ompi_orte_tracker_t,
-                   opal_list_item_t,
-                   con, des);

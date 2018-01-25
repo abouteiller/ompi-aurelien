@@ -14,7 +14,7 @@
  * Copyright (c) 2006      Voltaire. All rights reserved.
  * Copyright (c) 2007      Mellanox Technologies. All rights reserved.
  * Copyright (c) 2010      IBM Corporation.  All rights reserved.
- * Copyright (c) 2011-2016 Los Alamos National Security, LLC. All rights
+ * Copyright (c) 2011-2017 Los Alamos National Security, LLC. All rights
  *                         reserved.
  * Copyright (c) 2013      NVIDIA Corporation.  All rights reserved.
  * Copyright (c) 2016      Research Organization for Information Science
@@ -232,7 +232,7 @@ static int mca_rcache_grdma_check_cached (mca_rcache_base_registration_t *grdma_
 
         /* This segment fits fully within an existing segment. */
         rcache_grdma->stat_cache_hit++;
-        int32_t ref_cnt = opal_atomic_add_32 (&grdma_reg->ref_count, 1);
+        int32_t ref_cnt = opal_atomic_add_fetch_32 (&grdma_reg->ref_count, 1);
         OPAL_OUTPUT_VERBOSE((MCA_BASE_VERBOSE_TRACE, opal_rcache_base_framework.framework_output,
                              "returning existing registration %p. references %d", (void *) grdma_reg, ref_cnt));
         (void)ref_cnt;
@@ -296,7 +296,7 @@ static int mca_rcache_grdma_register (mca_rcache_base_module_t *rcache, void *ad
         /* get updated access flags */
         access_flags = find_args.access_flags;
 
-        OPAL_THREAD_ADD32((volatile int32_t *) &rcache_grdma->stat_cache_miss, 1);
+        OPAL_THREAD_ADD_FETCH32((volatile int32_t *) &rcache_grdma->stat_cache_miss, 1);
     }
 
     item = opal_free_list_get_mt (&rcache_grdma->reg_list);
@@ -380,7 +380,7 @@ static int mca_rcache_grdma_find (mca_rcache_base_module_t *rcache, void *addr,
                                   (opal_list_item_t*)(*reg));
         }
         rcache_grdma->stat_cache_found++;
-        opal_atomic_add_32 (&(*reg)->ref_count, 1);
+        opal_atomic_add_fetch_32 (&(*reg)->ref_count, 1);
     } else {
         rcache_grdma->stat_cache_notfound++;
     }
@@ -398,7 +398,7 @@ static int mca_rcache_grdma_deregister (mca_rcache_base_module_t *rcache,
     int rc;
 
     opal_mutex_lock (&rcache_grdma->cache->vma_module->vma_lock);
-    ref_count = opal_atomic_add_32 (&reg->ref_count, -1);
+    ref_count = opal_atomic_add_fetch_32 (&reg->ref_count, -1);
 
     OPAL_OUTPUT_VERBOSE((MCA_BASE_VERBOSE_TRACE, opal_rcache_base_framework.framework_output,
                          "returning registration %p, remaining references %d", (void *) reg, ref_count));
@@ -416,33 +416,46 @@ static int mca_rcache_grdma_deregister (mca_rcache_base_module_t *rcache,
         return OPAL_SUCCESS;
     }
 
-    rc = dereg_mem (reg);
+    if (!(reg->flags & MCA_RCACHE_FLAGS_INVALID)) {
+        /* only call dereg mem if this registration is not in the GC lifo */
+        rc = dereg_mem (reg);
+    }
+
     opal_mutex_unlock (&rcache_grdma->cache->vma_module->vma_lock);
 
     return rc;
 }
 
+struct gc_add_args_t {
+    void *base;
+    size_t size;
+};
+typedef struct gc_add_args_t gc_add_args_t;
+
 static int gc_add (mca_rcache_base_registration_t *grdma_reg, void *ctx)
 {
     mca_rcache_grdma_module_t *rcache_grdma = (mca_rcache_grdma_module_t *) grdma_reg->rcache;
-
-    /* unused */
-    (void) ctx;
+    gc_add_args_t *args = (gc_add_args_t *) ctx;
 
     if (grdma_reg->flags & MCA_RCACHE_FLAGS_INVALID) {
         /* nothing more to do */
         return OPAL_SUCCESS;
     }
 
-    if (grdma_reg->ref_count) {
-        /* attempted to remove an active registration */
+    if (grdma_reg->ref_count && grdma_reg->base == args->base) {
+        /* attempted to remove an active registration. to handle cases where part of
+         * an active registration has been unmapped we check if the bases match. this
+         * *hopefully* will suppress erroneously emitted errors. if we can't suppress
+         * the erroneous error in all cases then this check and return should be removed
+         * entirely. we are not required to give an error for a user freeing a buffer
+         * that is in-use by MPI. Its just a nice to have. */
         return OPAL_ERROR;
     }
 
     /* This may be called from free() so avoid recursively calling into free by just
      * shifting this registration into the garbage collection list. The cleanup will
      * be done on the next registration attempt. */
-    if (registration_is_cacheable (grdma_reg)) {
+    if (registration_is_cacheable (grdma_reg) && !grdma_reg->ref_count) {
         opal_list_remove_item (&rcache_grdma->cache->lru_list, (opal_list_item_t *) grdma_reg);
     }
 
@@ -457,7 +470,8 @@ static int mca_rcache_grdma_invalidate_range (mca_rcache_base_module_t *rcache,
                                               void *base, size_t size)
 {
     mca_rcache_grdma_module_t *rcache_grdma = (mca_rcache_grdma_module_t *) rcache;
-    return mca_rcache_base_vma_iterate (rcache_grdma->cache->vma_module, base, size, gc_add, NULL);
+    gc_add_args_t args = {.base = base, .size = size};
+    return mca_rcache_base_vma_iterate (rcache_grdma->cache->vma_module, base, size, gc_add, &args);
 }
 
 /* Make sure this registration request is not stale.  In other words, ensure

@@ -37,22 +37,17 @@
 
 BEGIN_C_DECLS
 
-#ifdef OPAL_C_HAVE_VISIBILITY
-#define PMIX_HAVE_VISIBILITY 1
-#else
-#undef PMIX_HAVE_VISIBILITY
-#endif
-
 typedef struct {
-  opal_pmix_base_component_t super;
-  opal_list_t jobids;
-  bool native_launch;
-  size_t evindex;
-  opal_list_t events;
-  int cache_size;
-  opal_list_t cache;
-  opal_list_t dmdx;
-  bool silence_warning;
+    opal_pmix_base_component_t super;
+    pmix_proc_t myproc;
+    opal_list_t jobids;
+    bool native_launch;
+    size_t evindex;
+    opal_list_t events;
+    int cache_size;
+    opal_list_t cache;
+    opal_list_t dmdx;
+    bool silence_warning;
 } mca_pmix_pmix3x_component_t;
 
 OPAL_DECLSPEC extern mca_pmix_pmix3x_component_t mca_pmix_pmix3x_component;
