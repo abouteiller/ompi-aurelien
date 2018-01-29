@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -232,12 +232,14 @@ ompi_errhandler_t *ompi_errhandler_create(ompi_errhandler_type_t object_type,
 #if OPAL_ENABLE_FT_MPI
 #include "opal/threads/wait_sync.h"
 
-static void pmix_notify_cb(int status, void *cbdata) {
+static void pmix_notify_cb(int status, void *cbdata)
+{
     volatile bool *active = (volatile bool*)cbdata;
     *active = false;
 }
 
-int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, bool forward) {
+int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, bool forward)
+{
     int rc = OMPI_SUCCESS, max_num_comm = 0, i, proc_rank;
     ompi_communicator_t *comm = NULL;
     ompi_group_t *group = NULL;

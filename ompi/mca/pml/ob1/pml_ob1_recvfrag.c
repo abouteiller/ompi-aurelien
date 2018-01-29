@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2007 High Performance Computing Center Stuttgart,
@@ -177,7 +177,8 @@ match_one(mca_btl_base_module_t *btl,
           mca_pml_ob1_recv_frag_t* frag);
 
 #if OPAL_ENABLE_FT_MPI
-int mca_pml_ob1_revoke_comm( struct ompi_communicator_t* ompi_comm, bool coll_only ) {
+int mca_pml_ob1_revoke_comm( struct ompi_communicator_t* ompi_comm, bool coll_only )
+{
     mca_pml_ob1_comm_t* comm = ompi_comm->c_pml_comm;
     mca_pml_ob1_comm_proc_t* proc;
     size_t i;
@@ -186,7 +187,7 @@ int mca_pml_ob1_revoke_comm( struct ompi_communicator_t* ompi_comm, bool coll_on
 
     /* For intercomm, also work with the local_comm */
     if( OMPI_COMM_IS_INTER(ompi_comm) ) {
-       mca_pml_ob1_revoke_comm(ompi_comm->c_local_comm, coll_only);
+        mca_pml_ob1_revoke_comm(ompi_comm->c_local_comm, coll_only);
     }
 
     OPAL_THREAD_LOCK(&comm->matching_lock);
@@ -206,10 +207,10 @@ int mca_pml_ob1_revoke_comm( struct ompi_communicator_t* ompi_comm, bool coll_on
 #if OPAL_ENABLE_DEBUG
             if( opal_list_get_size(frags_list) ) {
                 OPAL_OUTPUT_VERBOSE((15, ompi_ftmpi_output_handle,
-                    "ob1_revoke_comm: purging %s for proc %d in comm %d (%s): it has %d frags",
-                    frags_list == &proc->frags_cant_match?"cantmatch":"unexpected",
-                    i, ompi_comm->c_contextid, coll_only?"collective frags only":"all revoked",
-                    opal_list_get_size(frags_list)));
+                                     "ob1_revoke_comm: purging %s for proc %zu in comm %d (%s): it has %zu frags",
+                                     (frags_list == &proc->frags_cant_match) ? "cantmatch" : "unexpected",
+                                     i, ompi_comm->c_contextid, coll_only ? "collective frags only" : "all revoked",
+                                     opal_list_get_size(frags_list)));
             }
 #endif
             /* remove the frag from the list, ack if needed to remote cancel the send */
@@ -235,7 +236,7 @@ int mca_pml_ob1_revoke_comm( struct ompi_communicator_t* ompi_comm, bool coll_on
             assert( MCA_PML_OB1_HDR_TYPE_RGET == hdr->hdr_common.hdr_type ||
                     MCA_PML_OB1_HDR_TYPE_RNDV == hdr->hdr_common.hdr_type );
             OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
-                "ob1_revoke_comm: sending NACK to %d", hdr->hdr_rndv.hdr_match.hdr_src));
+                                 "ob1_revoke_comm: sending NACK to %d", hdr->hdr_rndv.hdr_match.hdr_src));
             /* Send a ACK with a NULL request to signify revocation */
             proc = mca_pml_ob1_peer_lookup(ompi_comm, hdr->hdr_rndv.hdr_match.hdr_src);
             mca_pml_ob1_recv_request_ack_send(proc->ompi_proc, hdr->hdr_rndv.hdr_src_req.lval, NULL, 0, 0, false);
@@ -244,11 +245,12 @@ int mca_pml_ob1_revoke_comm( struct ompi_communicator_t* ompi_comm, bool coll_on
             /* if it's a TYPE_MATCH, the sender is not expecting anything
              * from us. So we are done. */
             OPAL_OUTPUT_VERBOSE((15, ompi_ftmpi_output_handle,
-                "ob1_revoke_comm: dropping silently frag from %d", hdr->hdr_rndv.hdr_match.hdr_src));
+                                 "ob1_revoke_comm: dropping silently frag from %d", hdr->hdr_rndv.hdr_match.hdr_src));
         }
         MCA_PML_OB1_RECV_FRAG_RETURN(frag);
     }
     OBJ_DESTRUCT(&nack_list);
+    return OMPI_SUCCESS;
 }
 #endif /*OPAL_ENABLE_FT_MPI*/
 

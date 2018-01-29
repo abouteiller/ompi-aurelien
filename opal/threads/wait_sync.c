@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2014-2016 The University of Tennessee and The University
+ * Copyright (c) 2014-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2016      Los Alamos National Security, LLC. All rights
@@ -18,14 +18,16 @@ static opal_mutex_t wait_sync_lock = OPAL_MUTEX_STATIC_INIT;
 ompi_wait_sync_t* wait_sync_list = NULL; /* not static for inline "wait_sync_st" */
 
 
-int wait_sync_global_wakeup_st(int status) {
+void wait_sync_global_wakeup_st(int status)
+{
     ompi_wait_sync_t* sync;
     for( sync = wait_sync_list; sync != NULL; sync = sync->next ) {
         wait_sync_update(sync, 0, status);
     }
 }
 
-int wait_sync_global_wakeup_mt(int status) {
+void wait_sync_global_wakeup_mt(int status)
+{
     ompi_wait_sync_t* sync;
     opal_mutex_lock(&wait_sync_lock);
     for( sync = wait_sync_list; sync != NULL; sync = sync->next ) {

@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; -*- */
 /*
- * Copyright (c) 2014-2016 The University of Tennessee and The University
+ * Copyright (c) 2014-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -2145,7 +2145,7 @@ static void send_msg(ompi_communicator_t *comm,
     }
 
     OPAL_OUTPUT_VERBOSE((30, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) send message [(%d.%d).%d, %s, %08x.%d.%d/%d..] to %d/%s: send %d bytes through iov (nb = %d, lens = %d,%d,%d,%d)\n",
+                         "%s ftbasic:agreement (ERA) send message [(%d.%d).%d, %s, %08x.%d.%d/%d..] to %d/%s: send %d bytes through iov (nb = %lu, lens = %lu,%lu,%lu,%lu)\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          agreement_id.ERAID_FIELDS.contextid,
                          agreement_id.ERAID_FIELDS.epoch,
@@ -2464,14 +2464,14 @@ static void msg_down(era_msg_header_t *msg_header, uint8_t *bytes, int *new_dead
     size_t value_bytes;
 
     OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Received DOWN Message: Agreement ID = (%d.%d).%d, sender: %d/%s, msg value: %08x.%d.%d..\n",
+                         "%s ftbasic:agreement (ERA) Received DOWN Message: Agreement ID = (%d.%d).%d, sender: %d/%s, msg value: %08x.%d.\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          msg_header->agreement_id.ERAID_FIELDS.contextid,
                          msg_header->agreement_id.ERAID_FIELDS.epoch,
                          msg_header->agreement_id.ERAID_FIELDS.agreementid,
                          msg_header->src_comm_rank,
                          OMPI_NAME_PRINT(&msg_header->src_proc_name),
-                         ERA_VALUE_BYTES_COUNT(&msg_header->agreement_value_header)? *(int*)bytes: 0,
+                         ERA_VALUE_BYTES_COUNT(&msg_header->agreement_value_header) ? *(int*)bytes : 0,
                          msg_header->agreement_value_header.nb_new_dead));
 
     ci = era_lookup_agreement_info( msg_header->agreement_id );
@@ -2788,7 +2788,7 @@ int mca_coll_ftbasic_agreement_era_finalize(void)
                          "%s ftbasic:agreement (ERA) Finalizing\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME)));
     OPAL_OUTPUT_VERBOSE((7, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) GC: %d passed agreements remain in the passed agreements hash table\n",
+                         "%s ftbasic:agreement (ERA) GC: %lu passed agreements remain in the passed agreements hash table\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          opal_hash_table_get_size(&era_passed_agreements)));
     if( opal_hash_table_get_first_key_uint64(&era_passed_agreements,

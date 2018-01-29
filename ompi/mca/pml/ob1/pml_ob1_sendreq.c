@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -328,19 +328,19 @@ mca_pml_ob1_rget_completion (mca_pml_ob1_rdma_frag_t *frag, int64_t rdma_length)
 #else
             status;
 #endif
-        mca_bml_base_btl_array_remove(&sendreq->req_endpoint->btl_eager, btl);
-        /**
-          * Ideally we should release the BTL at this point. Unfortunately as we don't
-          * know if other operations are pending on it we can't release it yet (or we
-          * will prevent any further callbacks triggering).
-          */
+            mca_bml_base_btl_array_remove(&sendreq->req_endpoint->btl_eager, btl);
+            /**
+             * Ideally we should release the BTL at this point. Unfortunately as we don't
+             * know if other operations are pending on it we can't release it yet (or we
+             * will prevent any further callbacks triggering).
+             */
 #endif
-        /* Progress the req to the end */
-        OPAL_THREAD_ADD_SIZE_T(&sendreq->req_bytes_delivered,
-                                sendreq->req_send.req_bytes_packed - sendreq->req_bytes_delivered);
-                /* TODO:ENABLE_FT_MPI should this be frag->rdma_length instead?, what if
-                 * more frags are penging, the request will be deallocated and
-                 * then what? */
+            /* Progress the req to the end */
+            OPAL_THREAD_ADD_FETCH_SIZE_T(&sendreq->req_bytes_delivered,
+                                         sendreq->req_send.req_bytes_packed - sendreq->req_bytes_delivered);
+            /* TODO:ENABLE_FT_MPI should this be frag->rdma_length instead?, what if
+             * more frags are penging, the request will be deallocated and
+             * then what? */
     }
 
     send_request_pml_complete_check(sendreq);

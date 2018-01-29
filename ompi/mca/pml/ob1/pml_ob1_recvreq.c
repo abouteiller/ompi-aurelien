@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -416,7 +416,7 @@ static void mca_pml_ob1_rget_completion (mca_btl_base_module_t* btl, struct mca_
 #endif /* OPAL_ENABLE_FT_MPI */
             recvreq->req_rdma_offset = recvreq->req_send_offset; /* prevent posting of more RDMA */
             /* Account for the skipped RDMA bytes when waiting for completion */
-            OPAL_THREAD_ADD_SIZE_T(&recvreq->req_bytes_received, skipped_bytes);
+            OPAL_THREAD_ADD_FETCH_SIZE_T(&recvreq->req_bytes_received, skipped_bytes);
         }
     } else {
         /* is receive request complete */

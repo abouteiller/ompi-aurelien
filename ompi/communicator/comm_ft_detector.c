@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017 The University of Tennessee and The University
+ * Copyright (c) 2016-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -89,7 +89,7 @@ static void fd_event_cb(int fd, short flags, void* pdetector);
 
 #if OPAL_ENABLE_MULTI_THREADS
 static bool comm_detector_use_thread = false;
-static volatile uint32_t fd_thread_active = 0;
+static volatile int32_t fd_thread_active = 0;
 static opal_thread_t fd_thread;
 static void* fd_progress(opal_object_t* obj);
 #endif /* OPAL_ENABLE_MULTI_THREADS */
@@ -459,15 +459,16 @@ static int fd_heartbeat_request_cb(ompi_communicator_t* comm, ompi_comm_heartbea
  * event loop and thread
  */
 
-static void fd_event_cb(int fd, short flags, void* pdetector) {
+static void fd_event_cb(int fd, short flags, void* pdetector)
+{
     double stamp = PMPI_Wtime();
     comm_detector_t* detector = pdetector;;
 
     OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
-                "%s %s: evtime triggered at stamp %g; observing %d (recv grace %g); observer %d (send grace %g)",
-                OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, stamp-startdate,
-                detector->hb_observing, stamp-detector->hb_rstamp,
-                detector->hb_observer, stamp-detector->hb_sstamp));
+                         "%s %s: evtime triggered at stamp %g; observing %d (recv grace %g); observer %d (send grace %g)",
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, stamp-startdate,
+                         detector->hb_observing, stamp-detector->hb_rstamp,
+                         detector->hb_observer, stamp-detector->hb_sstamp));
 
     if( (stamp - detector->hb_sstamp) >= detector->hb_period ) {
         fd_heartbeat_send(detector);
@@ -481,8 +482,8 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
         int rank = ompi_comm_rank(detector->comm);
 
         OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
-                    "%s:%s: read flag %d at stamp %g",
-                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, flag, stamp-startdate));
+                             "%s:%s: read flag %d at stamp %g",
+                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, flag, stamp-startdate));
 #if 0
         if( -1 > flag ) {
             /* still initializing after MPI_INIT, give extra slack */
@@ -494,8 +495,8 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
             /* this is a quit message from our observed process, stop the
              * detector */
             opal_output_verbose(10, ompi_ftmpi_output_handle,
-                    "%s %s: evtimer triggered at stamp %g, RDMA flag is set to my own rank, this is a quit message to close the detector.",
-                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, stamp-startdate);
+                                "%s %s: evtimer triggered at stamp %g, RDMA flag is set to my own rank, this is a quit message to close the detector.",
+                                OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, stamp-startdate);
             detector->hb_observing = MPI_PROC_NULL;
             detector->hb_rstamp = INFINITY;
             return;
@@ -503,14 +504,14 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
         if( 0 <= flag ) {
             /* it's alright, we have received stamps since last time we checked */
             OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
-                   "%s %s: evtimer triggered at stamp %g, RDMA recv grace %.1e is OK from %d :)",
-                   OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
-                   stamp-startdate, stamp - detector->hb_rstamp, flag));
+                                 "%s %s: evtimer triggered at stamp %g, RDMA recv grace %.1e is OK from %d :)",
+                                 OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
+                                 stamp-startdate, stamp - detector->hb_rstamp, flag));
             if( flag != detector->hb_observing ) {
                 opal_output_verbose(1, ompi_ftmpi_output_handle,
-                   "%s %s: evtimer triggered at stamp %g, this is a rdma heartbeat from %d, but I am now observing %d, acting as-if this was a valid heartbeat",
-                   OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
-                   stamp-startdate, flag, detector->hb_observing);
+                                    "%s %s: evtimer triggered at stamp %g, this is a rdma heartbeat from %d, but I am now observing %d, acting as-if this was a valid heartbeat",
+                                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
+                                    stamp-startdate, flag, detector->hb_observing);
             }
             detector->hb_rdma_flag = -1;
             detector->hb_rstamp = stamp;
@@ -526,34 +527,34 @@ static void fd_event_cb(int fd, short flags, void* pdetector) {
          * from PMIx, if so, move on to patch the ring. Otherwise, change the
          * recv grace and do not check for another timeout, all is fine. */
         if( OPAL_PROC_ON_LOCAL_NODE(proc->super.proc_flags)
-         && ompi_proc_is_active(proc) ) {
+            && ompi_proc_is_active(proc) ) {
             /* special case for finalize */
             if( detector->hb_observer == MPI_PROC_NULL) {
-               OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
-                        "%s %s: evtimer triggered at stamp %g, proc %d is local and still active but this is FINALIZE.",
-                        OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
-                        stamp-startdate,
-                        detector->hb_timeout - (stamp - detector->hb_rstamp), detector->hb_observing));
+                OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
+                                     "%s %s: evtimer triggered at stamp %g, recv grace IGNORED by %.1e, proc %d is local and still active but this is FINALIZE.",
+                                     OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
+                                     stamp-startdate,
+                                     detector->hb_timeout - (stamp - detector->hb_rstamp), detector->hb_observing));
                 detector->hb_observing = MPI_PROC_NULL;
                 detector->hb_rstamp = INFINITY;
                 opal_atomic_mb();
                 return;
             }
             OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
-                        "%s %s: evtimer triggered at stamp %g, recv grace IGNORED by %.1e, proc %d is local and still active (I am observed by %d w/ period %g).",
-                        OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
-                        stamp-startdate,
-                        detector->hb_timeout - (stamp - detector->hb_rstamp), detector->hb_observing, detector->hb_observer, detector->hb_period));
+                                 "%s %s: evtimer triggered at stamp %g, recv grace IGNORED by %.1e, proc %d is local and still active (I am observed by %d w/ period %g).",
+                                 OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
+                                 stamp-startdate,
+                                 detector->hb_timeout - (stamp - detector->hb_rstamp), detector->hb_observing, detector->hb_observer, detector->hb_period));
             detector->hb_rstamp = stamp;
             return;
         }
 
         /* this process is now suspected dead. */
         opal_output_verbose(1, ompi_ftmpi_output_handle,
-                        "%s %s: evtimer triggered at stamp %g, recv grace MISSED by %.1e, proc %d now suspected dead.",
-                        OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
-                        stamp-startdate,
-                        detector->hb_timeout - (stamp - detector->hb_rstamp), detector->hb_observing);
+                            "%s %s: evtimer triggered at stamp %g, recv grace MISSED by %.1e, proc %d now suspected dead.",
+                            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
+                            stamp-startdate,
+                            detector->hb_timeout - (stamp - detector->hb_rstamp), detector->hb_observing);
         /* mark this process dead and forward */
         ompi_errhandler_proc_failed(proc);
         /* special case for finalize; avoid waiting NP timeouts */

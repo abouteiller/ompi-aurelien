@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2010 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -786,10 +786,9 @@ void mca_pml_ob1_error_handler(
 #if 0
     opal_backtrace_print(stderr, NULL, 0);
 #endif
-    if( ompi_ftmpi_enabled ) {
-        if( NULL != errproc ) {
-            ompi_errhandler_proc_failed(errproc);
-        }
+    if( ompi_ftmpi_enabled && (NULL != errproc) ) {
+        /* It's safe to upgrade to the OMPI type */
+        ompi_errhandler_proc_failed((ompi_proc_t*)errproc);
         return;
     }
 #endif /* OPAL_ENABLE_FT_MPI */

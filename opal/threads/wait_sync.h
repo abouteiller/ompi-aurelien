@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2014-2016 The University of Tennessee and The University
+ * Copyright (c) 2014-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2016      Los Alamos National Security, LLC. All rights
@@ -136,8 +136,8 @@ static inline void wait_sync_update(ompi_wait_sync_t *sync, int updates, int sta
  * operation is a NO-OP. Otherwise it will trigger the "error condition" from
  * all registered sync.
  */
-OPAL_DECLSPEC int wait_sync_global_wakeup_st(int status);
-OPAL_DECLSPEC int wait_sync_global_wakeup_mt(int status);
+OPAL_DECLSPEC void wait_sync_global_wakeup_st(int status);
+OPAL_DECLSPEC void wait_sync_global_wakeup_mt(int status);
 #define wait_sync_global_wakeup(st) (opal_using_threads()? wait_sync_global_wakeup_mt(st): wait_sync_global_wakeup_st(st))
 
 END_C_DECLS
