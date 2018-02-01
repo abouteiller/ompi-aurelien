@@ -380,6 +380,9 @@ static int ompi_comm_allreduce_getnextcid (ompi_comm_request_t *request)
 #endif /* OPAL_ENABLE_FT_MPI */
     } else {
         context->nextlocal_cid = 0;
+#if OPAL_ENABLE_FT_MPI
+        context->nextcid_epoch = INT_MAX;
+#endif /* OPAL_ENABLE_FT_MPI */
     }
 
     ret = context->allreduce_fn (&context->nextlocal_cid, &context->nextcid, 1, MPI_MAX,
