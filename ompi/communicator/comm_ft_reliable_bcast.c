@@ -277,14 +277,20 @@ static void ompi_rbcast_bml_send_complete_cb(
  */
 
 static bool comm_rbcast_listener_started = false;
+static int rbcast = 1;
 
-int ompi_comm_init_rbcast(void) {
-    int ret, rbcast=1;
 
+int ompi_comm_rbcast_register_params(void) {
     (void) mca_base_var_register ("ompi", "mpi", "ft", "reliable_bcast",
                                   "Reliable Broadcast algorithm (1: Binomial Graph Diffusion; 2: N^2 full graph diffusion)",
                                   MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &rbcast);
+    return OMPI_SUCCESS;
+}
+
+int ompi_comm_init_rbcast(void) {
+    int ret;
+
     switch( rbcast ) {
         case 0:
             return OMPI_SUCCESS;

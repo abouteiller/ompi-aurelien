@@ -31,18 +31,21 @@ static int ompi_comm_failure_propagator_local(ompi_communicator_t* comm,
                                              ompi_comm_failure_propagator_message_t* msg);
 
 static int comm_failure_propagator_cb_type = -1;
+static bool comm_rbcast_enable = true;
 
+int ompi_comm_failure_propagator_register_params(void) {
+    (void) mca_base_var_register ("ompi", "mpi", "ft", "propagator_with_rbcast",
+                                  "Use the OMPI reliable broadcast failure propagator, or disable it and use only RTE propagation (slower)",
+                                  MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
+                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &comm_rbcast_enable);
+    return OMPI_SUCCESS;
+}
 
 
 int ompi_comm_init_failure_propagator(void) {
     int ret;
-    bool rbcast = true;
 
-    (void) mca_base_var_register ("ompi", "mpi", "ft", "propagator_with_rbcast",
-                                  "Use the OMPI reliable broadcast failure propagator, or disable it and use only RTE propagation (slower)",
-                                  MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
-                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &rbcast);
-    if( !rbcast || !ompi_ftmpi_enabled ) return OMPI_SUCCESS;
+    if( !comm_rbcast_enable || !ompi_ftmpi_enabled ) return OMPI_SUCCESS;
 
     ret = ompi_comm_rbcast_register_cb_type((ompi_comm_rbcast_cb_t)ompi_comm_failure_propagator_local);
     if( 0 <= ret ) {

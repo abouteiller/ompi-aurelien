@@ -81,9 +81,10 @@ static int fd_heartbeat_rdma_put(comm_detector_t* detector);
 static int fd_heartbeat_send(comm_detector_t* detector);
 static int fd_heartbeat_recv_cb(ompi_communicator_t* comm, ompi_comm_heartbeat_message_t* msg);
 
+static bool comm_detector_enable = true;
 static int comm_detector_use_rdma_hb = true;
-static double comm_heartbeat_period = 1e-1;
-static double comm_heartbeat_timeout = 3e-1;
+static double comm_heartbeat_period = 3e0;
+static double comm_heartbeat_timeout = 1e1;
 static opal_event_base_t* fd_event_base = NULL;
 static void fd_event_cb(int fd, short flags, void* pdetector);
 
@@ -103,15 +104,24 @@ static int comm_heartbeat_request_cb_type = -1;
 int ompi_comm_start_detector(ompi_communicator_t* comm);
 static double startdate;
 
-int ompi_comm_init_failure_detector(void) {
-    int ret;
-    bool detect = false;
-    fd_event_base = opal_sync_event_base;
 
+int ompi_comm_failure_detector_register_params(void) {
     (void) mca_base_var_register ("ompi", "mpi", "ft", "detector",
                                   "Use the OMPI heartbeat based failure detector, or disable it and use only RTE and in-band detection (slower)",
                                   MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
-                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &detect);
+                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &comm_detector_enable);
+ #if OPAL_ENABLE_MULTI_THREADS
+    (void) mca_base_var_register ("ompi", "mpi", "ft", "detector_thread",
+                                  "Delegate failure detector to a separate thread",
+                                  MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
+                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &comm_detector_use_thread);
+    /* If we have a detector thread, set the default timeout to be more
+     * aggressive (w/o detector thread, lower values may cause false positives) */
+    if( comm_detector_use_thread ) {
+        comm_heartbeat_period *= 1e-2;
+        comm_heartbeat_timeout *= 1e-2;
+    }
+#endif /* OPAL_ENABLE_MULTI_THREADS */
     (void) mca_base_var_register ("ompi", "mpi", "ft", "detector_period",
                                   "Period of heartbeat emission (s)",
                                   MCA_BASE_VAR_TYPE_DOUBLE, NULL, 0, 0,
@@ -124,13 +134,15 @@ int ompi_comm_init_failure_detector(void) {
                                   "Use rdma put to deposit heartbeats into the observer memory",
                                   MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &comm_detector_use_rdma_hb);
-#if OPAL_ENABLE_MULTI_THREADS
-    (void) mca_base_var_register ("ompi", "mpi", "ft", "detector_thread",
-                                  "Delegate failure detector to a separate thread",
-                                  MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
-                                  OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &comm_detector_use_thread);
-#endif /* OPAL_ENABLE_MULTI_THREADS */
-    if( !ompi_ftmpi_enabled || !detect ) return OMPI_SUCCESS;
+    return OMPI_SUCCESS;
+}
+
+
+int ompi_comm_init_failure_detector(void) {
+    int ret;
+    fd_event_base = opal_sync_event_base;
+
+    if( !ompi_ftmpi_enabled || !comm_detector_enable ) return OMPI_SUCCESS;
 
     /* using rbcast to transmit messages (cb must always return the noforward 'false' flag) */
     /* registering the cb types */

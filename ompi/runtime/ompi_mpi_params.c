@@ -92,7 +92,7 @@ int ompi_mpi_register_params(void)
 
 #if OPAL_ENABLE_FT_MPI
     value = 0;
-    (void) mca_base_var_register ("ompi", "mpi", NULL, "ft_verbose",
+    (void) mca_base_var_register ("ompi", "mpi", "ft", "verbose",
                                   "Verbosity level of the ULFM MPI Fault Tolerance framework",
                                   MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &value);
@@ -102,10 +102,11 @@ int ompi_mpi_register_params(void)
     }
 
     ompi_ftmpi_enabled = true;
-    (void) mca_base_var_register ("ompi", "mpi", NULL, "ft_enable",
+    (void) mca_base_var_register ("ompi", "mpi", "ft", "enable",
                                   "Enable UFLM MPI Fault Tolerance framework",
                                   MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &ompi_ftmpi_enabled);
+    (void) ompi_comm_ft_register_params();
 #endif
 
     /* Whether we want MPI API function parameter checking or not. Disable this by default if
