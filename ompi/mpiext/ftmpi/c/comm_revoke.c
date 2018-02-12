@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2013-2016 The University of Tennessee and The University
+ * Copyright (c) 2013-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -16,12 +16,11 @@
 #include "ompi/communicator/communicator.h"
 #include "ompi/proc/proc.h"
 
-#if OPAL_HAVE_WEAK_SYMBOLS && OMPI_PROFILE_LAYER
+#if OMPI_BUILD_MPI_PROFILING
+#if OPAL_HAVE_WEAK_SYMBOLS
 #pragma weak MPIX_Comm_revoke = PMPIX_Comm_revoke
 #endif
-
-#if OMPI_PROFILE_LAYER
-#include "ompi/mpiext/ftmpi/c/profile/defines.h"
+#define MPIX_Comm_revoke PMPIX_Comm_revoke
 #endif
 
 #include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
@@ -46,11 +45,7 @@ int MPIX_Comm_revoke(MPI_Comm comm)
     OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
 }
 
-int OMPI_Comm_revoke(MPI_Comm comm)
-{
-    return MPIX_Comm_revoke(comm);
-}
-
+#if !OMPI_BUILD_MPI_PROFILING
 #include <signal.h>
 #include "ompi/errhandler/errhandler.h"
 
@@ -62,4 +57,5 @@ int OMPI_Comm_failure_inject(MPI_Comm comm, bool notify) {
     raise(SIGKILL);
     return OMPI_SUCCESS;
 }
+#endif
 

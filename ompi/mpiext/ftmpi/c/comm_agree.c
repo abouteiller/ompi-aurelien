@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2015-2016 The University of Tennessee and The University
+ * Copyright (c) 2015-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -18,12 +18,11 @@
 #include "ompi/proc/proc.h"
 #include "ompi/op/op.h"
 
-#if OPAL_HAVE_WEAK_SYMBOLS && OMPI_PROFILE_LAYER
+#if OMPI_BUILD_MPI_PROFILING
+#if OPAL_HAVE_WEAK_SYMBOLS
 #pragma weak MPIX_Comm_agree = PMPIX_Comm_agree
 #endif
-
-#if OMPI_PROFILE_LAYER
-#include "ompi/mpiext/ftmpi/c/profile/defines.h"
+#define MPIX_Comm_agree PMPIX_Comm_agree
 #endif
 
 #include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
@@ -56,10 +55,5 @@ int MPIX_Comm_agree(MPI_Comm comm, int *flag)
                                        comm->c_coll->coll_agreement_module);
     OBJ_RELEASE( acked );
     OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
-}
-
-int OMPI_Comm_agree(MPI_Comm comm, int *flag)
-{
-      return MPIX_Comm_agree(comm, flag);
 }
 

@@ -15,28 +15,24 @@ SUBDIRS = profile
 headers = \
 	mpiext_ftmpi_c.h
 
-sources = \
+AM_CPPFLAGS = -DOMPI_BUILD_MPI_PROFILING=0 -DOMPI_COMPILING_FORTRAN_WRAPPERS=1
+
+noinst_LTLIBRARIES = libmpiext_ftmpi_c.la
+
+libmpiext_ftmpi_c_la_SOURCES = \
 	comm_revoke.c \
 	comm_shrink.c \
 	comm_failure_ack.c \
 	comm_failure_get_acked.c \
 	comm_agree.c \
 	comm_iagree.c
+libmpiext_ftmpi_c_la_LIBADD = \
+	profile/libmpiext_ftmpi_c_pmpi.la
 
-AM_CPPFLAGS = -DOMPI_PROFILE_LAYER=0 -DOMPI_COMPILING_FORTRAN_WRAPPERS=1
-
-lib = libmpiext_ftmpi_c.la
-lib_sources = $(sources)
-
-libmpiext_ftmpi_c_la_SOURCES = $(lib_sources)
-libmpiext_ftmpi_c_la_LDFLAGS = -module -avoid-version
-
-noinst_LTLIBRARIES = $(lib)
 
 dist_ompidata_DATA = help-ft-mpi.txt
 
 ompidir = $(ompiincludedir)/ompi/mpiext/ftmpi/c
-ompi_HEADERS = \
-        $(headers)
+ompi_HEADERS = $(headers)
 
 MAINTAINERCLEANFILES = $(nodist_libmpiext_ftmpi_c_la_SOURCES)

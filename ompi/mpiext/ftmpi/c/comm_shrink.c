@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2013-2016 The University of Tennessee and The University
+ * Copyright (c) 2013-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -16,12 +16,11 @@
 #include "ompi/communicator/communicator.h"
 #include "ompi/proc/proc.h"
 
-#if OPAL_HAVE_WEAK_SYMBOLS && OMPI_PROFILE_LAYER
+#if OMPI_BUILD_MPI_PROFILING
+#if OPAL_HAVE_WEAK_SYMBOLS
 #pragma weak MPIX_Comm_shrink = PMPIX_Comm_shrink
 #endif
-
-#if OMPI_PROFILE_LAYER
-#include "ompi/mpiext/ftmpi/c/profile/defines.h"
+#define MPIX_Comm_shrink PMPIX_Comm_shrink
 #endif
 
 #include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
@@ -48,10 +47,5 @@ int MPIX_Comm_shrink(MPI_Comm comm, MPI_Comm *newcomm)
 
     rc = ompi_comm_shrink_internal(comm, newcomm);
     OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
-}
-
-int OMPI_Comm_shrink(MPI_Comm comm, MPI_Comm *newcomm)
-{
-    return MPIX_Comm_shrink(comm, newcomm);
 }
 

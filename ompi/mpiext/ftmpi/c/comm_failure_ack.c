@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2013-2016 The University of Tennessee and The University
+ * Copyright (c) 2013-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -17,12 +17,11 @@
 #include "ompi/proc/proc.h"
 #include "ompi/errhandler/errhandler.h"
 
-#if OPAL_HAVE_WEAK_SYMBOLS && OMPI_PROFILE_LAYER
+#if OMPI_BUILD_MPI_PROFILING
+#if OPAL_HAVE_WEAK_SYMBOLS
 #pragma weak MPIX_Comm_failure_ack = PMPIX_Comm_failure_ack
 #endif
-
-#if OMPI_PROFILE_LAYER
-#include "ompi/mpiext/ftmpi/c/profile/defines.h"
+#define MPIX_Comm_failure_ack PMPIX_Comm_failure_ack
 #endif
 
 #include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
@@ -45,10 +44,5 @@ int MPIX_Comm_failure_ack(MPI_Comm comm)
 
     rc = ompi_comm_failure_ack_internal( (ompi_communicator_t*)comm );
     OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
-}
-
-int OMPI_Comm_failure_ack(MPI_Comm comm)
-{
-    return MPIX_Comm_failure_ack(comm);
 }
 
