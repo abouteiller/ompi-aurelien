@@ -30,10 +30,10 @@ nodist_libmpiext_ftmpi_c_pmpi_la_SOURCES = \
 # Sym link in the sources from the real MPI directory
 #
 $(nodist_libmpiext_ftmpi_c_pmpi_la_SOURCES):
-▸       $(OMPI_V_LN_S) if test ! -r $@ ; then \
-▸       ▸       pname=`echo $@ | cut -b '2-'` ; \
-▸       ▸       $(LN_S) $(top_srcdir)/ompi/mpiext/ftmpi/c/$$pname $@ ; \
-▸       fi
+	$(OMPI_V_LN_S) if test ! -r $@ ; then \
+		pname=`echo $@ | cut -b '2-'` ; \
+		$(LN_S) $(top_srcdir)/ompi/mpiext/ftmpi/c/$$pname $@ ; \
+	fi
 
 # Conditionally install the header files
 
