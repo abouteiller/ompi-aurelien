@@ -339,10 +339,10 @@ int NBC_Progress(NBC_Handle *handle) {
             if( MPI_ERR_PROC_FAILED == handle->req_array[i]->req_status.MPI_ERROR ||
                 MPI_ERR_PROC_FAILED_PENDING == handle->req_array[i]->req_status.MPI_ERROR ||
                 MPI_ERR_REVOKED == handle->req_array[i]->req_status.MPI_ERROR ) {
-              NBC_DEBUG ("MPI Error in MPI_Testall() (req %d = %d)", i, handle->req_array[i]->req_status.MPI_ERROR);
+              NBC_DEBUG (1, "MPI Error in MPI_Testall() (req %d = %d)", i, handle->req_array[i]->req_status.MPI_ERROR);
             } else // this intentionally spills outside the ifdef
 #endif /* OPAL_ENABLE_FT_MPI */
-            NBC_Error ("MPI Error in MPI_Testall() (req %d = %d)", i, handle->req_array[i]->req_status.MPI_ERROR);
+            NBC_Error (1, "MPI Error in MPI_Testall() (req %d = %d)", i, handle->req_array[i]->req_status.MPI_ERROR);
           }
         }
         else {
