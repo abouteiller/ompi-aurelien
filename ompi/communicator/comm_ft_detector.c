@@ -110,7 +110,7 @@ int ompi_comm_failure_detector_register_params(void) {
                                   "Use the OMPI heartbeat based failure detector, or disable it and use only RTE and in-band detection (slower)",
                                   MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &comm_detector_enable);
- #if OPAL_ENABLE_MULTI_THREADS
+#if OPAL_ENABLE_MULTI_THREADS
     (void) mca_base_var_register ("ompi", "mpi", "ft", "detector_thread",
                                   "Delegate failure detector to a separate thread",
                                   MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
@@ -118,8 +118,8 @@ int ompi_comm_failure_detector_register_params(void) {
     /* If we have a detector thread, set the default timeout to be more
      * aggressive (w/o detector thread, lower values may cause false positives) */
     if( comm_detector_use_thread ) {
-        comm_heartbeat_period *= 1e-2;
-        comm_heartbeat_timeout *= 1e-2;
+        comm_heartbeat_period *= 1e-1;
+        comm_heartbeat_timeout *= 1e-1;
     }
 #endif /* OPAL_ENABLE_MULTI_THREADS */
     (void) mca_base_var_register ("ompi", "mpi", "ft", "detector_period",
