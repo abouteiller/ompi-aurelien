@@ -30,6 +30,10 @@
 #include "ompi/mca/coll/base/coll_tags.h"
 
 
+int ompi_comm_rbcast_register_params(void);
+int ompi_comm_failure_propagator_register_params(void);
+int ompi_comm_failure_detector_register_params(void);
+
 int ompi_comm_ft_register_params(void) {
     (void)ompi_comm_rbcast_register_params();
     (void)ompi_comm_failure_propagator_register_params();

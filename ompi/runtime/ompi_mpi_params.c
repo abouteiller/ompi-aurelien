@@ -84,6 +84,7 @@ static bool show_override_mca_params = false;
 #if OPAL_ENABLE_FT_MPI
 int ompi_ftmpi_output_handle = 0;
 bool ompi_ftmpi_enabled = false;
+int ompi_comm_ft_register_params(void);
 #endif
 
 int ompi_mpi_register_params(void)
