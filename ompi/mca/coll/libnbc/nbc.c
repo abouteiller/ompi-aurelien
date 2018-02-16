@@ -335,7 +335,7 @@ int NBC_Progress(NBC_Handle *handle) {
         // If the request is complete, then try to report the error code
         if( REQUEST_COMPLETE(handle->req_array[i]) ) {
           if( OMPI_SUCCESS != handle->req_array[i]->req_status.MPI_ERROR ) {
-#if defined(OPAL_ENABLE_FT_MPI)
+#if OPAL_ENABLE_FT_MPI
             if( MPI_ERR_PROC_FAILED == handle->req_array[i]->req_status.MPI_ERROR ||
                 MPI_ERR_PROC_FAILED_PENDING == handle->req_array[i]->req_status.MPI_ERROR ||
                 MPI_ERR_REVOKED == handle->req_array[i]->req_status.MPI_ERROR ) {
