@@ -15,6 +15,13 @@
 #include "ompi/request/request.h"
 #include "ompi/mpi/fortran/base/fint_2_int.h"
 
+#if OMPI_PROFILE_LAYER
+#if OPAL_HAVE_WEAK_SYMBOLS
+#pragma weak MPIX_Comm_iagree_f = PMPIX_Comm_iagree_f
+#endif
+#define MPIX_Comm_iagree_f PMPIX_Comm_iagree_f
+#endif
+
 #include "ompi/mpiext/ftmpi/mpif-h/f77_mangle.h"
 F77_STAMP_FN(MPIX_Comm_iagree_f,
              mpix_comm_iagree,
@@ -27,13 +34,9 @@ F77_STAMP_FN(MPIX_Comm_iagree_f,
              (MPI_Fint *comm, ompi_fortran_logical_t *flag, MPI_Fint *request, MPI_Fint *ierr),
              (comm, flag, request, ierr))
 
-#if OMPI_PROFILE_LAYER && ! OPAL_HAVE_WEAK_SYMBOLS
-#include "ompi/mpiext/ftmpi/mpif-h/profile/defines.h"
-#endif
-
 #include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
 
-static void MPIX_Comm_iagree_f(MPI_Fint *comm, ompi_fortran_logical_t *flag, MPI_Fint *request, MPI_Fint *ierr)
+void MPIX_Comm_iagree_f(MPI_Fint *comm, ompi_fortran_logical_t *flag, MPI_Fint *request, MPI_Fint *ierr)
 {
     MPI_Comm c_comm = MPI_Comm_f2c(*comm);
     MPI_Request c_req;
