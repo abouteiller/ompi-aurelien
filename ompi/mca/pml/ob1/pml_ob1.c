@@ -254,9 +254,9 @@ int mca_pml_ob1_add_comm(ompi_communicator_t* comm)
             continue;
         }
 
-      add_fragment_to_unexpected:
-
         if (((uint16_t)hdr->hdr_seq) == ((uint16_t)pml_proc->expected_sequence) ) {
+
+        add_fragment_to_unexpected:
             /* We're now expecting the next sequence number. */
             pml_proc->expected_sequence++;
             opal_list_append( &pml_proc->unexpected_frags, (opal_list_item_t*)frag );
@@ -268,17 +268,16 @@ int mca_pml_ob1_add_comm(ompi_communicator_t* comm)
              * situation as the cant_match is only checked when a new fragment is received from
              * the network.
              */
-            OPAL_LIST_FOREACH(frag, &pml_proc->frags_cant_match, mca_pml_ob1_recv_frag_t) {
-               hdr = &frag->hdr.hdr_match;
-               /* If the message has the next expected seq from that proc...  */
-               if(hdr->hdr_seq != pml_proc->expected_sequence)
-                   continue;
-
-               opal_list_remove_item(&pml_proc->frags_cant_match, (opal_list_item_t*)frag);
-               goto add_fragment_to_unexpected;
-           }
+            if( NULL != pml_proc->frags_cant_match ) {
+                frag = check_cantmatch_for_match(pml_proc);
+                if( NULL != frag ) {
+                    hdr = &frag->hdr.hdr_match;
+                    goto add_fragment_to_unexpected;
+                }
+            }
         } else {
-            opal_list_append( &pml_proc->frags_cant_match, (opal_list_item_t*)frag );
+            append_frag_to_ordered_list(&pml_proc->frags_cant_match, frag,
+                                        pml_proc->expected_sequence);
         }
     }
     return OMPI_SUCCESS;
@@ -345,7 +344,7 @@ int mca_pml_ob1_add_procs(ompi_proc_t** procs, size_t nprocs)
        expose all currently in use btls. */
 
     OPAL_LIST_FOREACH(sm, &mca_btl_base_modules_initialized, mca_btl_base_selected_module_t) {
-        if (sm->btl_module->btl_eager_limit < sizeof(mca_pml_ob1_hdr_t)) {
+        if ((MCA_BTL_FLAGS_SEND & sm->btl_module->btl_flags) && sm->btl_module->btl_eager_limit < sizeof(mca_pml_ob1_hdr_t)) {
             opal_show_help("help-mpi-pml-ob1.txt", "eager_limit_too_small",
                            true,
                            sm->btl_component->btl_version.mca_component_name,
@@ -565,6 +564,23 @@ static void mca_pml_ob1_dump_frag_list(opal_list_t* queue, bool is_req)
     }
 }
 
+void mca_pml_ob1_dump_cant_match(mca_pml_ob1_recv_frag_t* queue)
+{
+    mca_pml_ob1_recv_frag_t* item = queue;
+
+    do {
+        mca_pml_ob1_dump_hdr( &item->hdr );
+        if( NULL != item->range ) {
+            mca_pml_ob1_recv_frag_t* frag = item->range;
+            do {
+                mca_pml_ob1_dump_hdr( &frag->hdr );
+                frag = (mca_pml_ob1_recv_frag_t*)frag->super.super.opal_list_next;
+            } while( frag != item->range );
+        }
+        item = (mca_pml_ob1_recv_frag_t*)item->super.super.opal_list_next;
+    } while( item != queue );
+}
+
 int mca_pml_ob1_dump(struct ompi_communicator_t* comm, int verbose)
 {
     struct mca_pml_comm_t* pml_comm = comm->c_pml_comm;
@@ -600,9 +616,9 @@ int mca_pml_ob1_dump(struct ompi_communicator_t* comm, int verbose)
             opal_output(0, "expected specific receives\n");
             mca_pml_ob1_dump_frag_list(&proc->specific_receives, true);
         }
-        if( opal_list_get_size(&proc->frags_cant_match) ) {
+        if( NULL != proc->frags_cant_match ) {
             opal_output(0, "out of sequence\n");
-            mca_pml_ob1_dump_frag_list(&proc->frags_cant_match, false);
+            mca_pml_ob1_dump_cant_match(proc->frags_cant_match);
         }
         if( opal_list_get_size(&proc->unexpected_frags) ) {
             opal_output(0, "unexpected frag\n");

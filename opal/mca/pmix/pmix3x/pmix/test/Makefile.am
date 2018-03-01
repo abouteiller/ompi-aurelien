@@ -12,6 +12,8 @@
 # Copyright (c) 2006-2010 Cisco Systems, Inc.  All rights reserved.
 # Copyright (c) 2012-2013 Los Alamos National Security, Inc.  All rights reserved.
 # Copyright (c) 2013-2017 Intel, Inc. All rights reserved.
+# Copyright (c) 2018      Research Organization for Information Science
+#                         and Technology (RIST). All rights reserved.
 # $COPYRIGHT$
 #
 # Additional copyrights may follow
@@ -51,13 +53,13 @@ pmi_client_SOURCES = $(headers) \
         pmi_client.c
 pmi_client_LDFLAGS = $(PMIX_PKG_CONFIG_LDFLAGS)
 pmi_client_LDADD = \
-    $(top_builddir)/src/libpmix.la
+    $(top_builddir)/src/libpmi.la
 
 pmi2_client_SOURCES = $(headers) \
         pmi2_client.c
 pmi2_client_LDFLAGS = $(PMIX_PKG_CONFIG_LDFLAGS)
 pmi2_client_LDADD = \
-    $(top_builddir)/src/libpmix.la
+    $(top_builddir)/src/libpmi2.la
 endif
 
 pmix_client_SOURCES = $(headers) \
@@ -68,7 +70,7 @@ pmix_client_LDADD = \
     $(top_builddir)/src/libpmix.la
 
 pmix_regex_SOURCES = $(headers) \
-        pmix_regex.c test_common.c cli_stages.c utils.c
+        pmix_regex.c test_common.c cli_stages.c server_callbacks.c utils.c
 pmix_regex_LDFLAGS = $(PMIX_PKG_CONFIG_LDFLAGS)
 pmix_regex_LDADD = \
     $(top_builddir)/src/libpmix.la

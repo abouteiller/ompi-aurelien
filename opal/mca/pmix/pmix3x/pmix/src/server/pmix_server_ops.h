@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2015-2017 Intel, Inc. All rights reserved.
+ * Copyright (c) 2015-2018 Intel, Inc. All rights reserved.
  * Copyright (c) 2015      Artem Y. Polyakov <artpol84@gmail.com>.
  *                         All rights reserved.
  * Copyright (c) 2015      Mellanox Technologies, Inc.
@@ -68,13 +68,6 @@ PMIX_CLASS_DECLARATION(pmix_dmdx_remote_t);
 
 typedef struct {
     pmix_list_item_t super;
-    pmix_modex_cbfunc_t cbfunc;     // cbfunc to be executed when data is available
-    void *cbdata;
-} pmix_dmdx_request_t;
-PMIX_CLASS_DECLARATION(pmix_dmdx_request_t);
-
-typedef struct {
-    pmix_list_item_t super;
     pmix_proc_t proc;               // id of proc whose data is being requested
     pmix_list_t loc_reqs;           // list of pmix_dmdx_request_t elem's keeping track of
                                     // all local ranks that are interested in this namespace-rank
@@ -82,6 +75,16 @@ typedef struct {
     size_t ninfo;                   // number of info structs
 } pmix_dmdx_local_t;
 PMIX_CLASS_DECLARATION(pmix_dmdx_local_t);
+
+typedef struct {
+    pmix_list_item_t super;
+    pmix_event_t ev;
+    bool event_active;
+    pmix_dmdx_local_t *lcd;
+    pmix_modex_cbfunc_t cbfunc;     // cbfunc to be executed when data is available
+    void *cbdata;
+} pmix_dmdx_request_t;
+PMIX_CLASS_DECLARATION(pmix_dmdx_request_t);
 
 /* event/error registration book keeping */
 typedef struct {
@@ -242,6 +245,16 @@ pmix_status_t pmix_server_monitor(pmix_peer_t *peer,
                                   pmix_buffer_t *buf,
                                   pmix_info_cbfunc_t cbfunc,
                                   void *cbdata);
+
+pmix_status_t pmix_server_get_credential(pmix_peer_t *peer,
+                                         pmix_buffer_t *buf,
+                                         pmix_credential_cbfunc_t cbfunc,
+                                         void *cbdata);
+
+pmix_status_t pmix_server_validate_credential(pmix_peer_t *peer,
+                                              pmix_buffer_t *buf,
+                                              pmix_validation_cbfunc_t cbfunc,
+                                              void *cbdata);
 
 pmix_status_t pmix_server_event_recvd_from_client(pmix_peer_t *peer,
                                                   pmix_buffer_t *buf,

@@ -50,7 +50,6 @@
 #include "src/class/pmix_list.h"
 #include "src/threads/threads.h"
 #include "src/util/argv.h"
-#include "src/util/error.h"
 #include "src/util/os_path.h"
 
 static void dirpath_destroy(char *path, pmix_cleanup_dir_t *cd,
@@ -102,6 +101,7 @@ static void nscon(pmix_nspace_t *p)
     p->nspace = NULL;
     p->nlocalprocs = 0;
     p->all_registered = false;
+    p->version_stored = false;
     p->jobbkt = NULL;
     p->ndelivered = 0;
     PMIX_CONSTRUCT(&p->ranks, pmix_list_t);
@@ -167,6 +167,7 @@ PMIX_EXPORT PMIX_CLASS_INSTANCE(pmix_rank_info_t,
 static void pcon(pmix_peer_t *p)
 {
     p->proc_type = PMIX_PROC_UNDEF;
+    p->protocol = PMIX_PROTOCOL_UNDEF;
     p->finalized = false;
     p->info = NULL;
     p->proc_cnt = 0;
@@ -178,6 +179,7 @@ static void pcon(pmix_peer_t *p)
     PMIX_CONSTRUCT(&p->send_queue, pmix_list_t);
     p->send_msg = NULL;
     p->recv_msg = NULL;
+    p->commit_cnt = 0;
     PMIX_CONSTRUCT(&p->epilog.cleanup_dirs, pmix_list_t);
     PMIX_CONSTRUCT(&p->epilog.cleanup_files, pmix_list_t);
     PMIX_CONSTRUCT(&p->epilog.ignores, pmix_list_t);
@@ -304,14 +306,18 @@ static void qcon(pmix_query_caddy_t *p)
     p->ntargets = 0;
     p->info = NULL;
     p->ninfo = 0;
+    PMIX_BYTE_OBJECT_CONSTRUCT(&p->bo);
     p->cbfunc = NULL;
     p->valcbfunc = NULL;
     p->cbdata = NULL;
     p->relcbfunc = NULL;
+    p->credcbfunc = NULL;
+    p->validcbfunc = NULL;
 }
 static void qdes(pmix_query_caddy_t *p)
 {
     PMIX_DESTRUCT_LOCK(&p->lock);
+    PMIX_BYTE_OBJECT_DESTRUCT(&p->bo);
 }
 PMIX_EXPORT PMIX_CLASS_INSTANCE(pmix_query_caddy_t,
                                 pmix_object_t,
@@ -332,7 +338,7 @@ void pmix_execute_epilog(pmix_epilog_t *epi)
         rc = stat(cf->path, &statbuf);
         if (0 != rc) {
             pmix_output_verbose(10, pmix_globals.debug_output,
-                                "File %s failed to stat: %s", cf->path, strerror(rc));
+                                "File %s failed to stat: %d", cf->path, rc);
             continue;
         }
         if (statbuf.st_uid != epi->uid ||
@@ -347,7 +353,7 @@ void pmix_execute_epilog(pmix_epilog_t *epi)
         rc = unlink(cf->path);
         if (0 != rc) {
             pmix_output_verbose(10, pmix_globals.debug_output,
-                                "File %s failed to unlink: %s", cf->path, strerror(rc));
+                                "File %s failed to unlink: %d", cf->path, rc);
         }
         pmix_list_remove_item(&epi->cleanup_files, &cf->super);
         PMIX_RELEASE(cf);
@@ -361,7 +367,7 @@ void pmix_execute_epilog(pmix_epilog_t *epi)
         rc = stat(cd->path, &statbuf);
         if (0 != rc) {
             pmix_output_verbose(10, pmix_globals.debug_output,
-                                "Directory %s failed to stat: %s", cd->path, strerror(rc));
+                                "Directory %s failed to stat: %d", cd->path, rc);
             continue;
         }
         if (statbuf.st_uid != epi->uid ||
@@ -387,12 +393,11 @@ void pmix_execute_epilog(pmix_epilog_t *epi)
 static void dirpath_destroy(char *path, pmix_cleanup_dir_t *cd, pmix_epilog_t *epi)
 {
     int rc;
-    bool is_dir = false, ignore;
+    bool is_dir = false;
     DIR *dp;
     struct dirent *ep;
     char *filenm;
     struct stat buf;
-    size_t n;
     pmix_cleanup_file_t *cf;
 
     if (NULL == path) {  /* protect against error */
@@ -427,12 +432,16 @@ static void dirpath_destroy(char *path, pmix_cleanup_dir_t *cd, pmix_epilog_t *e
          */
         filenm = pmix_os_path(false, path, ep->d_name, NULL);
 
-        /* if this path is it to be ignored, then do so */
+        /* if this path is to be ignored, then do so */
         PMIX_LIST_FOREACH(cf, &epi->ignores, pmix_cleanup_file_t) {
             if (0 == strcmp(cf->path, filenm)) {
                 free(filenm);
-                continue;
+                filenm = NULL;
+                break;
             }
+        }
+        if (NULL == filenm) {
+            continue;
         }
 
         /* Check to see if it is a directory */
@@ -483,7 +492,6 @@ static void dirpath_destroy(char *path, pmix_cleanup_dir_t *cd, pmix_epilog_t *e
     /* Done with this directory */
     closedir(dp);
 
-  cleanup:
     /* If the directory is empty, then remove it unless we
      * were told to leave it */
     if (0 == strcmp(path, cd->path) && cd->leave_topdir) {
