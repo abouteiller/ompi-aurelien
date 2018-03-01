@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Intel, Inc. All rights reserved.
  * Copyright (c) 2014      Artem Y. Polyakov <artpol84@gmail.com>.
  *                         All rights reserved.
  * Copyright (c) 2015-2017 Research Organization for Information Science
@@ -58,7 +58,6 @@ void pmix_ptl_base_lost_connection(pmix_peer_t *peer, pmix_status_t err)
 {
     pmix_server_trkr_t *trk;
     pmix_server_caddy_t *rinfo, *rnext;
-    pmix_trkr_caddy_t *tcd;
     pmix_regevents_info_t *reginfoptr, *regnext;
     pmix_peer_events_info_t *pr, *pnext;
     pmix_rank_info_t *info, *pinfo;
@@ -102,13 +101,21 @@ void pmix_ptl_base_lost_connection(pmix_peer_t *peer, pmix_status_t err)
                 /* remove it from the list */
                 pmix_list_remove_item(&trk->local_cbs, &rinfo->super);
                 PMIX_RELEASE(rinfo);
-                /* check for completion */
-                if (pmix_list_get_size(&trk->local_cbs) == trk->nlocal) {
-                    /* complete, so now we need to process it
-                     * we don't want to block someone
-                     * here, so kick any completed trackers into a
-                     * new event for processing */
-                    PMIX_EXECUTE_COLLECTIVE(tcd, trk, pmix_server_execute_collective);
+                /* we need to let the other participants know that this
+                 * proc has disappeared as otherwise the collective will never
+                 * complete */
+                if (PMIX_FENCENB_CMD == trk->type) {
+                    if (NULL != trk->modexcbfunc) {
+                        trk->modexcbfunc(PMIX_ERR_LOST_CONNECTION_TO_CLIENT, NULL, 0, trk, NULL, NULL);
+                    }
+                } else if (PMIX_CONNECTNB_CMD == trk->type) {
+                    if (NULL != trk->cnct_cbfunc) {
+                        trk->cnct_cbfunc(PMIX_ERR_LOST_CONNECTION_TO_CLIENT, NULL, PMIX_RANK_WILDCARD, trk);
+                    }
+                } else if (PMIX_DISCONNECTNB_CMD == trk->type) {
+                    if (NULL != trk->op_cbfunc) {
+                        trk->op_cbfunc(PMIX_ERR_LOST_CONNECTION_TO_CLIENT, trk);
+                    }
                 }
             }
         }
@@ -122,8 +129,7 @@ void pmix_ptl_base_lost_connection(pmix_peer_t *peer, pmix_status_t err)
         }
         /* reduce the number of local procs */
         --peer->nptr->nlocalprocs;
-        /* now decrease the refcount - might actually free the object */
-        PMIX_RELEASE(peer->info);
+
         /* remove this client from our array */
         pmix_pointer_array_set_item(&pmix_server_globals.clients,
                                     peer->index, NULL);
@@ -148,6 +154,10 @@ void pmix_ptl_base_lost_connection(pmix_peer_t *peer, pmix_status_t err)
              * an event. If not, then we do */
             PMIX_REPORT_EVENT(err, peer, PMIX_RANGE_NAMESPACE, _notify_complete);
         }
+        /* now decrease the refcount - might actually free the object */
+        PMIX_RELEASE(peer->info);
+
+        /* Release peer info */
         PMIX_RELEASE(peer);
      } else {
         /* if I am a client, there is only

@@ -1298,11 +1298,12 @@ static void _setup_op(pmix_status_t rc, void *cbdata)
 static void _setup_app(int sd, short args, void *cbdata)
 {
     pmix_setup_caddy_t *cd = (pmix_setup_caddy_t*)cbdata;
+    pmix_buffer_t buffer;
+    pmix_byte_object_t blob;
     pmix_setup_caddy_t *fcd = NULL;
     pmix_status_t rc;
     pmix_list_t ilist;
     pmix_kval_t *kv;
-    size_t n;
 
     PMIX_ACQUIRE_OBJECT(cd);
 
@@ -1321,21 +1322,29 @@ static void _setup_app(int sd, short args, void *cbdata)
         goto depart;
     }
 
-    /* if anything came back, construct the info array */
-    if (0 < (fcd->ninfo = pmix_list_get_size(&ilist))) {
-        PMIX_INFO_CREATE(fcd->info, fcd->ninfo);
-        n = 0;
+    /* if anything came back, construct the blob */
+    if (0 < pmix_list_get_size(&ilist)) {
+        PMIX_CONSTRUCT(&buffer, pmix_buffer_t);
         PMIX_LIST_FOREACH(kv, &ilist, pmix_kval_t) {
-            (void)strncpy(fcd->info[n].key, kv->key, PMIX_MAX_KEYLEN);
-            PMIX_BFROPS_VALUE_XFER(rc, pmix_globals.mypeer,
-                                   &fcd->info[n].value, kv->value);
+            PMIX_BFROPS_PACK(rc, pmix_globals.mypeer, &buffer, kv, 1, PMIX_KVAL);
             if (PMIX_SUCCESS != rc) {
-                PMIX_INFO_FREE(fcd->info, fcd->ninfo);
                 PMIX_RELEASE(fcd);
                 fcd = NULL;
                 goto depart;
             }
         }
+        PMIX_INFO_CREATE(fcd->info, 1);
+        if (NULL == fcd->info) {
+            PMIX_RELEASE(fcd);
+            fcd = NULL;
+            goto depart;
+        }
+        fcd->ninfo = 1;
+        PMIX_BYTE_OBJECT_CONSTRUCT(&blob);
+        PMIX_BYTE_OBJECT_LOAD(&blob, buffer.base_ptr, buffer.bytes_used);
+        PMIX_DESTRUCT(&buffer);
+        PMIX_INFO_LOAD(&fcd->info[0], PMIX_PNET_SETUP_APP, &blob, PMIX_BYTE_OBJECT);
+        PMIX_BYTE_OBJECT_DESTRUCT(&blob);
     }
 
   depart:
@@ -2240,6 +2249,114 @@ static void query_cbfunc(pmix_status_t status,
     PMIX_RELEASE(cd);
 }
 
+static void cred_cbfunc(pmix_status_t status,
+                        pmix_byte_object_t *credential,
+                        pmix_info_t info[], size_t ninfo,
+                        void *cbdata)
+{
+    pmix_query_caddy_t *qcd = (pmix_query_caddy_t*)cbdata;
+    pmix_server_caddy_t *cd = (pmix_server_caddy_t*)qcd->cbdata;
+    pmix_buffer_t *reply;
+    pmix_status_t rc;
+
+    pmix_output_verbose(2, pmix_globals.debug_output,
+                        "pmix:get credential callback with status %d", status);
+
+    reply = PMIX_NEW(pmix_buffer_t);
+    if (NULL == reply) {
+        PMIX_ERROR_LOG(PMIX_ERR_NOMEM);
+        PMIX_RELEASE(cd);
+        return;
+    }
+
+    /* pack the status */
+    PMIX_BFROPS_PACK(rc, cd->peer, reply, &status, 1, PMIX_STATUS);
+    if (PMIX_SUCCESS != rc) {
+        PMIX_ERROR_LOG(rc);
+        goto complete;
+    }
+
+    if (PMIX_SUCCESS == status) {
+        /* pack the returned credential */
+        PMIX_BFROPS_PACK(rc, cd->peer, reply, credential, 1, PMIX_BYTE_OBJECT);
+        if (PMIX_SUCCESS != rc) {
+            PMIX_ERROR_LOG(rc);
+            goto complete;
+        }
+
+        /* pack any returned data */
+        PMIX_BFROPS_PACK(rc, cd->peer, reply, &ninfo, 1, PMIX_SIZE);
+        if (PMIX_SUCCESS != rc) {
+            PMIX_ERROR_LOG(rc);
+            goto complete;
+        }
+        if (0 < ninfo) {
+            PMIX_BFROPS_PACK(rc, cd->peer, reply, info, ninfo, PMIX_INFO);
+            if (PMIX_SUCCESS != rc) {
+                PMIX_ERROR_LOG(rc);
+            }
+        }
+    }
+
+  complete:
+    // send reply
+    PMIX_SERVER_QUEUE_REPLY(cd->peer, cd->hdr.tag, reply);
+    // cleanup
+    if (NULL != qcd->info) {
+        PMIX_INFO_FREE(qcd->info, qcd->ninfo);
+    }
+    PMIX_RELEASE(qcd);
+    PMIX_RELEASE(cd);
+}
+
+static void validate_cbfunc(pmix_status_t status,
+                            pmix_info_t info[], size_t ninfo,
+                            void *cbdata)
+{
+    pmix_query_caddy_t *qcd = (pmix_query_caddy_t*)cbdata;
+    pmix_server_caddy_t *cd = (pmix_server_caddy_t*)qcd->cbdata;
+    pmix_buffer_t *reply;
+    pmix_status_t rc;
+
+    pmix_output_verbose(2, pmix_globals.debug_output,
+                        "pmix:validate credential callback with status %d", status);
+
+    reply = PMIX_NEW(pmix_buffer_t);
+    if (NULL == reply) {
+        PMIX_ERROR_LOG(PMIX_ERR_NOMEM);
+        PMIX_RELEASE(cd);
+        return;
+    }
+    PMIX_BFROPS_PACK(rc, cd->peer, reply, &status, 1, PMIX_STATUS);
+    if (PMIX_SUCCESS != rc) {
+        PMIX_ERROR_LOG(rc);
+        goto complete;
+    }
+    /* pack any returned data */
+    PMIX_BFROPS_PACK(rc, cd->peer, reply, &ninfo, 1, PMIX_SIZE);
+    if (PMIX_SUCCESS != rc) {
+        PMIX_ERROR_LOG(rc);
+        goto complete;
+    }
+    if (0 < ninfo) {
+        PMIX_BFROPS_PACK(rc, cd->peer, reply, info, ninfo, PMIX_INFO);
+        if (PMIX_SUCCESS != rc) {
+            PMIX_ERROR_LOG(rc);
+        }
+    }
+
+  complete:
+    // send reply
+    PMIX_SERVER_QUEUE_REPLY(cd->peer, cd->hdr.tag, reply);
+    // cleanup
+    if (NULL != qcd->info) {
+        PMIX_INFO_FREE(qcd->info, qcd->ninfo);
+    }
+    PMIX_RELEASE(qcd);
+    PMIX_RELEASE(cd);
+}
+
+
 /* the switchyard is the primary message handling function. It's purpose
  * is to take incoming commands (packed into a buffer), unpack them,
  * and then call the corresponding host server's function to execute
@@ -2476,6 +2593,18 @@ static pmix_status_t server_switchyard(pmix_peer_t *peer, uint32_t tag,
     if (PMIX_MONITOR_CMD == cmd) {
         PMIX_GDS_CADDY(cd, peer, tag);
         rc = pmix_server_monitor(peer, buf, query_cbfunc, cd);
+        return rc;
+    }
+
+    if (PMIX_GET_CREDENTIAL_CMD == cmd) {
+        PMIX_GDS_CADDY(cd, peer, tag);
+        rc = pmix_server_get_credential(peer, buf, cred_cbfunc, cd);
+        return rc;
+    }
+
+    if (PMIX_VALIDATE_CRED_CMD == cmd) {
+        PMIX_GDS_CADDY(cd, peer, tag);
+        rc = pmix_server_validate_credential(peer, buf, validate_cbfunc, cd);
         return rc;
     }
 

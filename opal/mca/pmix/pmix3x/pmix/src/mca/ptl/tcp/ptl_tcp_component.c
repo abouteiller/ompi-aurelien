@@ -12,7 +12,7 @@
  *                         All rights reserved.
  * Copyright (c) 2015      Los Alamos National Security, LLC. All rights
  *                         reserved.
- * Copyright (c) 2016-2017 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Intel, Inc.  All rights reserved.
  * Copyright (c) 2017      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * $COPYRIGHT$
@@ -823,6 +823,7 @@ static void connection_handler(int sd, short args, void *cbdata)
     pmix_proc_t proc;
     pmix_info_t ginfo;
     pmix_proc_type_t proc_type;
+    pmix_byte_object_t cred;
 
     /* acquire the object */
     PMIX_ACQUIRE_OBJECT(pnd);
@@ -1156,6 +1157,8 @@ static void connection_handler(int sd, short args, void *cbdata)
     }
     /* mark that this peer is a client of the given type */
     peer->proc_type = PMIX_PROC_CLIENT | proc_type;
+    /* save the protocol */
+    peer->protocol = pnd->protocol;
     /* add in the nspace pointer */
     PMIX_RETAIN(nptr);
     peer->nptr = nptr;
@@ -1212,8 +1215,8 @@ static void connection_handler(int sd, short args, void *cbdata)
     } else {
         peer->nptr->compat.gds = pmix_gds_base_assign_module(NULL, 0);
     }
-    free(msg);  // can now release the data buffer
     if (NULL == peer->nptr->compat.gds) {
+        free(msg);
         info->proc_cnt--;
         pmix_pointer_array_set_item(&pmix_server_globals.clients, peer->index, NULL);
         PMIX_RELEASE(peer);
@@ -1221,13 +1224,24 @@ static void connection_handler(int sd, short args, void *cbdata)
         goto error;
     }
 
+    /* if we haven't previously stored the version for this
+     * nspace, do so now */
+    if (!nptr->version_stored) {
+        PMIX_INFO_LOAD(&ginfo, PMIX_BFROPS_MODULE, peer->nptr->compat.bfrops->version, PMIX_STRING);
+        PMIX_GDS_CACHE_JOB_INFO(rc, pmix_globals.mypeer, peer->nptr, &ginfo, 1);
+        PMIX_INFO_DESTRUCT(&ginfo);
+        nptr->version_stored = true;
+    }
+
+    free(msg);  // can now release the data buffer
+
     /* the choice of PTL module is obviously us */
     peer->nptr->compat.ptl = &pmix_ptl_tcp_module;
 
     /* validate the connection */
-    PMIX_PSEC_VALIDATE_CONNECTION(rc, peer,
-                                  PMIX_PROTOCOL_V2,
-                                  pnd->cred, pnd->len);
+    cred.bytes = pnd->cred;
+    cred.size = pnd->len;
+    PMIX_PSEC_VALIDATE_CONNECTION(rc, peer, NULL, 0, NULL, NULL, &cred);
     if (PMIX_SUCCESS != rc) {
         pmix_output_verbose(2, pmix_ptl_base_framework.framework_output,
                             "validation of client connection failed");
@@ -1313,6 +1327,7 @@ static void process_cbfunc(int sd, short args, void *cbdata)
     int rc;
     uint32_t u32;
     pmix_info_t ginfo;
+    pmix_byte_object_t cred;
 
     /* acquire the object */
     PMIX_ACQUIRE_OBJECT(cd);
@@ -1400,6 +1415,8 @@ static void process_cbfunc(int sd, short args, void *cbdata)
     }
     /* mark the peer proc type */
     peer->proc_type = PMIX_PROC_TOOL | pnd->proc_type;
+    /* save the protocol */
+    peer->protocol = pnd->protocol;
     /* add in the nspace pointer */
     PMIX_RETAIN(nptr);
     peer->nptr = nptr;
@@ -1441,6 +1458,7 @@ static void process_cbfunc(int sd, short args, void *cbdata)
     /* set the gds */
     PMIX_INFO_LOAD(&ginfo, PMIX_GDS_MODULE, pnd->gds, PMIX_STRING);
     peer->nptr->compat.gds = pmix_gds_base_assign_module(&ginfo, 1);
+    PMIX_INFO_DESTRUCT(&ginfo);
     if (NULL == peer->nptr->compat.gds) {
         PMIX_RELEASE(peer);
         pmix_list_remove_item(&pmix_server_globals.nspaces, &nptr->super);
@@ -1449,10 +1467,19 @@ static void process_cbfunc(int sd, short args, void *cbdata)
         goto done;
     }
 
+    /* if we haven't previously stored the version for this
+     * nspace, do so now */
+    if (!peer->nptr->version_stored) {
+        PMIX_INFO_LOAD(&ginfo, PMIX_BFROPS_MODULE, peer->nptr->compat.bfrops->version, PMIX_STRING);
+        PMIX_GDS_CACHE_JOB_INFO(rc, pmix_globals.mypeer, peer->nptr, &ginfo, 1);
+        PMIX_INFO_DESTRUCT(&ginfo);
+        nptr->version_stored = true;
+    }
+
     /* validate the connection */
-    PMIX_PSEC_VALIDATE_CONNECTION(rc, peer,
-                                  PMIX_PROTOCOL_V2,
-                                  pnd->cred, pnd->len);
+    cred.bytes = pnd->cred;
+    cred.size = pnd->len;
+    PMIX_PSEC_VALIDATE_CONNECTION(rc, peer, NULL, 0, NULL, NULL, &cred);
     if (PMIX_SUCCESS != rc) {
         pmix_output_verbose(2, pmix_ptl_base_framework.framework_output,
                             "validation of tool credentials failed: %s",

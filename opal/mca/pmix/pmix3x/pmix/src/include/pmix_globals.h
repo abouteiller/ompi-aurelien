@@ -10,7 +10,7 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2014-2018 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Intel, Inc. All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -50,6 +50,10 @@ BEGIN_C_DECLS
 #define PMIX_MAX_CRED_SIZE      131072              // set max at 128kbytes
 #define PMIX_MAX_ERR_CONSTANT   INT_MIN
 
+/* internal-only attributes */
+#define PMIX_BFROPS_MODULE                  "pmix.bfrops.mod"       // (char*) name of bfrops plugin in-use by a given nspace
+#define PMIX_PNET_SETUP_APP                 "pmix.pnet.setapp"      // (pmix_byte_object_t) blob containing info to be given to
+                                                                    //      pnet framework on remote nodes
 
 /* define an internal-only process name that has
  * a dynamically-sized nspace field to save memory */
@@ -71,26 +75,28 @@ PMIX_CLASS_DECLARATION(pmix_namelist_t);
 typedef uint8_t pmix_cmd_t;
 
 /* define some commands */
-#define PMIX_REQ_CMD             0
-#define PMIX_ABORT_CMD           1
-#define PMIX_COMMIT_CMD          2
-#define PMIX_FENCENB_CMD         3
-#define PMIX_GETNB_CMD           4
-#define PMIX_FINALIZE_CMD        5
-#define PMIX_PUBLISHNB_CMD       6
-#define PMIX_LOOKUPNB_CMD        7
-#define PMIX_UNPUBLISHNB_CMD     8
-#define PMIX_SPAWNNB_CMD         9
-#define PMIX_CONNECTNB_CMD      10
-#define PMIX_DISCONNECTNB_CMD   11
-#define PMIX_NOTIFY_CMD         12
-#define PMIX_REGEVENTS_CMD      13
-#define PMIX_DEREGEVENTS_CMD    14
-#define PMIX_QUERY_CMD          15
-#define PMIX_LOG_CMD            16
-#define PMIX_ALLOC_CMD          17
-#define PMIX_JOB_CONTROL_CMD    18
-#define PMIX_MONITOR_CMD        19
+#define PMIX_REQ_CMD                 0
+#define PMIX_ABORT_CMD               1
+#define PMIX_COMMIT_CMD              2
+#define PMIX_FENCENB_CMD             3
+#define PMIX_GETNB_CMD               4
+#define PMIX_FINALIZE_CMD            5
+#define PMIX_PUBLISHNB_CMD           6
+#define PMIX_LOOKUPNB_CMD            7
+#define PMIX_UNPUBLISHNB_CMD         8
+#define PMIX_SPAWNNB_CMD             9
+#define PMIX_CONNECTNB_CMD          10
+#define PMIX_DISCONNECTNB_CMD       11
+#define PMIX_NOTIFY_CMD             12
+#define PMIX_REGEVENTS_CMD          13
+#define PMIX_DEREGEVENTS_CMD        14
+#define PMIX_QUERY_CMD              15
+#define PMIX_LOG_CMD                16
+#define PMIX_ALLOC_CMD              17
+#define PMIX_JOB_CONTROL_CMD        18
+#define PMIX_MONITOR_CMD            19
+#define PMIX_GET_CREDENTIAL_CMD     20
+#define PMIX_VALIDATE_CRED_CMD      21
 
 /* provide a "pretty-print" function for cmds */
 const char* pmix_command_string(pmix_cmd_t cmd);
@@ -148,6 +154,7 @@ typedef struct {
     char *nspace;
     size_t nlocalprocs;
     bool all_registered;         // all local ranks have been defined
+    bool version_stored;         // the version string used by this nspace has been stored
     pmix_buffer_t *jobbkt;       // packed version of jobinfo
     size_t ndelivered;           // count of #local clients that have received the jobinfo
     pmix_list_t ranks;           // list of pmix_rank_info_t for connection support of my clients
@@ -202,6 +209,7 @@ typedef struct pmix_peer_t {
     pmix_nspace_t *nptr;            // point to the nspace object for this process
     pmix_rank_info_t *info;
     pmix_proc_type_t proc_type;
+    pmix_listener_protocol_t protocol;
     int proc_cnt;
     int index;                      // index into the local clients array on the server
     int sd;
@@ -213,21 +221,12 @@ typedef struct pmix_peer_t {
     pmix_list_t send_queue;         /**< list of messages to send */
     pmix_ptl_send_t *send_msg;      /**< current send in progress */
     pmix_ptl_recv_t *recv_msg;      /**< current recv in progress */
+    int commit_cnt;
     pmix_epilog_t epilog;           /**< things to be performed upon
                                          termination of this peer */
 } pmix_peer_t;
 PMIX_CLASS_DECLARATION(pmix_peer_t);
 
-
-/* define an object for moving a send
- * request into the server's event base
- * - instanced in pmix_server_ops.c */
-typedef struct {
-    pmix_list_item_t super;
-    pmix_ptl_hdr_t hdr;
-    pmix_peer_t *peer;
-} pmix_server_caddy_t;
-PMIX_CLASS_DECLARATION(pmix_server_caddy_t);
 
 /* caddy for query requests */
 typedef struct {
@@ -241,9 +240,12 @@ typedef struct {
     size_t ntargets;
     pmix_info_t *info;
     size_t ninfo;
+    pmix_byte_object_t bo;
     pmix_info_cbfunc_t cbfunc;
     pmix_value_cbfunc_t valcbfunc;
     pmix_release_cbfunc_t relcbfunc;
+    pmix_credential_cbfunc_t credcbfunc;
+    pmix_validation_cbfunc_t validcbfunc;
     void *cbdata;
 } pmix_query_caddy_t;
 PMIX_CLASS_DECLARATION(pmix_query_caddy_t);
@@ -272,6 +274,20 @@ typedef struct {
     pmix_connect_cbfunc_t cnct_cbfunc;
 } pmix_server_trkr_t;
 PMIX_CLASS_DECLARATION(pmix_server_trkr_t);
+
+/* define an object for moving a send
+ * request into the server's event base and
+ * dealing with some request timeouts
+ * - instanced in pmix_server_ops.c */
+typedef struct {
+    pmix_list_item_t super;
+    pmix_event_t ev;
+    bool event_active;
+    pmix_server_trkr_t *trk;
+    pmix_ptl_hdr_t hdr;
+    pmix_peer_t *peer;
+} pmix_server_caddy_t;
+PMIX_CLASS_DECLARATION(pmix_server_caddy_t);
 
 /****    THREAD-RELATED    ****/
  /* define a caddy for thread-shifting operations */
