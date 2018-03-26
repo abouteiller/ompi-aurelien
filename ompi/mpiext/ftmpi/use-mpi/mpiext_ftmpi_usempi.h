@@ -24,6 +24,14 @@ interface MPIX_Comm_revoke
     end subroutine mpix_comm_revoke
 end interface MPIX_Comm_revoke
 
+interface MPIX_Comm_is_revoked
+    subroutine mpix_comm_is_revoked(comm, flag, ierr)
+      integer, intent(IN) :: comm
+      logical, intent(OUT) :: flag
+      integer, intent(OUT) :: ierr
+    end subroutine mpix_comm_revoke
+end interface MPIX_Comm_is_revoked
+
 interface MPIX_Comm_shrink
     subroutine mpix_comm_shrink(comm, newcomm, ierr)
       integer, intent(IN) :: comm
