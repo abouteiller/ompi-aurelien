@@ -59,4 +59,7 @@ void ompix_comm_shrink_f(MPI_Fint *comm, MPI_Fint *newcomm, MPI_Fint *ierr)
     if (MPI_SUCCESS == OMPI_FINT_2_INT(*ierr)) {
         *newcomm = PMPI_Comm_c2f(c_newcomm);
     }
+    else {
+        *newcomm = MPI_Comm_c2f(&ompi_mpi_comm_null.comm);
+    }
 }
