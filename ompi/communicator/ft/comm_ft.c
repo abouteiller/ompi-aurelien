@@ -396,6 +396,7 @@ static int ompi_comm_ishrink_check_agree(ompi_comm_request_t *request) {
 
     if( MPI_ERR_PROC_FAILED == rc ) {
         /* previous round found more failures, redo */
+        request->super.req_status.MPI_ERROR = MPI_SUCCESS;
         rc = comm->c_coll->coll_iagreement( &flag,
                                             1,
                                             &ompi_mpi_int.dt,
