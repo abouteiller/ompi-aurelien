@@ -509,6 +509,43 @@ OMPI_COMM_SET_INFO_FN(no_any_source, OMPI_COMM_ASSERT_NO_ANY_SOURCE)
 OMPI_COMM_SET_INFO_FN(no_any_tag, OMPI_COMM_ASSERT_NO_ANY_TAG)
 OMPI_COMM_SET_INFO_FN(allow_overtake, OMPI_COMM_ASSERT_ALLOW_OVERTAKE)
 OMPI_COMM_SET_INFO_FN(exact_length, OMPI_COMM_ASSERT_EXACT_LENGTH)
+#if OPAL_ENABLE_FT_MPI
+static char *ompi_comm_set_error_report(opal_infosubscriber_t *obj, char *key, char *value) {
+    ompi_communicator_t *comm = (ompi_communicator_t *) obj;
+
+    if(0 == strcmp("local", value)) {
+        comm->c_assertions &= ~OMPI_COMM_REPORT_GROUP;
+        comm->c_assertions &= ~OMPI_COMM_REPORT_GLOBAL;
+    }
+    else if(0 == strcmp("group", value)) {
+        comm->c_assertions |= OMPI_COMM_REPORT_GROUP;
+    }
+    else if(0 == strcmp("global", value)) {
+        comm->c_assertions |= OMPI_COMM_REPORT_GLOBAL;
+    }
+    return OMPI_COMM_CHECK_ASSERT(comm, OMPI_COMM_REPORT_GLOBAL) ? "global" : 
+            OMPI_COMM_CHECK_ASSERT(comm, OMPI_COMM_REPORT_GROUP) ? "group" : "local";
+}
+
+static char *ompi_comm_set_error_uniform(opal_infosubscriber_t *obj, char *key, char *value) {
+    ompi_communicator_t *comm = (ompi_communicator_t *) obj;
+
+    if(0 == strcmp("local", value)) {
+        comm->c_assertions &= ~OMPI_COMM_UNIFORM_CREATE;
+        comm->c_assertions &= ~OMPI_COMM_UNIFORM_COLL;
+    }
+    else if(0 == strcmp("create", value)) {
+        comm->c_assertions |= OMPI_COMM_UNIFORM_CREATE;
+    }
+    else if(0 == strcmp("coll", value)) {
+        comm->c_assertions |= OMPI_COMM_UNIFORM_COLL;
+    }
+    return OMPI_COMM_CHECK_ASSERT(comm, OMPI_COMM_UNIFORM_COLL) ? "coll" : 
+            OMPI_COMM_CHECK_ASSERT(comm, OMPI_COMM_UNIFORM_CREATE) ? "create" : "local";
+
+}
+
+#endif /* OPAL_ENABLE_FT_MPI */
 
 void ompi_comm_assert_subscribe (ompi_communicator_t *comm, int32_t assert_flag)
 {
@@ -525,5 +562,15 @@ void ompi_comm_assert_subscribe (ompi_communicator_t *comm, int32_t assert_flag)
     case OMPI_COMM_ASSERT_EXACT_LENGTH:
         opal_infosubscribe_subscribe (&comm->super, "mpi_assert_exact_length", "false", ompi_comm_set_exact_length);
         break;
+#if OPAL_ENABLE_FT_MPI
+    case OMPI_COMM_REPORT_GROUP:
+    case OMPI_COMM_REPORT_GLOBAL:
+        opal_infosubscribe_subscribe (&comm->super, "mpix_assert_error_scope", "local", ompi_comm_set_error_report);
+        break;
+    case OMPI_COMM_UNIFORM_CREATE:
+    case OMPI_COMM_UNIFORM_COLL:
+        opal_infosubscribe_subscribe (&comm->super, "mpix_assert_error_uniform", "local", ompi_comm_set_error_uniform);
+        break;
+#endif /* OPAL_ENABLE_FT_MPI */
     }
 }

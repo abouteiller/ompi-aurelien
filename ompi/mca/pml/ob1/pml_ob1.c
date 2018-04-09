@@ -216,6 +216,12 @@ int mca_pml_ob1_add_comm(ompi_communicator_t* comm)
 
     ompi_comm_assert_subscribe (comm, OMPI_COMM_ASSERT_NO_ANY_SOURCE);
     ompi_comm_assert_subscribe (comm, OMPI_COMM_ASSERT_ALLOW_OVERTAKE);
+#if OPAL_ENABLE_FT_MPI
+    ompi_comm_assert_subscribe (comm, OMPI_COMM_REPORT_GROUP);
+    ompi_comm_assert_subscribe (comm, OMPI_COMM_REPORT_GLOBAL);
+    ompi_comm_assert_subscribe (comm, OMPI_COMM_UNIFORM_CREATE);
+    ompi_comm_assert_subscribe (comm, OMPI_COMM_UNIFORM_COLL);
+#endif /* OPAL_ENABLE_FT_MPI */
 
     mca_pml_ob1_comm_init_size(pml_comm, comm->c_remote_group->grp_proc_count);
     comm->c_pml_comm = pml_comm;
