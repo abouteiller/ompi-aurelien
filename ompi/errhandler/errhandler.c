@@ -343,6 +343,9 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
         /* Notify the communicator to update as necessary */
         ompi_comm_set_rank_failed(comm, proc_rank, remote);
 
+        if( proc_rank < 0 ) {
+            continue;  /* Not in this communicator, continue */
+        }
         if( NULL == group ) {  /* Build a group with the failed process */
             rc = ompi_group_incl((remote ? comm->c_remote_group : comm->c_local_group),
                                  1, &proc_rank,

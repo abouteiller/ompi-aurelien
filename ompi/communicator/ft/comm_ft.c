@@ -316,14 +316,24 @@ bool ompi_comm_is_proc_active(ompi_communicator_t *comm, int peer_id, bool remot
 
 int ompi_comm_set_rank_failed(ompi_communicator_t *comm, int peer_id, bool remote)
 {
+    /* Revoke the communicator if in report_scope or report_global
+     * Only disable collectives in report_local */
+    bool coll_only = OMPI_COMM_CHECK_ASSERT_REPORT_LOCAL(comm);
+    /* If reporting about an out of comm peer in non global mode, bail out */
+    if(peer_id == MPI_PROC_NULL && !OMPI_COMM_CHECK_ASSERT_REPORT_GLOBAL(comm)) {
+        return OMPI_SUCCESS;
+    }
+
     /* Disable ANY_SOURCE */
     comm->any_source_enabled = false;
     opal_atomic_wmb(); /* non-locked update needs a memory barrier to propagate */
 
     /* Disable collectives */
-    MCA_PML_CALL(revoke_comm(comm, true));
+    MCA_PML_CALL(revoke_comm(comm, coll_only));
 
-    if( NULL != ompi_rank_failure_cbfunc ) {
+    /* Update the components that registered a callback only when peer is in
+     * comm */
+    if( NULL != ompi_rank_failure_cbfunc && MPI_PROC_NULL != peer_id ) {
         (*ompi_rank_failure_cbfunc)(comm, peer_id, remote);
     }
 
