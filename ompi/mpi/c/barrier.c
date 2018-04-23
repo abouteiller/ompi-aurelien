@@ -64,6 +64,7 @@ int MPI_Barrier(MPI_Comm comm)
    * check for this, and other, error conditions during the operation.
    */
   if( OPAL_UNLIKELY(!ompi_comm_iface_coll_check(comm, &err)) ) {
+      OMPI_ERRHANDLER_UNIFORM(comm, false, err);
       OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
   }
 #endif
@@ -85,6 +86,8 @@ int MPI_Barrier(MPI_Comm comm)
   }
 
   /* All done */
-
+#if OPAL_ENABLE_FT_MPI
+  OMPI_ERRHANDLER_UNIFORM(comm, false, err);
+#endif /* OPAL_ENABLE_FT_MPI */
   OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
 }
