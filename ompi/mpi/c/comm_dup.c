@@ -66,11 +66,13 @@ int MPI_Comm_dup(MPI_Comm comm, MPI_Comm *newcomm)
      * check for this, and other, error conditions during the operation.
      */
     if( OPAL_UNLIKELY(!ompi_comm_iface_create_check(comm, &rc)) ) {
+        OMPI_ERRHANDLER_UNIFORM(comm, true, rc);
         OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
     }
 #endif
 
     rc = ompi_comm_dup ( comm, newcomm );
+    OMPI_ERRHANDLER_UNIFORM(comm, true, rc);
     OMPI_ERRHANDLER_RETURN ( rc, comm, rc, FUNC_NAME);
 }
 

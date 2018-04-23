@@ -456,6 +456,24 @@ OMPI_DECLSPEC int ompi_errhandler_proc_failed_internal(struct ompi_proc_t *ompi_
 static inline int ompi_errhandler_proc_failed(struct ompi_proc_t* ompi_proc) {
     return ompi_errhandler_proc_failed_internal(ompi_proc, OPAL_ERR_PROC_ABORTED, true);
 }
+
+#include "ompi/op/op.h"
+#include "ompi/communicator/communicator.h"
+
+/* TODO: identify it object is a window or a file; may require additional 
+ * work to make it work in these cases as the window does not contain a copy 
+ * of the comm. */
+/* TODO: non-blocking collectives will require posting an async iagree and keep
+ * the request active until the agreement completes to avoid ordering issues.*/
+#define OMPI_ERRHANDLER_UNIFORM(object, is_create_op, rc) do { \
+    ompi_communicator_t* _comm = (ompi_communicator_t*)(object); \
+    opal_output("comm %p  rc %d", _comm, rc); \
+    if( OMPI_COMM_CHECK_ASSERT(_comm, OMPI_COMM_UNIFORM_COLL) \
+     || ((is_create_op) && OMPI_COMM_CHECK_ASSERT(_comm, OMPI_COMM_UNIFORM_CREATE)) ) { \
+        comm->c_coll->coll_agreement(&(rc), 1, &ompi_mpi_int.dt, &ompi_mpi_op_max.op, \
+                                     NULL, false, _comm, _comm->c_coll->coll_agreement_module); \
+    } \
+} while(0)
 #endif /* OPAL_ENABLE_FT_MPI */
 
 END_C_DECLS
