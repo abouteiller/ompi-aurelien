@@ -72,11 +72,13 @@ int MPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm) {
      * check for this, and other, error conditions during the operation.
      */
     if( OPAL_UNLIKELY(!ompi_comm_iface_create_check(comm, &rc)) ) {
+        OMPI_ERRHANDLER_UNIFORM(comm, true, rc);
         OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
     }
 #endif
 
     rc = ompi_comm_split ( (ompi_communicator_t*)comm, color, key,
                           (ompi_communicator_t**)newcomm, false);
+    OMPI_ERRHANDLER_UNIFORM(comm, true, rc);
     OMPI_ERRHANDLER_RETURN ( rc, comm, rc, FUNC_NAME);
 }

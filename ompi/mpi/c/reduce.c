@@ -131,6 +131,7 @@ int MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
      * check for this, and other, error conditions during the operation.
      */
     if( OPAL_UNLIKELY(!ompi_comm_iface_coll_check(comm, &err)) ) {
+        OMPI_ERRHANDLER_UNIFORM(comm, false, err);
         OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
     }
 #endif
@@ -150,5 +151,6 @@ int MPI_Reduce(const void *sendbuf, void *recvbuf, int count,
                                    datatype, op, root, comm,
                                    comm->c_coll->coll_reduce_module);
     OBJ_RELEASE(op);
+    OMPI_ERRHANDLER_UNIFORM(comm, false, err);
     OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
 }
