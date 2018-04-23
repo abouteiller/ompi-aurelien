@@ -109,6 +109,7 @@ int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype,
      * check for this, and other, error conditions during the operation.
      */
     if( OPAL_UNLIKELY(!ompi_comm_iface_coll_check(comm, &err)) ) {
+        OMPI_ERRHANDLER_UNIFORM(comm, false, err);
         OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
     }
 #endif
@@ -124,5 +125,6 @@ int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype,
 
     err = comm->c_coll->coll_bcast(buffer, count, datatype, root, comm,
                                   comm->c_coll->coll_bcast_module);
+    OMPI_ERRHANDLER_UNIFORM(comm, false, err);
     OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
 }
