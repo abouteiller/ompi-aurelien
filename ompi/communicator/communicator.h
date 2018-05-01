@@ -96,7 +96,7 @@ OMPI_DECLSPEC OBJ_CLASS_DECLARATION(ompi_communicator_t);
 #define OMPI_COMM_REPORT_GROUP          0x00000010
 #define OMPI_COMM_REPORT_GLOBAL         0x00000020
 #define OMPI_COMM_UNIFORM_CREATE        0x00000040
-#define OMPI_COMM_UNIFORM_COLL          0x000000C0
+#define OMPI_COMM_UNIFORM_COLL          0x00000080
 #endif /* OPAL_ENABLE_FT_MPI */
 
 #define OMPI_COMM_CHECK_ASSERT(comm, flag) !!((comm)->c_assertions & (flag))

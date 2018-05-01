@@ -538,11 +538,11 @@ static char *ompi_comm_set_error_uniform(opal_infosubscriber_t *obj, char *key, 
         comm->c_assertions |= OMPI_COMM_UNIFORM_CREATE;
     }
     else if(0 == strcmp("coll", value)) {
+        comm->c_assertions |= OMPI_COMM_UNIFORM_CREATE;
         comm->c_assertions |= OMPI_COMM_UNIFORM_COLL;
     }
-    return OMPI_COMM_CHECK_ASSERT(comm, OMPI_COMM_UNIFORM_COLL) ? "coll" : 
-            OMPI_COMM_CHECK_ASSERT(comm, OMPI_COMM_UNIFORM_CREATE) ? "create" : "local";
-
+    return (OMPI_COMM_CHECK_ASSERT(comm, OMPI_COMM_UNIFORM_CREATE) && !OMPI_COMM_CHECK_ASSERT(comm, OMPI_COMM_UNIFORM_COLL)) ? "create" :
+           OMPI_COMM_CHECK_ASSERT(comm, OMPI_COMM_UNIFORM_COLL) ? "coll" : "local";
 }
 
 #endif /* OPAL_ENABLE_FT_MPI */
