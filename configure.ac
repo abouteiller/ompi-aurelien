@@ -3,7 +3,7 @@
 # Copyright (c) 2004-2009 The Trustees of Indiana University and Indiana
 #                         University Research and Technology
 #                         Corporation.  All rights reserved.
-# Copyright (c) 2004-2015 The University of Tennessee and The University
+# Copyright (c) 2004-2018 The University of Tennessee and The University
 #                         of Tennessee Research Foundation.  All rights
 #                         reserved.
 # Copyright (c) 2004-2007 High Performance Computing Center Stuttgart,
@@ -23,6 +23,8 @@
 # Copyright (c) 2014-2017 Research Organization for Information Science
 #                         and Technology (RIST). All rights reserved.
 # Copyright (c) 2016-2017 IBM Corporation.  All rights reserved.
+# Copyright (c) 2018      Amazon.com, Inc. or its affiliates.
+#                         All Rights reserved.
 # $COPYRIGHT$
 #
 # Additional copyrights may follow
@@ -84,17 +86,6 @@ AS_IF([test "$host" != "$target"],
       [AC_MSG_WARN([Cross-compile detected])
        AC_MSG_WARN([Cross-compiling is only partially supported])
        AC_MSG_WARN([Proceed at your own risk!])])
-# Check for architectures that we explicitly no longer support
-case "${host}" in
-    powerpc-*|powerpc64-*|ppc-*)
-        AC_MSG_ERROR([Big endian PPC is no longer supported.])
-        ;;
-esac
-case "${target}" in
-    powerpc-*|powerpc64-*|ppc-*)
-        AC_MSG_ERROR([Big endian PPC is no longer supported.])
-        ;;
-esac
 
 # AC_USE_SYSTEM_EXTENSIONS alters CFLAGS (e.g., adds -g -O2)
 OPAL_VAR_SCOPE_PUSH([CFLAGS_save])
@@ -171,6 +162,7 @@ AC_SUBST(libmca_opal_common_verbs_so_version)
 AC_SUBST(libmca_orte_common_alps_so_version)
 AC_SUBST(libmca_ompi_common_ompio_so_version)
 AC_SUBST(libmca_ompi_common_monitoring_so_version)
+AC_SUBST(libmca_opal_common_ucx_so_version)
 
 #
 # Get the versions of the autotools that were used to bootstrap us
@@ -277,15 +269,30 @@ m4_ifdef([project_oshmem], [OSHMEM_CONFIGURE_OPTIONS])
 # Set up project specific AM_CONDITIONALs
 AS_IF([test "$enable_ompi" != "no"], [project_ompi_amc=true], [project_ompi_amc=false])
 m4_ifndef([project_ompi], [project_ompi_amc=false])
-AM_CONDITIONAL([PROJECT_OMPI], [test "$project_ompi_amc" = "true"])
 
 AS_IF([test "$enable_orte" != "no"], [project_orte_amc=true], [project_orte_amc=false])
 m4_ifndef([project_orte], [project_orte_amc=false])
-AM_CONDITIONAL([PROJECT_ORTE], [test "$project_orte_amc" = "true"])
 
-AS_IF([test "$enable_oshmem" != "no"], [project_oshmem_amc=true], [project_oshmem_amc=false])
-m4_ifndef([project_oshmem], [project_oshmem_amc=false])
-AM_CONDITIONAL([PROJECT_OSHMEM], [test "$project_oshmem_amc" = "true"])
+AS_IF([test "$enable_oshmem" != "no"], [project_oshmem_amc=true], [project_oshmem_amc="no (disabled)"])
+m4_ifndef([project_oshmem], [project_oshmem_amc="no (not available)"])
+
+# Enable/Disable Software-Based Performance Counters Capability
+AC_ARG_ENABLE(spc,
+    AC_HELP_STRING([--enable-spc],
+                   [Enable software-based performance counters capability (default: disabled)]))
+if test "$enable_spc" = "yes"; then
+    AC_MSG_RESULT([yes])
+    SPC_ENABLE=1
+else
+    AC_MSG_RESULT([no])
+    SPC_ENABLE=0
+fi
+AC_DEFINE_UNQUOTED([SPC_ENABLE],
+                   [$SPC_ENABLE],
+                   [If the software-based performance counters capability should be enabled.])
+AM_CONDITIONAL(SPC_ENABLE, test "$SPC_ENABLE" = "1")
+
+AS_IF([test "$enable_spc" != "no"], [project_spc_amc=true], [project_spc_amc=false])
 
 if test "$enable_binaries" = "no" && test "$enable_dist" = "yes"; then
     AC_MSG_WARN([--disable-binaries is incompatible with --enable dist])
@@ -1118,6 +1125,23 @@ OPAL_MCA
 
 m4_ifdef([project_ompi], [OMPI_REQUIRE_ENDPOINT_TAG_FINI])
 
+# Last minute disable of OpenSHMEM if we didn't find any oshmem SPMLs
+if test "$project_oshmem_amc" = "true" && test $OSHMEM_FOUND_WORKING_SPML -eq 0 ; then
+    # We don't have an spml that will work, so oshmem wouldn't be able
+    # to run an application.  Therefore, don't build the oshmem layer.
+    if test "$enable_oshmem" != "no" && test -n "$enable_oshmem"; then
+	AC_MSG_WARN([No spml found, so OpenSHMEM layer will be non functional.])
+	AC_MSG_ERROR([Aborting because OpenSHMEM requested, but can not build.])
+    else
+	AC_MSG_WARN([No spml found.  Will not build OpenSHMEM layer.])
+	project_oshmem_amc="false (no spml)"
+	# now for the hard part, remove project from list that will
+	# run.  This is a hack, but it works as long as the project
+	# remains named "oshmem".
+	MCA_PROJECT_SUBDIRS=`echo "$MCA_PROJECT_SUBDIRS" | sed -e 's/oshmem//'`
+    fi
+fi
+
 # checkpoint results
 AC_CACHE_SAVE
 
@@ -1355,6 +1379,14 @@ m4_ifdef([project_ompi],
 # Party on
 ############################################################################
 
+# set projects good/no good AM_CONDITIONALS.  This is at the end so
+# that the OSHMEM/OMPI projects can be disabled, if needed, based on
+# MCA tests.  If a project is to be disabled, also remove it from
+# MCA_PROJECT_SUBDIRS to actually disable building.
+AM_CONDITIONAL([PROJECT_OMPI], [test "$project_ompi_amc" = "true"])
+AM_CONDITIONAL([PROJECT_ORTE], [test "$project_orte_amc" = "true"])
+AM_CONDITIONAL([PROJECT_OSHMEM], [test "$project_oshmem_amc" = "true"])
+
 AC_MSG_CHECKING([if libtool needs -no-undefined flag to build shared libraries])
 case "`uname`" in
   CYGWIN*|MINGW*|AIX*)
@@ -1422,12 +1454,13 @@ AC_CONFIG_FILES([
     test/datatype/Makefile
     test/dss/Makefile
     test/class/Makefile
+    test/mpool/Makefile
     test/support/Makefile
     test/threads/Makefile
     test/util/Makefile
 ])
 
-m4_ifdef([project_ompi], [AC_CONFIG_FILES([test/monitoring/Makefile])])
+m4_ifdef([project_ompi], [AC_CONFIG_FILES([test/monitoring/Makefile test/spc/Makefile])])
 
 AC_CONFIG_FILES([contrib/dist/mofed/debian/rules],
                 [chmod +x contrib/dist/mofed/debian/rules])

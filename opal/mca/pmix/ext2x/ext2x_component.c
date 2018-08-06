@@ -2,7 +2,7 @@
  * Copyright (c) 2014-2018 Intel, Inc. All rights reserved.
  * Copyright (c) 2014-2015 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
- * Copyright (c) 2016 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.  All rights reserved
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -38,6 +38,11 @@ static int external_register(void);
 static int external_open(void);
 static int external_close(void);
 static int external_component_query(mca_base_module_t **module, int *priority);
+
+/*
+ * Local variable
+ */
+static char *pmix_library_version = NULL;
 
 
 /*
@@ -91,6 +96,15 @@ static int external_register(void)
                                             MCA_BASE_VAR_SCOPE_READONLY,
                                             &mca_pmix_ext2x_component.silence_warning);
 
+    asprintf(&pmix_library_version, "PMIx library version %s", PMIx_Get_version());
+    (void) mca_base_component_var_register(component, "library_version",
+                                           "Version of the underlying PMIx library",
+                                           MCA_BASE_VAR_TYPE_STRING,
+                                           NULL, 0, 0,
+                                           OPAL_INFO_LVL_4,
+                                           MCA_BASE_VAR_SCOPE_CONSTANT,
+                                           &pmix_library_version);
+
     return OPAL_SUCCESS;
 }
 
@@ -104,12 +118,12 @@ static int external_open(void)
     OBJ_CONSTRUCT(&mca_pmix_ext2x_component.dmdx, opal_list_t);
 
     version = PMIx_Get_version();
-    if ('2' != version[0]) {
+    if ('2' > version[0]) {
         opal_show_help("help-pmix-base.txt",
                        "incorrect-pmix", true, version, "v2.x");
         return OPAL_ERROR;
     }
-    if (0 == strncmp(version, "2.1", 3)) {
+    if (0 != strncmp(version, "2.0", 3)) {
         mca_pmix_ext2x_component.legacy_get = false;
     }
 
@@ -131,6 +145,7 @@ static int external_component_query(mca_base_module_t **module, int *priority)
 
     /* see if a PMIx server is present */
     if (NULL != (t = getenv("PMIX_SERVER_URI")) ||
+        NULL != (t = getenv("PMIX_SERVER_URI2")) ||
         NULL != (id = getenv("PMIX_ID"))) {
         /* if PMIx is present, then we are a client and need to use it */
         *priority = 100;

@@ -1,8 +1,9 @@
 /*
- * Copyright (c) 2013      Mellanox Technologies, Inc.
+ * Copyright (c) 2013-2018 Mellanox Technologies, Inc.
  *                         All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2018      Cisco Systems, Inc.  All rights reserved
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -58,28 +59,35 @@
 #include "oshmem/shmem/shmem_lock.h"
 #include "oshmem/runtime/oshmem_shmem_preconnect.h"
 
+extern int oshmem_shmem_globalexit_status;
+
 static int _shmem_finalize(void);
 
 int oshmem_shmem_finalize(void)
 {
     int ret = OSHMEM_SUCCESS;
-    static int32_t finalize_has_already_started = 0;
-    int32_t _tmp = 0;
 
-    if (opal_atomic_compare_exchange_strong_32 (&finalize_has_already_started, &_tmp, 1)
-            && oshmem_shmem_initialized && !oshmem_shmem_aborted) {
+    if (oshmem_shmem_initialized && !oshmem_shmem_aborted) {
         /* Should be called first because ompi_mpi_finalize makes orte and opal finalization */
         ret = _shmem_finalize();
-
-        if ((OSHMEM_SUCCESS == ret) && ompi_mpi_initialized
-                && !ompi_mpi_finalized) {
-            PMPI_Comm_free(&oshmem_comm_world);
-            ret = ompi_mpi_finalize();
-        }
 
         if (OSHMEM_SUCCESS == ret) {
             oshmem_shmem_initialized = false;
         }
+
+        SHMEM_MUTEX_DESTROY(shmem_internal_mutex_alloc);
+    }
+
+    /* Note: ompi_mpi_state is set atomically in ompi_mpi_init() and
+       ompi_mpi_finalize().  Those 2 functions have the appropriate
+       memory barriers such that we don't need one here. */
+    int32_t state = ompi_mpi_state;
+    if ((OSHMEM_SUCCESS == ret) &&
+        (state >= OMPI_MPI_STATE_INIT_COMPLETED &&
+         state < OMPI_MPI_STATE_FINALIZE_PAST_COMM_SELF_DESTRUCT) &&
+        oshmem_shmem_globalexit_status == 0) {
+        PMPI_Comm_free(&oshmem_comm_world);
+        ret = ompi_mpi_finalize();
     }
 
     return ret;
@@ -102,17 +110,10 @@ static int _shmem_finalize(void)
     if (OSHMEM_SUCCESS != (ret = oshmem_request_finalize())) {
         return ret;
     }
-    /* must free cached groups before we kill collectives */
-    if (OSHMEM_SUCCESS != (ret = oshmem_group_cache_list_free())) {
-        return ret;
-    }
-    /* We need to call mca_scoll_base_group_unselect explicitly for each group
-     * that are not freed by oshmem_group_cache_list_free. We can only release its collectives at this point */
-    mca_scoll_base_group_unselect(oshmem_group_all);
-    mca_scoll_base_group_unselect(oshmem_group_self);
+
+    oshmem_proc_group_finalize_scoll();
 
     /* Close down MCA modules */
-
     if (OSHMEM_SUCCESS != (ret = mca_base_framework_close(&oshmem_atomic_base_framework) ) ) {
         return ret;
     }

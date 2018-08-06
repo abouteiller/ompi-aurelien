@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016 The University of Tennessee and The University
+ * Copyright (c) 2013-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -214,7 +214,7 @@ static void ompi_comm_rbcast_bml_recv_cb(
          * that we keep receiving messages after we deregistered the type.
          * Any other time, this is indicative of a problem.
          */
-        assert(ompi_mpi_finalize_started);
+        assert(ompi_mpi_state >= OMPI_MPI_STATE_FINALIZE_STARTED);
     }
 }
 

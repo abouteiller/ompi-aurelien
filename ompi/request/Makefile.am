@@ -12,6 +12,8 @@
 #                         All rights reserved.
 # Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
 # Copyright (c) 2016      IBM Corporation.  All rights reserved.
+# Copyright (c) 2018      Research Organization for Information Science
+#                         and Technology (RIST).  All rights reserved.
 # $COPYRIGHT$
 #
 # Additional copyrights may follow
@@ -27,6 +29,11 @@ headers += \
         request/request.h \
 	request/request_dbg.h
 
+if OMPI_ENABLE_GREQUEST_EXTENSIONS
+headers += \
+        request/grequestx.h
+endif
+
 lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
         request/grequest.c \
         request/request.c \
@@ -37,3 +44,8 @@ if WANT_FT_MPI
 lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
 	request/req_ft.c
 endif # WANT_FT_MPI
+
+if OMPI_ENABLE_GREQUEST_EXTENSIONS
+lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
+        request/grequestx.c
+endif

@@ -14,6 +14,7 @@
  * Copyright (c) 2011-2012 NVIDIA Corporation.  All rights reserved.
  * Copyright (c) 2011-2016 Los Alamos National Security, LLC. All rights
  *                         reserved.
+ * Copyright (c) 2018      FUJITSU LIMITED.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -478,6 +479,16 @@ mca_pml_ob1_send_request_start_seq (mca_pml_ob1_send_request_t* sendreq, mca_bml
 #endif /* OPAL_ENABLE_FT_MPI */
         if( OPAL_LIKELY(OMPI_ERR_OUT_OF_RESOURCE != rc) )
             return rc;
+    }
+    if(MCA_PML_BASE_SEND_BUFFERED == sendreq->req_send.req_send_mode &&
+       sendreq->req_send.req_addr == sendreq->req_send.req_base.req_addr) {
+        /* in the buffered mode, the send buffer must be saved to
+         * the attached buffer before returning it to the user */
+        int rc;
+        rc = mca_pml_base_bsend_request_start((ompi_request_t*)sendreq);
+        if(OMPI_SUCCESS != rc){
+            return rc;
+        }
     }
     add_request_to_send_pending(sendreq, MCA_PML_OB1_SEND_PENDING_START, true);
 

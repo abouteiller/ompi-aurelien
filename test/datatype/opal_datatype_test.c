@@ -14,6 +14,8 @@
  * Copyright (c) 2009      Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2017      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2018      Los Alamos National Security, LLC. All rights
+ *                         reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -187,7 +189,7 @@ static int local_copy_ddt_count( opal_datatype_t const * const pdt, int count )
             }
         }
         if( 0 == errors ) {
-            printf("Validation check succesfully passed\n");
+            printf("Validation check successfully passed\n");
         } else {
             printf("Found %d errors. Giving up!\n", errors);
             exit(-1);
@@ -473,7 +475,7 @@ static int local_copy_with_convertor( opal_datatype_t const * const pdt, int cou
             }
         }
         if( 0 == errors ) {
-            printf("Validation check succesfully passed\n");
+            printf("Validation check successfully passed\n");
         } else {
             printf("Found %d errors. Giving up!\n", errors);
             exit(-1);
@@ -530,10 +532,6 @@ int main( int argc, char* argv[] )
         local_copy_with_convertor(pdt, 1, 48);
     }
     OBJ_RELEASE( pdt ); assert( pdt == NULL );
-
-    mpich_typeub();
-    mpich_typeub2();
-    mpich_typeub3();
 
     printf( "\n\n#\n * TEST UPPER MATRIX\n#\n\n" );
     rc = test_upper( length );

@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2014-2017 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Intel, Inc. All rights reserved.
  * Copyright (c) 2014-2017 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2014-2015 Mellanox Technologies, Inc.
@@ -76,8 +76,8 @@ static pmix_status_t server_spawn_fn(const pmix_proc_t *proc,
                                      pmix_spawn_cbfunc_t cbfunc, void *cbdata);
 static pmix_status_t server_connect_fn(const pmix_proc_t procs[], size_t nprocs,
                                        const pmix_info_t info[], size_t ninfo,
-                                       pmix_connect_cbfunc_t cbfunc, void *cbdata);
-static pmix_status_t server_disconnect_fn(const char nspace[],
+                                       pmix_op_cbfunc_t cbfunc, void *cbdata);
+static pmix_status_t server_disconnect_fn(const pmix_proc_t procs[], size_t nprocs,
                                           const pmix_info_t info[], size_t ninfo,
                                           pmix_op_cbfunc_t cbfunc, void *cbdata);
 static pmix_status_t server_register_events(pmix_status_t *codes, size_t ncodes,
@@ -111,6 +111,15 @@ static pmix_status_t server_job_control(const pmix_proc_t *requestor,
                                         const pmix_proc_t targets[], size_t ntargets,
                                         const pmix_info_t directives[], size_t ndirs,
                                         pmix_info_cbfunc_t cbfunc, void *cbdata);
+static pmix_status_t server_iof_pull(const pmix_proc_t procs[], size_t nprocs,
+                                     const pmix_info_t directives[], size_t ndirs,
+                                     pmix_iof_channel_t channels,
+                                     pmix_op_cbfunc_t cbfunc, void *cbdata);
+static pmix_status_t server_stdin(const pmix_proc_t *source,
+                                  const pmix_proc_t targets[], size_t ntargets,
+                                  const pmix_info_t directives[], size_t ndirs,
+                                  const pmix_byte_object_t *bo,
+                                  pmix_op_cbfunc_t cbfunc, void *cbdata);
 
 pmix_server_module_t mymodule = {
     .client_connected = server_client_connected_fn,
@@ -131,9 +140,11 @@ pmix_server_module_t mymodule = {
     .tool_connected = server_tool_connection,
     .log = server_log,
     .allocate = server_allocate,
-    .job_control = server_job_control
+    .job_control = server_job_control,
     /* we do not support monitoring, but use the
      * PMIx internal monitoring capability */
+    .iof_pull = server_iof_pull,
+    .push_stdin = server_stdin
 };
 
 opal_pmix_server_module_t *host_module = NULL;
@@ -700,20 +711,9 @@ static pmix_status_t server_spawn_fn(const pmix_proc_t *p,
 }
 
 
-static void cnopcbfunc(int status, void *cbdata)
-{
-    pmix3x_opalcaddy_t *opalcaddy = (pmix3x_opalcaddy_t*)cbdata;
-
-    if (NULL != opalcaddy->cnctcbfunc) {
-        opalcaddy->cnctcbfunc(pmix3x_convert_opalrc(status),
-                              "1234", 0, opalcaddy->cbdata);
-    }
-    OBJ_RELEASE(opalcaddy);
-}
-
 static pmix_status_t server_connect_fn(const pmix_proc_t procs[], size_t nprocs,
                                        const pmix_info_t info[], size_t ninfo,
-                                       pmix_connect_cbfunc_t cbfunc, void *cbdata)
+                                       pmix_op_cbfunc_t cbfunc, void *cbdata)
 {
     int rc;
     pmix3x_opalcaddy_t *opalcaddy;
@@ -727,7 +727,7 @@ static pmix_status_t server_connect_fn(const pmix_proc_t procs[], size_t nprocs,
 
     /* setup the caddy */
     opalcaddy = OBJ_NEW(pmix3x_opalcaddy_t);
-    opalcaddy->cnctcbfunc = cbfunc;
+    opalcaddy->opcbfunc = cbfunc;
     opalcaddy->cbdata = cbdata;
 
     /* convert the array of pmix_proc_t to the list of procs */
@@ -753,7 +753,7 @@ static pmix_status_t server_connect_fn(const pmix_proc_t procs[], size_t nprocs,
     }
 
     /* pass it up */
-    rc = host_module->connect(&opalcaddy->procs, &opalcaddy->info, cnopcbfunc, opalcaddy);
+    rc = host_module->connect(&opalcaddy->procs, &opalcaddy->info, opal_opcbfunc, opalcaddy);
     if (OPAL_SUCCESS != rc) {
         OBJ_RELEASE(opalcaddy);
     }
@@ -762,7 +762,7 @@ static pmix_status_t server_connect_fn(const pmix_proc_t procs[], size_t nprocs,
 }
 
 
-static pmix_status_t server_disconnect_fn(const char nspace[],
+static pmix_status_t server_disconnect_fn(const pmix_proc_t procs[], size_t nprocs,
                                           const pmix_info_t info[], size_t ninfo,
                                           pmix_op_cbfunc_t cbfunc, void *cbdata)
 {
@@ -781,14 +781,16 @@ static pmix_status_t server_disconnect_fn(const char nspace[],
     opalcaddy->opcbfunc = cbfunc;
     opalcaddy->cbdata = cbdata;
 
-    /* convert the nspace */
-    nm = OBJ_NEW(opal_namelist_t);
-    opal_list_append(&opalcaddy->procs, &nm->super);
-    if (OPAL_SUCCESS != (rc = opal_convert_string_to_jobid(&nm->name.jobid, nspace))) {
-        OBJ_RELEASE(opalcaddy);
-        return pmix3x_convert_opalrc(rc);
+    /* convert the array of pmix_proc_t to the list of procs */
+    for (n=0; n < nprocs; n++) {
+        nm = OBJ_NEW(opal_namelist_t);
+        opal_list_append(&opalcaddy->procs, &nm->super);
+        if (OPAL_SUCCESS != (rc = opal_convert_string_to_jobid(&nm->name.jobid, procs[n].nspace))) {
+            OBJ_RELEASE(opalcaddy);
+            return pmix3x_convert_opalrc(rc);
+        }
+        nm->name.vpid = pmix3x_convert_rank(procs[n].rank);
     }
-    nm->name.vpid = OPAL_VPID_WILDCARD;
 
     /* convert the info */
     for (n=0; n < ninfo; n++) {
@@ -943,6 +945,7 @@ static void info_cbfunc(int status,
         OPAL_LIST_FOREACH(kv, info, opal_value_t) {
             (void)strncpy(pcaddy->info[n].key, kv->key, PMIX_MAX_KEYLEN);
             pmix3x_value_load(&pcaddy->info[n].value, kv);
+            ++n;
         }
     }
     /* we are done with the incoming data */
@@ -1001,10 +1004,20 @@ static pmix_status_t server_query(pmix_proc_t *proct,
         for (m=0; m < queries[n].nqual; m++) {
             oinfo = OBJ_NEW(opal_value_t);
             opal_list_append(&q->qualifiers, &oinfo->super);
-            oinfo->key = strdup(queries[n].qualifiers[m].key);
-            if (OPAL_SUCCESS != (rc = pmix3x_value_unload(oinfo, &queries[n].qualifiers[m].value))) {
-                OBJ_RELEASE(opalcaddy);
-                return pmix3x_convert_opalrc(rc);
+
+            if (0 == strcmp(queries[n].qualifiers[m].key, PMIX_NSPACE)) {
+                /* must convert this to jobid */
+                oinfo->key = strdup(OPAL_PMIX_PROCID);
+                if (OPAL_SUCCESS != (rc = opal_convert_string_to_jobid(&oinfo->data.name.jobid, queries[n].qualifiers[m].value.data.string))) {
+                    OBJ_RELEASE(opalcaddy);
+                    return pmix3x_convert_opalrc(rc);
+                }
+            } else {
+                oinfo->key = strdup(queries[n].qualifiers[m].key);
+                if (OPAL_SUCCESS != (rc = pmix3x_value_unload(oinfo, &queries[n].qualifiers[m].value))) {
+                    OBJ_RELEASE(opalcaddy);
+                    return pmix3x_convert_opalrc(rc);
+                }
             }
         }
     }
@@ -1061,6 +1074,8 @@ static void server_tool_connection(pmix_info_t *info, size_t ninfo,
     opal_value_t *oinfo;
     int rc;
     pmix_status_t err;
+    opal_pmix3x_jobid_trkr_t *job;
+    bool found;
 
     /* setup the caddy */
     opalcaddy = OBJ_NEW(pmix3x_opalcaddy_t);
@@ -1072,12 +1087,36 @@ static void server_tool_connection(pmix_info_t *info, size_t ninfo,
         oinfo = OBJ_NEW(opal_value_t);
         opal_list_append(&opalcaddy->info, &oinfo->super);
         oinfo->key = strdup(info[n].key);
-        if (OPAL_SUCCESS != (rc = pmix3x_value_unload(oinfo, &info[n].value))) {
+        if (0 == strncmp(oinfo->key, PMIX_NSPACE, PMIX_MAX_KEYLEN)) {
+            /* will pass it up as a jobid */
+            oinfo->type = OPAL_JOBID;
+            /* see if this job is in our list of known nspaces */
+            found = false;
+            OPAL_LIST_FOREACH(job, &mca_pmix_pmix3x_component.jobids, opal_pmix3x_jobid_trkr_t) {
+                if (0 == strncmp(job->nspace, info[n].value.data.proc->nspace, PMIX_MAX_NSLEN)) {
+                    oinfo->data.name.jobid = job->jobid;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                if (OPAL_SUCCESS != (rc = opal_convert_string_to_jobid(&oinfo->data.name.jobid, info[n].value.data.proc->nspace))) {
+                    OPAL_ERROR_LOG(rc);
+                    OBJ_RELEASE(opalcaddy);
+                    err = pmix3x_convert_opalrc(rc);
+                    if (NULL != cbfunc) {
+                        cbfunc(err, NULL, cbdata);
+                    }
+                    return;
+                }
+            }
+        } else if (OPAL_SUCCESS != (rc = pmix3x_value_unload(oinfo, &info[n].value))) {
             OBJ_RELEASE(opalcaddy);
             err = pmix3x_convert_opalrc(rc);
             if (NULL != cbfunc) {
                 cbfunc(err, NULL, cbdata);
             }
+            return;
         }
     }
 
@@ -1273,4 +1312,27 @@ static pmix_status_t server_job_control(const pmix_proc_t *proct,
     }
 
     return PMIX_SUCCESS;
+}
+
+static pmix_status_t server_iof_pull(const pmix_proc_t procs[], size_t nprocs,
+                                     const pmix_info_t directives[], size_t ndirs,
+                                     pmix_iof_channel_t channels,
+                                     pmix_op_cbfunc_t cbfunc, void *cbdata)
+{
+    if (NULL == host_module || NULL == host_module->iof_pull) {
+        return PMIX_ERR_NOT_SUPPORTED;
+    }
+    return PMIX_ERR_NOT_SUPPORTED;
+}
+
+static pmix_status_t server_stdin(const pmix_proc_t *source,
+                                  const pmix_proc_t targets[], size_t ntargets,
+                                  const pmix_info_t directives[], size_t ndirs,
+                                  const pmix_byte_object_t *bo,
+                                  pmix_op_cbfunc_t cbfunc, void *cbdata)
+{
+    if (NULL == host_module || NULL == host_module->iof_push) {
+        return PMIX_ERR_NOT_SUPPORTED;
+    }
+    return PMIX_ERR_NOT_SUPPORTED;
 }

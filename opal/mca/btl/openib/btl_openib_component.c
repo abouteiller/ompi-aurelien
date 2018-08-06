@@ -10,9 +10,9 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2006-2017 Cisco Systems, Inc.  All rights reserved
+ * Copyright (c) 2006-2018 Cisco Systems, Inc.  All rights reserved
  * Copyright (c) 2006-2015 Mellanox Technologies. All rights reserved.
- * Copyright (c) 2006-2015 Los Alamos National Security, LLC.  All rights
+ * Copyright (c) 2006-2018 Los Alamos National Security, LLC.  All rights
  *                         reserved.
  * Copyright (c) 2006-2007 Voltaire All rights reserved.
  * Copyright (c) 2009-2012 Oracle and/or its affiliates.  All rights reserved.
@@ -621,6 +621,30 @@ static int init_one_port(opal_list_t *btl_list, mca_btl_openib_device_t *device,
     mca_btl_base_selected_module_t *ib_selected;
     union ibv_gid gid;
     uint64_t subnet_id;
+
+/*
+ * Starting with Open MPI 4.0 we don't support infiniband
+ * unless the user specifically requested to override this
+ * policy.  For ancient OFED, only allow if user has set
+ * the MCA parameter.
+ */
+#if HAVE_DECL_IBV_LINK_LAYER_ETHERNET
+    if ((IBV_LINK_LAYER_INFINIBAND == ib_port_attr->link_layer) &&
+        (false == mca_btl_openib_component.allow_ib)) {
+        opal_show_help("help-mpi-btl-openib.txt", "ib port not selected",
+                       true, opal_process_info.nodename,
+                       ibv_get_device_name(device->ib_dev), port_num);
+        return OPAL_ERR_NOT_FOUND;
+    }
+#else
+    if (false == mca_btl_openib_component.allow_ib) {
+        opal_show_help("help-mpi-btl-openib.txt", "ib port not selected",
+                       true, opal_process_info.nodename,
+                       ibv_get_device_name(device->ib_dev), port_num);
+        return OPAL_ERR_NOT_FOUND;
+    }
+#endif
+
 
     /* Ensure that the requested GID index (via the
        btl_openib_gid_index MCA param) is within the GID table
@@ -1524,7 +1548,11 @@ static uint64_t calculate_total_mem (void)
         if (NULL == machine) {
             return 0;
         }
+#if HWLOC_API_VERSION < 0x20000
         return machine->memory.total_memory;
+#else
+        return machine->total_memory;
+#endif
     }
 
     /* couldn't find it */
@@ -3436,7 +3464,9 @@ progress_pending_frags_wqe(mca_btl_base_endpoint_t *ep, const int qpn)
             frag = opal_list_remove_first(&ep->qps[qpn].no_wqe_pending_frags[i]);
             if(NULL == frag)
                 break;
+#if OPAL_ENABLE_DEBUG
             assert(0 == frag->opal_list_item_refcount);
+#endif
             tmp_ep = to_com_frag(frag)->endpoint;
             ret = mca_btl_openib_endpoint_post_send(tmp_ep, to_send_frag(frag));
             if (OPAL_SUCCESS != ret) {

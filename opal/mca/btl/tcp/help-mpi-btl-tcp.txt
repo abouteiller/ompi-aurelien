@@ -1,6 +1,6 @@
 # -*- text -*-
 #
-# Copyright (c) 2009-2017 Cisco Systems, Inc.  All rights reserved
+# Copyright (c) 2009-2018 Cisco Systems, Inc.  All rights reserved
 # Copyright (c) 2015-2016 The University of Tennessee and The University
 #                         of Tennessee Research Foundation.  All rights
 #                         reserved.
@@ -35,7 +35,7 @@ values are in the range [1 .. 2^16-1]. This value will be ignored
 WARNING: Open MPI failed to TCP connect to a peer MPI process.  This
 should not happen.
 
-Your Open MPI job may now fail.
+Your Open MPI job may now hang or fail.
 
   Local host: %s
   PID:        %d
@@ -46,7 +46,7 @@ Your Open MPI job may now fail.
 WARNING: Open MPI failed to handshake with a connecting peer MPI
 process over TCP.  This should not happen.
 
-Your Open MPI job may now fail.
+Your Open MPI job may now hang or fail.
 
   Local host: %s
   PID:        %d
@@ -102,8 +102,11 @@ hopefully be able to continue).
   Known IPs of peer:   %s
 #
 [socket flag fail]
-WARNING: Open MPI failed to set flags on a TCP socket.  This should
-not happen.  It is likely that your MPI job will now fail.
+WARNING: Open MPI failed to get or set flags on a TCP socket.  This
+should not happen.
+
+This may cause unpredictable behavior, and may end up hanging or
+aborting your job.
 
   Local host: %s
   PID:        %d
@@ -164,4 +167,3 @@ Your Open MPI job may now fail.
   PID:        %d
   Message:    %s
   Error:      %s (%d)
-#

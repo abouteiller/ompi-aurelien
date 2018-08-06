@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013      Mellanox Technologies, Inc.
+ * Copyright (c) 2013-2018 Mellanox Technologies, Inc.
  *                         All rights reserved.
  * $COPYRIGHT$
  *
@@ -18,7 +18,6 @@
 #include "oshmem/mca/scoll/base/base.h"
 
 #include "oshmem/proc/proc.h"
-#include "oshmem/proc/proc_group_cache.h"
 
 
 #if OSHMEM_PROFILING
@@ -30,48 +29,22 @@
 
 void shmem_barrier(int PE_start, int logPE_stride, int PE_size, long *pSync)
 {
-    int rc = OSHMEM_SUCCESS;
-    oshmem_group_t* group = NULL;
+    int rc;
+    oshmem_group_t* group;
 
     RUNTIME_CHECK_INIT();
 
 #if OSHMEM_SPEC_COMPAT == 1
     /* all outstanding puts must be completed */
-    shmem_fence();
+    shmem_quiet();
 #endif
 
-    if ((0 <= PE_start) && (0 <= logPE_stride)) {
-        /* Create group basing PE_start, logPE_stride and PE_size */
-#if OSHMEM_GROUP_CACHE_ENABLED == 0
-        group = oshmem_proc_group_create(PE_start, (1 << logPE_stride), PE_size);
-        if (!group)
-        rc = OSHMEM_ERROR;
-#else
-        group = find_group_in_cache(PE_start, logPE_stride, PE_size);
-        if (!group) {
-            group = oshmem_proc_group_create(PE_start,
-                                             (1 << logPE_stride),
-                                             PE_size);
-            if (!group) {
-                rc = OSHMEM_ERROR;
-            } else {
-                cache_group(group, PE_start, logPE_stride, PE_size);
-            }
-        }
-#endif /* OSHMEM_GROUP_CACHE_ENABLED */
-        /* Collective operation call */
-        if (rc == OSHMEM_SUCCESS) {
-            /* Call barrier operation */
-            rc = group->g_scoll.scoll_barrier(group, pSync, SCOLL_DEFAULT_ALG);
-        }
+    /* Create group basing PE_start, logPE_stride and PE_size */
+    group = oshmem_proc_group_create_nofail(PE_start, 1<<logPE_stride, PE_size);
+    /* Call barrier operation */
+    rc = group->g_scoll.scoll_barrier(group, pSync, SCOLL_DEFAULT_ALG);
 
-#if OSHMEM_GROUP_CACHE_ENABLED == 0
-        if ( rc == OSHMEM_SUCCESS )
-        {
-            oshmem_proc_group_destroy(group);
-        }
-#endif /* OSHMEM_GROUP_CACHE_ENABLED */
-    }
+    oshmem_proc_group_destroy(group);
     RUNTIME_CHECK_RC(rc);
 }
 
@@ -81,7 +54,7 @@ void shmem_barrier_all(void)
 
 #if OSHMEM_SPEC_COMPAT == 1
     /* all outstanding puts must be completed */
-    shmem_fence();
+    shmem_quiet();
 #endif
 
     if (mca_scoll_sync_array) {

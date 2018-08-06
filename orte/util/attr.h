@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2014-2018 Intel, Inc. All rights reserved.
  * Copyright (c) 2016      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * $COPYRIGHT$
@@ -47,6 +47,11 @@ typedef uint8_t orte_app_context_flags_t;
 #define ORTE_APP_MAX_PPN            14    // uint32 - maximum number of procs/node for this app
 #define ORTE_APP_PREFIX_DIR         15    // string - prefix directory for this app, if override necessary
 #define ORTE_APP_NO_CACHEDIR        16    // bool - flag that a cache dir is not to be specified for a Singularity container
+#define ORTE_APP_SET_ENVAR          17    // opal_envar_t - set the given envar to the specified value
+#define ORTE_APP_UNSET_ENVAR        18    // string - name of envar to unset, if present
+#define ORTE_APP_PREPEND_ENVAR      19    // opal_envar_t - prepend the specified value to the given envar
+#define ORTE_APP_APPEND_ENVAR       20    // opal_envar_t - append the specified value to the given envar
+#define ORTE_APP_ADD_ENVAR          21    // opal_envar_t - add envar, do not override pre-existing one
 
 #define ORTE_APP_MAX_KEY        100
 
@@ -59,6 +64,7 @@ typedef uint8_t orte_node_flags_t;
 #define ORTE_NODE_FLAG_OVERSUBSCRIBED     0x04   // whether or not this node is oversubscribed
 #define ORTE_NODE_FLAG_MAPPED             0x08   // whether we have been added to the current map
 #define ORTE_NODE_FLAG_SLOTS_GIVEN        0x10   // the number of slots was specified - used only in non-managed environments
+#define ORTE_NODE_NON_USABLE              0x20   // the node is hosting a tool and is NOT to be used for jobs
 
 
 /*** NODE ATTRIBUTE KEYS - never sent anywhere ***/
@@ -146,6 +152,12 @@ typedef uint16_t orte_job_flags_t;
 #define ORTE_JOB_FULLY_DESCRIBED        (ORTE_JOB_START_KEY + 53)    // bool - job is fully described in launch msg
 #define ORTE_JOB_SILENT_TERMINATION     (ORTE_JOB_START_KEY + 54)    // bool - do not generate an event notification when job
                                                                      //        normally terminates
+#define ORTE_JOB_SET_ENVAR              (ORTE_JOB_START_KEY + 55)    // opal_envar_t - set the given envar to the specified value
+#define ORTE_JOB_UNSET_ENVAR            (ORTE_JOB_START_KEY + 56)    // string - name of envar to unset, if present
+#define ORTE_JOB_PREPEND_ENVAR          (ORTE_JOB_START_KEY + 57)    // opal_envar_t - prepend the specified value to the given envar
+#define ORTE_JOB_APPEND_ENVAR           (ORTE_JOB_START_KEY + 58)    // opal_envar_t - append the specified value to the given envar
+#define ORTE_JOB_ADD_ENVAR              (ORTE_JOB_START_KEY + 59)    // opal_envar_t - add envar, do not override pre-existing one
+#define ORTE_JOB_APP_SETUP_DATA         (ORTE_JOB_START_KEY + 60)    // opal_byte_object_t - blob containing app setup data
 
 #define ORTE_JOB_MAX_KEY   300
 
@@ -166,6 +178,7 @@ typedef uint16_t orte_proc_flags_t;
 #define ORTE_PROC_FLAG_DATA_IN_SM    0x0800  // modex data has been stored in the local shared memory region
 #define ORTE_PROC_FLAG_DATA_RECVD    0x1000  // modex data for this proc has been received
 #define ORTE_PROC_FLAG_SM_ACCESS     0x2000  // indicate if process can read modex data from shared memory region
+#define ORTE_PROC_FLAG_TOOL          0x4000  // proc is a tool and doesn't count against allocations
 
 /***   PROCESS ATTRIBUTE KEYS   ***/
 #define ORTE_PROC_START_KEY   ORTE_JOB_MAX_KEY
@@ -220,6 +233,24 @@ ORTE_DECLSPEC int orte_set_attribute(opal_list_t *attributes, orte_attribute_key
 
 /* Remove the named attribute from a list */
 ORTE_DECLSPEC void orte_remove_attribute(opal_list_t *attributes, orte_attribute_key_t key);
+
+ORTE_DECLSPEC orte_attribute_t* orte_fetch_attribute(opal_list_t *attributes,
+                                                     orte_attribute_t *prev,
+                                                     orte_attribute_key_t key);
+
+ORTE_DECLSPEC int orte_add_attribute(opal_list_t *attributes,
+                                     orte_attribute_key_t key, bool local,
+                                     void *data, opal_data_type_t type);
+
+ORTE_DECLSPEC int orte_prepend_attribute(opal_list_t *attributes,
+                                         orte_attribute_key_t key, bool local,
+                                         void *data, opal_data_type_t type);
+
+ORTE_DECLSPEC int orte_attr_load(orte_attribute_t *kv,
+                                 void *data, opal_data_type_t type);
+
+ORTE_DECLSPEC int orte_attr_unload(orte_attribute_t *kv,
+                                   void **data, opal_data_type_t type);
 
 /*
  * Register a handler for converting attr keys to strings

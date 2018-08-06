@@ -33,7 +33,7 @@ mca_coll_ftbasic_agreement(void *contrib,
                            struct ompi_op_t *op,
                            struct ompi_group_t **group, bool update_grp,
                            struct ompi_communicator_t* comm,
-                           struct mca_coll_base_module_2_2_0_t *module)
+                           struct mca_coll_base_module_2_3_0_t *module)
 {
     return comm->c_coll->coll_allreduce(MPI_IN_PLACE, contrib, dt_count, dt, op,
                                        comm, comm->c_coll->coll_allreduce_module);
@@ -47,7 +47,7 @@ mca_coll_ftbasic_iagreement(void *contrib,
                             struct ompi_group_t **group, bool update_grp,
                             struct ompi_communicator_t* comm,
                             ompi_request_t **request,
-                            struct mca_coll_base_module_2_2_0_t *module)
+                            struct mca_coll_base_module_2_3_0_t *module)
 {
     return comm->c_coll->coll_iallreduce(MPI_IN_PLACE, contrib, dt_count, dt, op,
                                         comm, request, comm->c_coll->coll_iallreduce_module);
@@ -120,29 +120,13 @@ mca_coll_ftbasic_comm_query(struct ompi_communicator_t *comm,
     ftbasic_module->super.coll_module_enable = mca_coll_ftbasic_module_enable;
     ftbasic_module->super.ft_event = mca_coll_ftbasic_ft_event;
 
-    /* This component does not provide any base collectives,
-     * just the FT collectives.
-     */
-    ftbasic_module->super.coll_allgather      = NULL;
-    ftbasic_module->super.coll_allgatherv     = NULL;
-    ftbasic_module->super.coll_allreduce      = NULL;
-    ftbasic_module->super.coll_alltoall       = NULL;
-    ftbasic_module->super.coll_alltoallv      = NULL;
-    ftbasic_module->super.coll_alltoallw      = NULL;
-    ftbasic_module->super.coll_barrier        = NULL;
-    ftbasic_module->super.coll_bcast          = NULL;
-    ftbasic_module->super.coll_exscan         = NULL;
-    ftbasic_module->super.coll_gather         = NULL;
-    ftbasic_module->super.coll_gatherv        = NULL;
-    ftbasic_module->super.coll_reduce         = NULL;
-    ftbasic_module->super.coll_reduce_scatter = NULL;
-    ftbasic_module->super.coll_scan           = NULL;
-    ftbasic_module->super.coll_scatter        = NULL;
-    ftbasic_module->super.coll_scatterv       = NULL;
-
     /* agreement is a reduction with a bitwise OR */
     ftbasic_module->super.coll_agreement  = mca_coll_ftbasic_agreement;
     ftbasic_module->super.coll_iagreement = mca_coll_ftbasic_iagreement;
+    /* This component does not provide any base collectives,
+     * just the FT collectives.
+     * Other function pointers are zeroed by the module constructor.
+     */
 
     /*
      * Agreement operation setup

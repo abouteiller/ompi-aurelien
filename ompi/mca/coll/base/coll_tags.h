@@ -2,7 +2,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2016 The University of Tennessee and The University
+ * Copyright (c) 2004-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -46,22 +46,14 @@
 #define MCA_COLL_BASE_TAG_GATHERV -20
 #define MCA_COLL_BASE_TAG_REDUCE -21
 #define MCA_COLL_BASE_TAG_REDUCE_SCATTER -22
-#define MCA_COLL_BASE_TAG_SCAN -23
-#define MCA_COLL_BASE_TAG_SCATTER -24
-#define MCA_COLL_BASE_TAG_SCATTERV -25
-#define MCA_COLL_BASE_TAG_BLOCKING_END -25
-
-#define MCA_COLL_BASE_TAG_NONBLOCKING_BASE (MCA_COLL_BASE_TAG_BLOCKING_END - 1)
-#define MCA_COLL_BASE_TAG_NONBLOCKING_END  (MCA_COLL_BASE_TAG_NONBLOCKING_BASE + (MCA_COLL_BASE_TAG_BLOCKING_END - MCA_COLL_BASE_TAG_BLOCKING_BASE))
-
-#define MCA_COLL_BASE_TAG_HCOLL_BASE (MCA_COLL_BASE_TAG_NONBLOCKING_END - 1)
-#define MCA_COLL_BASE_TAG_HCOLL_END  (MCA_COLL_BASE_TAG_HCOLL_BASE + (MCA_COLL_BASE_TAG_NONBLOCKING_END - MCA_COLL_BASE_TAG_NONBLOCKING_BASE))
-
-#define MCA_COLL_BASE_TAG_BASE MCA_COLL_BASE_TAG_BLOCKING_BASE
-#define MCA_COLL_BASE_TAG_END  MCA_COLL_BASE_TAG_HCOLL_END
+#define MCA_COLL_BASE_TAG_REDUCE_SCATTER_BLOCK -23
+#define MCA_COLL_BASE_TAG_SCAN -24
+#define MCA_COLL_BASE_TAG_SCATTER -25
+#define MCA_COLL_BASE_TAG_SCATTERV -26
+#define MCA_COLL_BASE_TAG_BLOCKING_END -26
 
 #if OPAL_ENABLE_FT_MPI
-#define MCA_COLL_BASE_TAG_FT_BASE                (MCA_COLL_BASE_TAG_END - 1)
+#define MCA_COLL_BASE_TAG_FT_BASE                (MCA_COLL_BASE_TAG_BLOCKING_END - 1)
 #define MCA_COLL_BASE_TAG_SHRINK                 (MCA_COLL_BASE_TAG_FT_BASE - 1)
 #define MCA_COLL_BASE_TAG_AGREEMENT              (MCA_COLL_BASE_TAG_FT_BASE - 2)
 #define MCA_COLL_BASE_TAG_AGREEMENT_CATCH_UP     (MCA_COLL_BASE_TAG_FT_BASE - 3)
@@ -69,6 +61,20 @@
 #define MCA_COLL_BASE_TAG_AGREEMENT_UR_ELECTED   (MCA_COLL_BASE_TAG_FT_BASE - 5)
 /* one extra reserved to avoid revoke for normal reqs, see request/req_ft.c*/
 #define MCA_COLL_BASE_TAG_FT_END                 (MCA_COLL_BASE_TAG_FT_BASE - 6)
+
+#define MCA_COLL_BASE_TAG_STATIC_END             MCA_COLL_BASE_TAG_FT_END
+#else
+#define MCA_COLL_BASE_TAG_STATIC_END             MCA_COLL_BASE_TAG_BLOCKING_END
 #endif /* OPAL_ENABLE_FT_MPI */
+
+
+
+#define MCA_COLL_BASE_TAG_NONBLOCKING_BASE (MCA_COLL_BASE_TAG_STATIC_END - 1)
+#define MCA_COLL_BASE_TAG_NONBLOCKING_END ((-1 * INT_MAX/2) + 1)
+#define MCA_COLL_BASE_TAG_HCOLL_BASE (-1 * INT_MAX/2)
+#define MCA_COLL_BASE_TAG_HCOLL_END (-1 * INT_MAX)
+
+#define MCA_COLL_BASE_TAG_BASE MCA_COLL_BASE_TAG_BLOCKING_BASE
+#define MCA_COLL_BASE_TAG_END  MCA_COLL_BASE_TAG_HCOLL_END
 
 #endif /* MCA_COLL_BASE_TAGS_H */

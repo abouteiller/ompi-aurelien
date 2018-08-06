@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2017 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Intel, Inc. All rights reserved.
  * Copyright (c) 2015      Artem Y. Polyakov <artpol84@gmail.com>.
  *                         All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
@@ -198,48 +198,38 @@ typedef pmix_status_t (*pmix_server_spawn_fn_t)(const pmix_proc_t *proc,
                                                 const pmix_app_t apps[], size_t napps,
                                                 pmix_spawn_cbfunc_t cbfunc, void *cbdata);
 
-/* Record the specified processes as "connected". This means that:
+/* Record the specified processes as "connected". This means that the resource
+ * manager should treat the failure of any process in the specified group as
+ * a reportable event, and take appropriate action. The callback function is
+ * to be called once all participating processes have called connect. Note that
+ * a process can only engage in *one* connect operation involving the identical
+ * set of procs at a time. However, a process *can* be simultaneously engaged
+ * in multiple connect operations, each involving a different set of procs
  *
- * (a) the resource manager should treat the specified group as
- *     a group when reporting events.
- *
- * (b) processes can address the group by the newly assigned nspace
- *     when passing requests
- *
- * As in the case of the fence operation, the info array can be used to pass
- * user-level directives regarding the algorithm to be used for the collective
- * operation involved in the "connect", timeout constraints, and other options
- * available from the host RM.
- *
- * The callback function will be called once the operation is complete. Any
- * participant that fails to call "connect" prior to terminating will cause the
- * operation to return a "failed" status to all other participants. This
- * is the default behavior in the absence of any provided directive.
- *
- * Some additional info keys are provided for this operation:
- *
- * (a) PMIX_CONNECT_NOTIFY_EACH: generate a local event notification using
- *     the PMIX_PROC_HAS_CONNECTED event each time a process connects
- *
- * (b) PMIX_CONNECT_NOTIFY_REQ: notify each of the indicated procs that
- *     they are requested to connect using the PMIX_CONNECT_REQUESTED event
- *
- * (c) PMIX_CONNECT_OPTIONAL: participation is optional - do not return
- *     error if procs terminate without having connected
- */
+ * Note also that this is a collective operation within the client library, and
+ * thus the client will be blocked until all procs participate. Thus, the info
+ * array can be used to pass user directives, including a timeout.
+ * The directives are optional _unless_ the _mandatory_ flag
+ * has been set - in such cases, the host RM is required to return an error
+ * if the directive cannot be met. */
 typedef pmix_status_t (*pmix_server_connect_fn_t)(const pmix_proc_t procs[], size_t nprocs,
                                                   const pmix_info_t info[], size_t ninfo,
-                                                  pmix_connect_cbfunc_t cbfunc, void *cbdata);
+                                                  pmix_op_cbfunc_t cbfunc, void *cbdata);
 
-/* Disconnect this process from a specified nspace. An error will be returned
- * if the specified nspace is not recognized. The info array is used as above.
- *
- * Processes that terminate while connected to other processes will generate a
- * "termination error" event that will be reported to any process in the connected
- * group that has registered for such events. Calls to "disconnect" that include the
- * PMIX_CONNECT_NOTIFY_EACH info key will cause other processes in the nspace to receive
- * an event notification of the disconnect, if they are registered for such events. */
-typedef pmix_status_t (*pmix_server_disconnect_fn_t)(const char nspace[],
+/* Disconnect a previously connected set of processes. An error should be returned
+ * if the specified set of procs was not previously "connected". As above, a process
+ * may be involved in multiple simultaneous disconnect operations. However, a process
+ * is not allowed to reconnect to a set of ranges that has not fully completed
+ * disconnect - i.e., you have to fully disconnect before you can reconnect to the
+ * same group of processes.
+  *
+ * Note also that this is a collective operation within the client library, and
+ * thus the client will be blocked until all procs participate. Thus, the info
+ * array can be used to pass user directives, including a timeout.
+ * The directives are optional _unless_ the _mandatory_ flag
+ * has been set - in such cases, the host RM is required to return an error
+ * if the directive cannot be met. */
+typedef pmix_status_t (*pmix_server_disconnect_fn_t)(const pmix_proc_t procs[], size_t nprocs,
                                                      const pmix_info_t info[], size_t ninfo,
                                                      pmix_op_cbfunc_t cbfunc, void *cbdata);
 
@@ -326,7 +316,24 @@ typedef void (*pmix_server_tool_connection_fn_t)(pmix_info_t *info, size_t ninfo
                                                  pmix_tool_connection_cbfunc_t cbfunc,
                                                  void *cbdata);
 
-/* Log data on behalf of a client */
+/* Log data on behalf of a client. Calls to the host thru this
+ * function must _NOT_ call the PMIx_Log API as this will
+ * trigger an infinite loop. Instead, the implementation must
+ * perform one of three operations:
+ *
+ * (a) transfer the data+directives to a "gateway" server
+ *     where they can be logged. Gateways are designated
+ *     servers on nodes (typically service nodes) where
+ *     centralized logging is supported. The data+directives
+ *     may be passed to the PMIx_Log API once arriving at
+ *     that destination.
+ *
+ * (b) transfer the data to a logging channel outside of
+ *     PMIx, but directly supported by the host
+ *
+ * (c) return an error to the caller indicating that the
+ *     requested action is not supported
+ */
 typedef void (*pmix_server_log_fn_t)(const pmix_proc_t *client,
                                      const pmix_info_t data[], size_t ndata,
                                      const pmix_info_t directives[], size_t ndirs,
@@ -414,6 +421,74 @@ typedef pmix_status_t (*pmix_server_validate_cred_fn_t)(const pmix_proc_t *proc,
                                                         const pmix_info_t directives[], size_t ndirs,
                                                         pmix_validation_cbfunc_t cbfunc, void *cbdata);
 
+/* Request the specified IO channels be forwarded from the given array of procs.
+ * The function shall return PMIX_SUCCESS once the host RM accepts the request for
+ * processing, or a PMIx error code if the request itself isn't correct or supported.
+ * The callback function shall be called when the request has been processed,
+ * returning either PMIX_SUCCESS to indicate that IO shall be forwarded as requested,
+ * or some appropriate error code if the request has been denied.
+ *
+ * NOTE: STDIN is not supported in this call! The forwarding of stdin is a "push"
+ * process - procs cannot request that it be "pulled" from some other source
+ *
+ * procs - array of process identifiers whose IO is being requested.
+ *
+ * nprocs - size of the procs array
+ *
+ * directives - array of key-value attributes further defining the request. This
+ *              might include directives on buffering and security credentials for
+ *              access to protected channels
+ *
+ * ndirs - size of the directives array
+ *
+ * channels - bitmask identifying the channels to be forwarded
+ *
+ * cbfunc - callback function when the IO forwarding has been setup
+ *
+ * cbdata - object to be returned in cbfunc
+ *
+ * This call serves as a registration with the host RM for the given IO channels from
+ * the specified procs - the host RM is expected to ensure that this local PMIx server
+ * is on the distribution list for the channel/proc combination
+ */
+typedef pmix_status_t (*pmix_server_iof_fn_t)(const pmix_proc_t procs[], size_t nprocs,
+                                              const pmix_info_t directives[], size_t ndirs,
+                                              pmix_iof_channel_t channels,
+                                              pmix_op_cbfunc_t cbfunc, void *cbdata);
+
+/* Passes stdin to the host RM for transmission to specified recipients. The host RM is
+ * responsible for forwarding the data to all PMIx servers that host the specified
+ * target.
+ *
+ * source - pointer to the identifier of the process whose stdin is being provided
+ *
+ * targets - array of process identifiers to which the data is to be delivered. Note
+ *           that a WILDCARD rank indicates that all procs in the given nspace are
+ *           to receive a copy of the data
+ *
+ * ntargets - number of procs in the targets array
+ *
+ * directives - array of key-value attributes further defining the request. This
+ *              might include directives on buffering and security credentials for
+ *              access to protected channels
+ *
+ * ndirs - size of the directives array
+ *
+ * bo - pointer to a byte object containing the stdin data
+ *
+ * cbfunc - callback function when the data has been forwarded
+ *
+ * cbdata - object to be returned in cbfunc
+ *
+ */
+
+typedef pmix_status_t (*pmix_server_stdin_fn_t)(const pmix_proc_t *source,
+                                                const pmix_proc_t targets[], size_t ntargets,
+                                                const pmix_info_t directives[], size_t ndirs,
+                                                const pmix_byte_object_t *bo,
+                                                pmix_op_cbfunc_t cbfunc, void *cbdata);
+
+
 typedef struct pmix_server_module_2_0_0_t {
     /* v1x interfaces */
     pmix_server_client_connected_fn_t   client_connected;
@@ -441,9 +516,11 @@ typedef struct pmix_server_module_2_0_0_t {
     /* v3x interfaces */
     pmix_server_get_cred_fn_t           get_credential;
     pmix_server_validate_cred_fn_t      validate_credential;
+    pmix_server_iof_fn_t                iof_pull;
+    pmix_server_stdin_fn_t              push_stdin;
 } pmix_server_module_t;
 
-/****    SERVER SUPPORT INIT/FINALIZE FUNCTIONS    ****/
+/****    HOST RM FUNCTIONS FOR INTERFACE TO PMIX SERVER    ****/
 
 /* Initialize the server support library, and provide a
  * pointer to a pmix_server_module_t structure
@@ -592,12 +669,13 @@ typedef void (*pmix_setup_application_cbfunc_t)(pmix_status_t status,
                                                 pmix_op_cbfunc_t cbfunc, void *cbdata);
 
 /* Provide a function by which the resource manager can request
- * any application-specific environmental variables prior to
- * launch of an application. For example, network libraries may
- * opt to provide security credentials for the application. This
- * is defined as a non-blocking operation in case network
- * libraries need to perform some action before responding. The
- * returned env will be distributed along with the application */
+ * any application-specific environmental variables, resource
+ * assignments, and/or other data prior to launch of an application.
+ * For example, network libraries may opt to provide security
+ * credentials for the application. This is defined as a non-blocking
+ * operation in case network libraries need to perform some action
+ * before responding. Any returned env will be distributed along
+ * with the application */
 PMIX_EXPORT pmix_status_t PMIx_server_setup_application(const char nspace[],
                                                         pmix_info_t info[], size_t ninfo,
                                                         pmix_setup_application_cbfunc_t cbfunc, void *cbdata);
@@ -606,10 +684,69 @@ PMIX_EXPORT pmix_status_t PMIx_server_setup_application(const char nspace[],
  * any application-specific operations prior to spawning local
  * clients of a given application. For example, a network library
  * might need to setup the local driver for "instant on" addressing.
+ * Data provided in the info array will be stored in the job-info
+ * region for the nspace. Operations included in the info array
+ * will be cached until the server calls PMIx_server_setup_fork,
+ * thereby indicating that local clients of this nspace will exist.
+ * Operations indicated by the provided data will only be executed
+ * for the first local client - i.e., they will only be executed
+ * once for a given nspace
  */
 PMIX_EXPORT pmix_status_t PMIx_server_setup_local_support(const char nspace[],
                                                           pmix_info_t info[], size_t ninfo,
                                                           pmix_op_cbfunc_t cbfunc, void *cbdata);
+
+/* Provide a function by which the host RM can pass forwarded IO
+ * to the local PMIx server for distribution to its clients. The
+ * PMIx server is responsible for determining which of its clients
+ * have actually registered for the provided data
+ *
+ * Parameters include:
+ *
+ * source - the process that provided the data being forwarded
+ *
+ * channel - the IOF channel (stdin, stdout, etc.)
+ *
+ * bo - a byte object containing the data
+ *
+ * info - an optional array of metadata describing the data, including
+ *        attributes such as PMIX_IOF_COMPLETE to indicate that the
+ *        source channel has been closed
+ *
+ * ninfo - number of elements in the info array
+ *
+ * cbfunc - a callback function to be executed once the provided data
+ *          is no longer required. The host RM is required to retain
+ *          the byte object until the callback is executed, or a
+ *          non-success status is returned by the function
+ *
+ * cbdata - object pointer to be returned in the callback function
+ */
+PMIX_EXPORT pmix_status_t PMIx_server_IOF_deliver(const pmix_proc_t *source,
+                                                  pmix_iof_channel_t channel,
+                                                  const pmix_byte_object_t *bo,
+                                                  const pmix_info_t info[], size_t ninfo,
+                                                  pmix_op_cbfunc_t cbfunc, void *cbdata);
+
+/* Collect inventory of local resources. This is a non-blocking
+ * API as it may involve somewhat lengthy operations to obtain
+ * the requested information. Servers designated as "gateways"
+ * and whose plugins support collection of infrastructure info
+ * (e.g., switch and fabric topology, connectivity maps) shall
+ * return that information - plugins on non-gateway servers
+ * shall only return the node-local inventory. */
+PMIX_EXPORT pmix_status_t PMIx_server_collect_inventory(pmix_info_t directives[], size_t ndirs,
+                                                        pmix_info_cbfunc_t cbfunc, void *cbdata);
+
+/* Deliver collected inventory for archiving by the corresponding
+ * plugins. Typically executed on a "gateway" associated with the
+ * system scheduler to enable use of inventory information by the
+ * the scheduling algorithm. May also be used on compute nodes to
+ * store a broader picture of the system for access by applications,
+ * if desired */
+PMIX_EXPORT pmix_status_t PMIx_server_deliver_inventory(pmix_info_t info[], size_t ninfo,
+                                                        pmix_info_t directives[], size_t ndirs,
+                                                        pmix_op_cbfunc_t cbfunc, void *cbdata);
 
 #if defined(c_plusplus) || defined(__cplusplus)
 }

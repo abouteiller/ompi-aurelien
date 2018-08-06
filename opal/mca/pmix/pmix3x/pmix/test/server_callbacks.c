@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 Intel, Inc. All rights reserved.
+ * Copyright (c) 2015-2018 Intel, Inc. All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2015      Mellanox Technologies, Inc.
@@ -18,7 +18,7 @@
 #include "server_callbacks.h"
 #include "src/util/argv.h"
 
-extern int spawn_wait;
+extern bool spawn_wait;
 
 pmix_server_module_t mymodule = {
     .client_connected = connected,
@@ -310,22 +310,18 @@ static int numconnect = 0;
 
 pmix_status_t connect_fn(const pmix_proc_t procs[], size_t nprocs,
                          const pmix_info_t info[], size_t ninfo,
-                         pmix_connect_cbfunc_t cbfunc, void *cbdata)
+                         pmix_op_cbfunc_t cbfunc, void *cbdata)
 {
-    char nspace[PMIX_MAX_NSLEN+1];
-
-    memset(nspace, 0, PMIX_MAX_NSLEN+1);
-    (void)snprintf(nspace, PMIX_MAX_NSLEN, "FOOBAR-%d", numconnect);
     if (NULL != cbfunc) {
-        cbfunc(PMIX_SUCCESS, nspace, 1, cbdata);
+        cbfunc(PMIX_SUCCESS, cbdata);
     }
     numconnect++;
     return PMIX_SUCCESS;
 }
 
-pmix_status_t disconnect_fn(const char nspace[],
-                  const pmix_info_t info[], size_t ninfo,
-                  pmix_op_cbfunc_t cbfunc, void *cbdata)
+pmix_status_t disconnect_fn(const pmix_proc_t procs[], size_t nprocs,
+                            const pmix_info_t info[], size_t ninfo,
+                            pmix_op_cbfunc_t cbfunc, void *cbdata)
 {
     if (NULL != cbfunc) {
         cbfunc(PMIX_SUCCESS, cbdata);

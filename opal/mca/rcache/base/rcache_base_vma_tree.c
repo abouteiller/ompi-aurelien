@@ -15,7 +15,7 @@
  * Copyright (c) 2007      Mellanox Technologies. All rights reserved.
  * Copyright (c) 2009      IBM Corporation.  All rights reserved.
  * Copyright (c) 2013      NVIDIA Corporation.  All rights reserved.
- * Copyright (c) 2013 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Cisco Systems, Inc.  All rights reserved
  * Copyright (c) 2015-2018 Los Alamos National Security, LLC. All rights
  *                         reserved.
  * Copyright (c) 2015      Research Organization for Information Science
@@ -83,12 +83,6 @@ int mca_rcache_base_vma_tree_find_all (mca_rcache_base_vma_module_t *vma_module,
     return args.reg_cnt;
 }
 
-static inline void mca_rcache_base_vma_update_byte_count (mca_rcache_base_vma_module_t *vma_module,
-                                                     size_t nbytes)
-{
-    vma_module->reg_cur_cache_size += nbytes;
-}
-
 struct mca_rcache_base_vma_tree_iterate_helper_args_t {
     int (*callback_fn) (struct mca_rcache_base_registration_t *, void *);
     void *ctx;
@@ -107,15 +101,9 @@ int mca_rcache_base_vma_tree_iterate (mca_rcache_base_vma_module_t *vma_module, 
 {
     mca_rcache_base_vma_tree_iterate_helper_args_t args = {.callback_fn = callback_fn, .ctx = ctx};
     uintptr_t bound = (uintptr_t) base + size;
-    int rc;
 
     return opal_interval_tree_traverse (&vma_module->tree, (uint64_t) (intptr_t) base, bound, partial_ok,
                                         mca_rcache_base_vma_tree_iterate_helper, &args);
-}
-
-static inline int mca_rcache_base_vma_can_insert (mca_rcache_base_vma_module_t *vma_module, size_t nbytes, size_t limit)
-{
-    return (0 == limit || vma_module->reg_cur_cache_size + nbytes <= limit);
 }
 
 int mca_rcache_base_vma_tree_insert (mca_rcache_base_vma_module_t *vma_module,

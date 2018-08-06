@@ -17,7 +17,7 @@ Copyright (c) 2010      Oak Ridge National Labs.  All rights reserved.
 Copyright (c) 2011      University of Houston. All rights reserved.
 Copyright (c) 2013-2017 Intel, Inc. All rights reserved.
 Copyright (c) 2015      NVIDIA Corporation.  All rights reserved.
-Copyright (c) 2017      Los Alamos National Security, LLC.  All rights
+Copyright (c) 2017-2018 Los Alamos National Security, LLC.  All rights
                         reserved.
 Copyright (c) 2017      Research Organization for Information Science
                         and Technology (RIST). All rights reserved.
@@ -156,10 +156,7 @@ General notes
 Platform Notes
 --------------
 
-- ARM and POWER users may experience intermittent hangs when Open MPI
-  is compiled with low optimization settings, due to an issue with our
-  atomic list implementation.  We recommend compiling with -O3
-  optimization, both for performance reasons and to avoid this hang.
+- N/A
 
 Compiler Notes
 --------------
@@ -611,7 +608,7 @@ Network Support
 - There are four main MPI network models available: "ob1", "cm",
   "yalla", and "ucx".  "ob1" uses BTL ("Byte Transfer Layer")
   components for each supported network.  "cm" uses MTL ("Matching
-  Tranport Layer") components for each supported network.  "yalla"
+  Transport Layer") components for each supported network.  "yalla"
   uses the Mellanox MXM transport.  "ucx" uses the OpenUCX transport.
 
   - "ob1" supports a variety of networks that can be used in
@@ -733,6 +730,14 @@ Open MPI Extensions
 
 - The following extensions are included in this version of Open MPI:
 
+  - pcollreq: Provides routines for persistent collective
+    communication operations and persistent neighborhood collective
+    communication operations, which are proposed in the MPI Forum as
+    of June 2018.  The function names are prefixed with MPIX_ instead
+    of MPI_, like MPIX_Barrier_init, because they are not standardized
+    yet.  Future versions of Open MPI will switch to the MPI_ prefix
+    once the MPI Standard which includes this feature is published.
+    See their man page for more details.
   - affinity: Provides the OMPI_Affinity_str() routine on retrieving
     a string that contains what resources a process is bound to.  See
     its man page for more details.

@@ -8,7 +8,7 @@ Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
                         University of Stuttgart.  All rights reserved.
 Copyright (c) 2004-2006 The Regents of the University of California.
                         All rights reserved.
-Copyright (c) 2006-2017 Cisco Systems, Inc.  All rights reserved.
+Copyright (c) 2006-2018 Cisco Systems, Inc.  All rights reserved.
 Copyright (c) 2006      Voltaire, Inc. All rights reserved.
 Copyright (c) 2006      Sun Microsystems, Inc.  All rights reserved.
                         Use is subject to license terms.
@@ -19,7 +19,9 @@ Copyright (c) 2012      Oak Ridge National Labs.  All rights reserved.
 Copyright (c) 2012      Sandia National Laboratories.  All rights reserved.
 Copyright (c) 2012      University of Houston. All rights reserved.
 Copyright (c) 2013      NVIDIA Corporation.  All rights reserved.
-Copyright (c) 2013-2017 Intel, Inc. All rights reserved.
+Copyright (c) 2013-2018 Intel, Inc. All rights reserved.
+Copyright (c) 2018      Amazon.com, Inc. or its affiliates.  All Rights
+                        reserved.
 $COPYRIGHT$
 
 Additional copyrights may follow
@@ -56,6 +58,68 @@ included in the vX.Y.Z section and be denoted as:
 Master (not on release branches yet)
 ------------------------------------
 
+**********************************************************************
+*  PRE-DEPRECATION WARNING: MPIR Support
+*
+* As was announced in summer 2017, Open MPI is deprecating support for
+* MPIR-based tools beginning with the future release of OMPI v5.0, with
+* full removal of that support tentatively planned for OMPI v6.0.
+*
+* This serves as a pre-deprecation warning to provide tools developers
+* with sufficient time to migrate to PMIx. Support for PMIx-based
+* tools will be rolled out during the OMPI v4.x series. No runtime
+* deprecation warnings will be output during this time.
+*
+* Runtime deprecation warnings will be output beginning with the OMPI v5.0
+* release whenever MPIR-based tools connect to Open MPI's mpirun/mpiexec
+* launcher.
+**********************************************************************
+
+- Fix rank-by algorithms to properly rank by object and span
+- Do not build Open SHMEM layer when there are no SPMLs available.
+  Currently, this means the Open SHMEM layer will only build if
+  a MXM or UCX library is found.
+
+3.1.0 -- May, 2018
+------------------
+
+- Various OpenSHMEM bug fixes.
+- Properly handle array_of_commands argument to Fortran version of
+  MPI_COMM_SPAWN_MULTIPLE.
+- Fix bug with MODE_SEQUENTIAL and the sharedfp MPI-IO component.
+- Use "javac -h" instead of "javah" when building the Java bindings
+  with a recent version of Java.
+- Fix mis-handling of jostepid under SLURM that could cause problems
+  with PathScale/OmniPath NICs.
+- Disable the POWER 7/BE block in configure.  Note that POWER 7/BE is
+  still not a supported platform, but it is no longer automatically
+  disabled.  See
+  https://github.com/open-mpi/ompi/issues/4349#issuecomment-374970982
+  for more information.
+- The output-filename option for mpirun is now converted to an
+  absolute path before being passed to other nodes.
+- Add monitoring component for PML, OSC, and COLL to track data
+  movement of MPI applications.  See
+  ompi/mca/commmon/monitoring/HowTo_pml_monitoring.tex for more
+  information about the monitoring framework.
+- Add support for communicator assertions: mpi_assert_no_any_tag,
+  mpi_assert_no_any_source, mpi_assert_exact_length, and
+  mpi_assert_allow_overtaking.
+- Update PMIx to version 2.1.1.
+- Update hwloc to 1.11.7.
+- Many one-sided behavior fixes.
+- Improved performance for Reduce and Allreduce using Rabenseifner's algorithm.
+- Revamped mpirun --help output to make it a bit more manageable.
+- Portals4 MTL improvements: Fix race condition in rendezvous protocol and
+  retry logic.
+- UCX OSC: initial implementation.
+- UCX PML improvements: add multi-threading support.
+- Yalla PML improvements: Fix error with irregular contiguous datatypes.
+- Openib BTL: disable XRC support by default.
+- TCP BTL: Add check to detect and ignore connections from processes
+  that aren't MPI (such as IDS probes) and verify that source and
+  destination are using the same version of Open MPI, fix issue with very
+  large message transfer.
 - ompi_info parsable output now escapes double quotes in values, and
   also quotes values can contains colons.  Thanks to Lev Givon for the
   suggestion.
@@ -66,9 +130,78 @@ Master (not on release branches yet)
   orte daemon, rather than the mpirun process.   This may be useful to set to
   true when using SLURM, as it improves interoperability with SLURM's signal
   propagation tools.  By default it is set to false, except for Cray XC systems.
+- Remove LoadLeveler RAS support.
 - Remove IB XRC support from the OpenIB BTL due to lack of support.
+- Add functionality for IBM s390 platforms.  Note that regular
+  regression testing does not occur on the s390 and it is not
+  considered a supported platform.
 - Remove support for big endian PowerPC.
-- Remove support for XL compilers older than v13.1
+- Remove support for XL compilers older than v13.1.
+- Remove support for atomic operations using MacOS atomics library.
+
+3.0.2 -- June, 2018
+-------------------
+
+- Disable osc/pt2pt when using MPI_THREAD_MULTIPLE due to numerous
+  race conditions in the component.
+- Fix dummy variable names for the mpi and mpi_f08 Fortran bindings to
+  match the MPI standard.  This may break applications which use
+  name-based parameters in Fortran which used our internal names
+  rather than those documented in the MPI standard.
+- Fixed MPI_SIZEOF in the "mpi" Fortran module for the NAG compiler.
+- Fix RMA function signatures for use-mpi-f08 bindings to have the
+  asynchonous property on all buffers.
+- Fix Fortran MPI_COMM_SPAWN_MULTIPLE to properly follow the count
+  length argument when parsing the array_of_commands variable.
+- Revamp Java detection to properly handle new Java versions which do
+  not provide a javah wrapper.
+- Improved configure logic for finding the UCX library.
+- Add support for HDR InfiniBand link speeds.
+- Disable the POWER 7/BE block in configure.  Note that POWER 7/BE is
+  still not a supported platform, but it is no longer automatically
+  disabled.  See
+  https://github.com/open-mpi/ompi/issues/4349#issuecomment-374970982
+  for more information.
+
+3.0.1 -- March, 2018
+----------------------
+
+- Fix ability to attach parallel debuggers to MPI processes.
+- Fix a number of issues in MPI I/O found by the HDF5 test suite.
+- Fix (extremely) large message transfers with shared memory.
+- Fix out of sequence bug in multi-NIC configurations.
+- Fix stdin redirection bug that could result in lost input.
+- Disable the LSF launcher if CSM is detected.
+- Plug a memory leak in MPI_Mem_free().  Thanks to Philip Blakely for reporting.
+- Fix the tree spawn operation when the number of nodes is larger than the radix.
+  Thanks to Carlos Eduardo de Andrade for reporting.
+- Fix Fortran 2008 macro in MPI extensions.  Thanks to Nathan T. Weeks for
+  reporting.
+- Add UCX to list of interfaces that OpenSHMEM will use by default.
+- Add --{enable|disable}-show-load-errors-by-default to control
+  default behavior of the load errors option.
+- OFI MTL improvements: handle empty completion queues properly, fix
+  incorrect error message around fi_getinfo(), use default progress
+  option for provider by default, Add support for reading multiple
+  CQ events in ofi_progress.
+- PSM2 MTL improvements: Allow use of GPU buffers, thread fixes.
+- Numerous corrections to memchecker behavior.
+- Add a mca parameter ras_base_launch_orted_on_hn to allow for launching
+  MPI processes on the same node where mpirun is executing using a separate
+  orte daemon, rather than the mpirun process.   This may be useful to set to
+  true when using SLURM, as it improves interoperability with SLURM's signal
+  propagation tools.  By default it is set to false, except for Cray XC systems.
+- Fix a problem reported on the mailing separately by Kevin McGrattan and Stephen
+  Guzik about consistency issues on NFS file systems when using OMPIO. This fix
+  also introduces a new mca parameter fs_ufs_lock_algorithm which allows to
+  control the locking algorithm used by ompio for read/write operations. By
+  default, ompio does not perfom locking on local UNIX file systems, locks the
+  entire file per operation on NFS file systems, and selective byte-range
+  locking on other distributed file systems.
+- Add an mca parameter pmix_server_usock_connections to allow mpirun to
+  support applications statically built against the Open MPI v2.x release,
+  or installed in a container along with the Open MPI v2.x libraries. It is
+  set to false by default.
 
 3.0.0 -- September, 2017
 ------------------------
@@ -112,6 +245,39 @@ Known issues:
 
 - MPI_Connect/accept between applications started by different mpirun
   commands will fail, even if ompi-server is running.
+
+2.1.3 -- March, 2018
+--------------------
+
+Bug fixes/minor improvements:
+- Update internal PMIx version to 1.2.5.
+- Fix a problem with ompi_info reporting using param option.
+  Thanks to Alexander Pozdneev for reporting.
+- Correct PMPI_Aint_{add|diff} to be functions (not subroutines)
+  in the Fortran mpi_f08 module.
+- Fix a problem when doing MPI I/O using data types with large
+  extents in conjunction with MPI_TYPE_CREATE_SUBARRAY.  Thanks to
+  Christopher Brady for reporting.
+- Fix a problem when opening many files using MPI_FILE_OPEN.
+  Thanks to William Dawson for reporting.
+- Fix a problem with debuggers failing to attach to a running job.
+  Thanks to Dirk Schubert for reporting.
+- Fix a problem when using madvise and the OpenIB BTL.  Thanks to
+  Timo Bingmann for reporting.
+- Fix a problem in the Vader BTL that resulted in failures of
+  IMB under certain circumstances.  Thanks to Nicolas Morey-
+  Chaisemartin for reporting.
+- Fix a problem preventing Open MPI from working under Cygwin.
+  Thanks to Marco Atzeri for reporting.
+- Reduce some verbosity being emitted by the USNIC BTL under certain
+  circumstances.  Thanks to Peter Forai for reporting.
+- Fix a problem with misdirection of SIGKILL.  Thanks to Michael Fern
+  for reporting.
+- Replace use of posix_memalign with malloc for small allocations.  Thanks
+  to Ben Menaude for reporting.
+- Fix a problem with Open MPI's out of band TCP network for file descriptors
+  greater than 32767.  Thanks to Wojtek Wasko for reporting and fixing.
+- Plug a memory leak in MPI_Mem_free().  Thanks to Philip Blakely for reporting.
 
 2.1.2 -- September, 2017
 ------------------------

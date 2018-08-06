@@ -14,8 +14,9 @@
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2012-2016 Los Alamos National Security, LLC.  All rights
  *                         reserved.
- * Copyright (c) 2014-2015 Research Organization for Information Science
+ * Copyright (c) 2014-2017 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2017-2018 FUJITSU LIMITED.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -65,7 +66,9 @@ int MPI_Startall(int count, MPI_Request requests[])
         } else {
             for (i = 0; i < count; ++i) {
                 if (NULL == requests[i] ||
-                    (OMPI_REQUEST_PML != requests[i]->req_type &&
+                    ! requests[i]->req_persistent ||
+                    (OMPI_REQUEST_PML  != requests[i]->req_type &&
+                     OMPI_REQUEST_COLL != requests[i]->req_type &&
                      OMPI_REQUEST_NOOP != requests[i]->req_type)) {
                     rc = MPI_ERR_REQUEST;
                     break;

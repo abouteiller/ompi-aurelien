@@ -68,7 +68,7 @@ AC_DEFUN([OPAL_WRAPPER_FLAGS_ADD], [
 # That is, a component may not influence CFLAGS, CXXFLAGS, or FCFLAGS.
 #
 # Notes:
-#   * Keep user flags seperate as 1) they should have no influence
+#   * Keep user flags separate as 1) they should have no influence
 #     over build and 2) they don't go through the uniqification we do
 #     with the other wrapper compiler options
 #   * While the user (the person who runs configure) is allowed to set
@@ -133,7 +133,7 @@ AC_DEFUN([OPAL_SETUP_WRAPPER_INIT],[
 
     AC_MSG_CHECKING([if want wrapper compiler runpath support])
     AC_ARG_ENABLE([wrapper-runpath],
-                  [AS_HELP_STRING([--enable--wrapper-runpath],
+                  [AS_HELP_STRING([--enable-wrapper-runpath],
                   [enable runpath in the wrapper compilers if linker supports it (default: enabled,  unless wrapper-rpath is disabled).])])
     AS_IF([test "$enable_wrapper_runpath" != "no"], [enable_wrapper_runpath=yes])
     AC_MSG_RESULT([$enable_wrapper_runpath])

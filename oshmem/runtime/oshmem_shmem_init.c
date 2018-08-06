@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2013      Mellanox Technologies, Inc.
+ * Copyright (c) 2013-2018 Mellanox Technologies, Inc.
  *                         All rights reserved.
  * Copyright (c) 2015-2016 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
- * Copyright (c) 2015      Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Cisco Systems, Inc.  All rights reserved
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -51,6 +51,7 @@
 #include "opal/mca/allocator/base/base.h"
 #include "ompi/proc/proc.h"
 #include "ompi/runtime/mpiruntime.h"
+#include "ompi/util/timings.h"
 
 #include "oshmem/constants.h"
 #include "oshmem/runtime/runtime.h"
@@ -106,6 +107,10 @@ MPI_Comm oshmem_comm_world = {0};
 
 opal_thread_t *oshmem_mpi_main_thread = NULL;
 
+shmem_internal_mutex_t shmem_internal_mutex_alloc = {0};
+
+shmem_ctx_t oshmem_ctx_default = NULL;
+
 static int _shmem_init(int argc, char **argv, int requested, int *provided);
 
 #if OSHMEM_OPAL_THREAD_ENABLE
@@ -143,17 +148,26 @@ int oshmem_shmem_init(int argc, char **argv, int requested, int *provided)
 {
     int ret = OSHMEM_SUCCESS;
 
+    OMPI_TIMING_INIT(32);
+
     if (!oshmem_shmem_initialized) {
-        if (!ompi_mpi_initialized && !ompi_mpi_finalized) {
-            ret = ompi_mpi_init(argc, argv, requested, provided);
-        }
+        ret = ompi_mpi_init(argc, argv, requested, provided, true);
+        OMPI_TIMING_NEXT("ompi_mpi_init");
 
         if (OSHMEM_SUCCESS != ret) {
             return ret;
         }
 
         PMPI_Comm_dup(MPI_COMM_WORLD, &oshmem_comm_world);
+        OMPI_TIMING_NEXT("PMPI_Comm_dup");
+
+        SHMEM_MUTEX_INIT(shmem_internal_mutex_alloc);
+
         ret = _shmem_init(argc, argv, requested, provided);
+        OMPI_TIMING_NEXT("_shmem_init");
+        OMPI_TIMING_IMPORT_OPAL("mca_scoll_mpi_comm_query");
+        OMPI_TIMING_IMPORT_OPAL("mca_scoll_enable");
+        OMPI_TIMING_IMPORT_OPAL("mca_scoll_base_select");
 
         if (OSHMEM_SUCCESS != ret) {
             return ret;
@@ -164,11 +178,15 @@ int oshmem_shmem_init(int argc, char **argv, int requested, int *provided)
             SHMEM_API_ERROR( "shmem_lock_init() failed");
             return OSHMEM_ERROR;
         }
+        OMPI_TIMING_NEXT("shmem_lock_init");
 
         /* this is a collective op, implies barrier */
         MCA_MEMHEAP_CALL(get_all_mkeys());
+        OMPI_TIMING_NEXT("get_all_mkeys()");
 
         oshmem_shmem_preconnect_all();
+        OMPI_TIMING_NEXT("shmem_preconnect_all");
+
 #if OSHMEM_OPAL_THREAD_ENABLE
         pthread_t thread_id;
         int perr;
@@ -178,11 +196,14 @@ int oshmem_shmem_init(int argc, char **argv, int requested, int *provided)
             return OSHMEM_ERROR;
         }
 #endif
+        OMPI_TIMING_NEXT("THREAD_ENABLE");
     }
 #ifdef SIGUSR1
     signal(SIGUSR1,sighandler__SIGUSR1);
     signal(SIGTERM,sighandler__SIGTERM);
 #endif
+    OMPI_TIMING_OUT;
+    OMPI_TIMING_FINALIZE;
     return ret;
 }
 
@@ -235,6 +256,9 @@ static int _shmem_init(int argc, char **argv, int requested, int *provided)
     int ret = OSHMEM_SUCCESS;
     char *error = NULL;
 
+    oshmem_mpi_thread_requested = requested;
+    oshmem_mpi_thread_provided = requested;
+
     /* Register the OSHMEM layer's MCA parameters */
     if (OSHMEM_SUCCESS != (ret = oshmem_shmem_register_params())) {
         error = "oshmem_info_register: oshmem_register_params failed";
@@ -256,11 +280,6 @@ static int _shmem_init(int argc, char **argv, int requested, int *provided)
     /* initialize proc */
     if (OSHMEM_SUCCESS != (ret = oshmem_proc_init())) {
         error = "oshmem_proc_init() failed";
-        goto error;
-    }
-
-    if (OSHMEM_SUCCESS != (ret = oshmem_group_cache_list_init())) {
-        error = "oshmem_group_cache_list_init() failed";
         goto error;
     }
 
@@ -350,6 +369,10 @@ static int _shmem_init(int argc, char **argv, int requested, int *provided)
         error = "mca_scoll_enable() failed";
         goto error;
     }
+
+    (*provided) = oshmem_mpi_thread_provided;
+
+    oshmem_mpi_thread_multiple = (oshmem_mpi_thread_provided == SHMEM_THREAD_MULTIPLE) ? true : false;
 
     error: if (ret != OSHMEM_SUCCESS) {
         const char *err_msg = opal_strerror(ret);

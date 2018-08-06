@@ -11,8 +11,9 @@
  *                         All rights reserved.
  * Copyright (c) 2006      Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2015      Research Organization for Information Science
+ * Copyright (c) 2015-2017 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2017      FUJITSU LIMITED.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -74,6 +75,10 @@ int MPI_Start(MPI_Request *request)
 
     switch((*request)->req_type) {
     case OMPI_REQUEST_PML:
+    case OMPI_REQUEST_COLL:
+        if ( MPI_PARAM_CHECK && !(*request)->req_persistent) {
+            return OMPI_ERRHANDLER_INVOKE(MPI_COMM_WORLD, MPI_ERR_REQUEST, FUNC_NAME);
+        }
         OPAL_CR_ENTER_LIBRARY();
 
         ret = (*request)->req_start(1, request);

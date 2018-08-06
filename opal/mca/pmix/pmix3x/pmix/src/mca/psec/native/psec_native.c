@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2015-2018 Intel, Inc. All rights reserved.
  * Copyright (c) 2016      IBM Corporation.  All rights reserved.
  * Copyright (c) 2017      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
@@ -100,6 +100,7 @@ static pmix_status_t create_cred(struct pmix_peer_t *peer,
             }
         }
         if (!takeus) {
+            PMIX_ERROR_LOG(PMIX_ERR_NOT_SUPPORTED);
             return PMIX_ERR_NOT_SUPPORTED;
         }
     }
@@ -124,6 +125,7 @@ static pmix_status_t create_cred(struct pmix_peer_t *peer,
         goto complete;
     } else {
         /* unrecognized protocol */
+        PMIX_ERROR_LOG(PMIX_ERR_NOT_SUPPORTED);
         return PMIX_ERR_NOT_SUPPORTED;
     }
 
@@ -156,8 +158,8 @@ static pmix_status_t validate_cred(struct pmix_peer_t *peer,
 #endif
     socklen_t crlen = sizeof (ucred);
 #endif
-    uid_t euid;
-    gid_t egid;
+    uid_t euid = -1;
+    gid_t egid = -1;
     char *ptr;
     size_t ln;
     bool takeus;

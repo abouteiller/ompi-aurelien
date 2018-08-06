@@ -87,6 +87,7 @@ static orte_job_state_t launch_states[] = {
     ORTE_JOB_STATE_MAP_COMPLETE,
     ORTE_JOB_STATE_SYSTEM_PREP,
     ORTE_JOB_STATE_LAUNCH_APPS,
+    ORTE_JOB_STATE_SEND_LAUNCH_MSG,
     ORTE_JOB_STATE_LOCAL_LAUNCH_COMPLETE,
     ORTE_JOB_STATE_RUNNING,
     ORTE_JOB_STATE_REGISTERED,
@@ -108,6 +109,7 @@ static orte_state_cbfunc_t launch_callbacks[] = {
     orte_plm_base_mapping_complete,
     orte_plm_base_complete_setup,
     orte_plm_base_launch_apps,
+    orte_plm_base_send_launch_msg,
     orte_state_base_local_launch_complete,
     orte_plm_base_post_launch,
     orte_plm_base_registered,
@@ -408,7 +410,7 @@ static void vm_ready(int fd, short args, void *cbdata)
             OBJ_RELEASE(buf);
         }
         /* notify that the vm is ready */
-        fprintf(stdout, "DVM ready\n");
+        fprintf(stdout, "DVM ready\n"); fflush(stdout);
         OBJ_RELEASE(caddy);
         return;
     }
@@ -509,8 +511,11 @@ static void check_complete(int fd, short args, void *cbdata)
                     /* skip procs from another job */
                     continue;
                 }
-                node->slots_inuse--;
-                node->num_procs--;
+                if (!ORTE_FLAG_TEST(proc, ORTE_PROC_FLAG_TOOL)) {
+                    node->slots_inuse--;
+                    node->num_procs--;
+                }
+
                 OPAL_OUTPUT_VERBOSE((2, orte_state_base_framework.framework_output,
                                      "%s state:dvm releasing proc %s from node %s",
                                      ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
