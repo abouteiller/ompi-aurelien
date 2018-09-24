@@ -2808,7 +2808,6 @@ btl_openib_component_init(int *num_btl_modules,
     ib_devs = opal_ibv_get_device_list(&num_devs);
 
     if(0 == num_devs || NULL == ib_devs) {
-        mca_btl_base_error_no_nics("OpenFabrics (openib)", "device");
         goto no_btls;
     }
 
@@ -3725,7 +3724,7 @@ error:
 
         if(IBV_WC_SEND == wc->opcode && !BTL_OPENIB_QP_TYPE_PP(qp)) {
             BTL_VERBOSE(("frag %p returning %d credits", frag, 1+n));
-            OPAL_THREAD_ADD_FETCH32(&openib_btl->qps[qp].u.srq_qp.sd_credits, 1+n);
+            OPAL_THREAD_FETCH_ADD32(&openib_btl->qps[qp].u.srq_qp.sd_credits, 1+n);
             /* new SRQ credit available. Try to progress pending frags*/
             progress_pending_frags_srq(openib_btl, qp);
         }

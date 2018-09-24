@@ -472,7 +472,11 @@ ompi_mtl_ofi_component_init(bool enable_progress_threads,
     hints->rx_attr->op_flags = FI_COMPLETION;
     hints->tx_attr->op_flags = FI_COMPLETION;
 
-    hints->domain_attr->threading        = FI_THREAD_UNSPEC;
+    if (enable_mpi_threads) {
+        hints->domain_attr->threading = FI_THREAD_SAFE;
+    } else {
+        hints->domain_attr->threading = FI_THREAD_DOMAIN;
+    }
 
     switch (control_progress) {
     case MTL_OFI_PROG_AUTO:
@@ -689,21 +693,6 @@ ompi_mtl_ofi_component_init(bool enable_progress_threads,
         goto error;
     }
 
-    /**
-     * Allocate memory for storing the CQ events read in OFI progress.
-     */
-    ompi_mtl_ofi.progress_entries = calloc(ompi_mtl_ofi.ofi_progress_event_count, sizeof(struct fi_cq_tagged_entry));
-    if (NULL == ompi_mtl_ofi.progress_entries) {
-        opal_output_verbose(1, ompi_mtl_base_framework.framework_output,
-                            "%s:%d: alloc of CQ event storage failed: %s\n",
-                            __FILE__, __LINE__, strerror(errno));
-        goto error;
-    }
-
-    /**
-     * The remote fi_addr will be stored in the ofi_endpoint struct.
-     */
-
     av_attr.type = (MTL_OFI_AV_TABLE == av_type) ? FI_AV_TABLE: FI_AV_MAP;
 
     ret = fi_av_open(ompi_mtl_ofi.domain, &av_attr, &ompi_mtl_ofi.av, NULL);
@@ -825,9 +814,6 @@ error:
     if (ompi_mtl_ofi.fabric) {
         (void) fi_close((fid_t)ompi_mtl_ofi.fabric);
     }
-    if (ompi_mtl_ofi.progress_entries) {
-        free(ompi_mtl_ofi.progress_entries);
-    }
 
     return NULL;
 }
@@ -859,8 +845,6 @@ ompi_mtl_ofi_finalize(struct mca_mtl_base_module_t *mtl)
     if ((ret = fi_close((fid_t)ompi_mtl_ofi.fabric))) {
         goto finalize_err;
     }
-
-    free(ompi_mtl_ofi.progress_entries);
 
     return OMPI_SUCCESS;
 
