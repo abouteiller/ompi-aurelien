@@ -194,7 +194,7 @@ int pmix4x_client_finalize(void)
         }
     }
     OPAL_PMIX_RELEASE_THREAD(&opal_pmix_base.lock);
-    OPAL_LIST_FOREACH_SAFE(event, ev2, &evlist, opal_pmix3x_event_t) {
+    OPAL_LIST_FOREACH_SAFE(event, ev2, &evlist, opal_pmix4x_event_t) {
         OPAL_PMIX_WAIT_THREAD(&event->lock);
         opal_list_remove_item(&evlist, &event->super);
         OBJ_RELEASE(event);
