@@ -5,6 +5,7 @@
 !                         All rights reserved.
 ! Copyright (c) 2018      Research Organization for Information Science
 !                         and Technology (RIST).  All rights reserved.
+! Copyright (c) 2018      FUJITSU LIMITED.  All rights reserved.
 ! $COPYRIGHT$
 
 #include "ompi/mpi/fortran/configure-fortran-output.h"
@@ -13,7 +14,7 @@ subroutine PMPI_Bcast_f08(buffer,count,datatype,root,comm,ierror)
    use :: mpi_f08_types, only : MPI_Datatype, MPI_Comm
    use :: ompi_mpifh_bindings, only : ompi_bcast_f
    implicit none
-   OMPI_FORTRAN_IGNORE_TKR_TYPE, INTENT(IN) :: buffer
+   OMPI_FORTRAN_IGNORE_TKR_TYPE :: buffer
    INTEGER, INTENT(IN) :: count, root
    TYPE(MPI_Datatype), INTENT(IN) :: datatype
    TYPE(MPI_Comm), INTENT(IN) :: comm
@@ -23,4 +24,4 @@ subroutine PMPI_Bcast_f08(buffer,count,datatype,root,comm,ierror)
    call ompi_bcast_f(buffer,count,datatype%MPI_VAL,root,comm%MPI_VAL,c_ierror)
    if (present(ierror)) ierror = c_ierror
 
- end subroutine PMPI_Bcast_f08
+end subroutine PMPI_Bcast_f08
