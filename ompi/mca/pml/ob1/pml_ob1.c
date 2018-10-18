@@ -820,6 +820,14 @@ void mca_pml_ob1_error_handler(
     }
 #endif /* OPAL_CUDA_SUPPORT */
 
+    /* Some BTL report unreachable errors during normal MPI_Finalize
+     * termination. Lets simply ignore such errors after MPI is not supposed to
+     * be operational anyway.
+     */
+    if(ompi_mpi_state >= OMPI_MPI_STATE_FINALIZE_PAST_COMM_SELF_DESTRUCT) {
+        return;
+    }
+
 #if OPAL_ENABLE_FT_MPI
     opal_output_verbose( 1, mca_pml_ob1_output,
                          "PML:OB1: the error handler was invoked by the %s BTL for proc %s with info %s",
