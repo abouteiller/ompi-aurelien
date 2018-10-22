@@ -3,7 +3,7 @@
  * Copyright (c) 2006      The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2013      The University of Tennessee and The University
+ * Copyright (c) 2013-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2006      The Technical University of Chemnitz. All
@@ -335,8 +335,13 @@ int NBC_Progress(NBC_Handle *handle) {
     /* don't call ompi_request_test_all as it causes a recursive call into opal_progress */
     while (handle->req_count) {
         ompi_request_t *subreq = handle->req_array[handle->req_count - 1];
+#if OPAL_ENABLE_FT_MPI
+        if (REQUEST_COMPLETE(subreq)
+         || OPAL_UNLIKELY( ompi_ftmpi_enabled
+                        && !ompi_request_state_ok(subreq) )) {
+#else
         if (REQUEST_COMPLETE(subreq)) {
-            handle->req_count--;
+#endif /* OPAL_ENABLE_FT_MPI */
             if(OPAL_UNLIKELY( OMPI_SUCCESS != subreq->req_status.MPI_ERROR )) {
 #if OPAL_ENABLE_FT_MPI
                 if( MPI_ERR_PROC_FAILED == subreq->req_status.MPI_ERROR ||
@@ -346,6 +351,9 @@ int NBC_Progress(NBC_Handle *handle) {
                 } else // this 'else' intentionally spills outside the ifdef
 #endif /* OPAL_ENABLE_FT_MPI */
                 NBC_Error ("MPI Error in NBC subrequest %p : %d", subreq, subreq->req_status.MPI_ERROR);
+                /* copy the error code from the underlying request and let the
+                 * round finish */
+                handle->super.req_status.MPI_ERROR = subreq->req_status.MPI_ERROR;
                 /* clear all other requests for the round */
                 while (handle->req_count) {
                     ompi_request_cancel(handle->req_array[handle->req_count - 1]);
@@ -353,11 +361,11 @@ int NBC_Progress(NBC_Handle *handle) {
                     ompi_request_free(&handle->req_array[handle->req_count - 1]);
                     handle->req_count--;
                 }
-                /* copy the error code from the underlying request and let the
-                 * round finish */
-                handle->super.req_status.MPI_ERROR = subreq->req_status.MPI_ERROR;
             }
-            ompi_request_free(&subreq);
+            else {
+                handle->req_count--;
+                ompi_request_free(&subreq);
+            }
         } else {
             flag = false;
             break;
@@ -370,6 +378,25 @@ int NBC_Progress(NBC_Handle *handle) {
 
   /* a round is finished */
   if (flag) {
+    /* reset handle for next round */
+    if (NULL != handle->req_array) {
+      /* free request array */
+      free (handle->req_array);
+      handle->req_array = NULL;
+    }
+    handle->req_count = 0;
+
+    /* previous round had an error */
+    if (OPAL_UNLIKELY(OMPI_SUCCESS != handle->super.req_status.MPI_ERROR)) {
+      res = handle->super.req_status.MPI_ERROR;
+      NBC_DEBUG(1, "NBC_Progress: error in schedule %p at row-offset %li\n", handle->schedule, handle->row_offset);
+      handle->nbc_complete = true;
+      if (!handle->super.req_persistent) {
+        NBC_Free(handle);
+      }
+      return res;
+    }
+
     /* adjust delim to start of current round */
     NBC_DEBUG(5, "NBC_Progress: going in schedule %p to row-offset: %li\n", handle->schedule, handle->row_offset);
     delim = handle->schedule->data + handle->row_offset;
@@ -378,14 +405,6 @@ int NBC_Progress(NBC_Handle *handle) {
     NBC_DEBUG(10, "size: %li\n", size);
     /* adjust delim to end of current round -> delimiter */
     delim = delim + size;
-
-    if (NULL != handle->req_array) {
-      /* free request array */
-      free (handle->req_array);
-      handle->req_array = NULL;
-    }
-
-    handle->req_count = 0;
 
     if (*delim == 0) {
       /* this was the last round - we're done */
