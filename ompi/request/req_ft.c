@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2010 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -29,6 +29,7 @@
 
 #include "ompi/mca/coll/base/coll_tags.h"
 #include "ompi/mca/pml/base/pml_base_request.h"
+#include "ompi/mca/pml/pml.h"
 
 
 /**************************
@@ -150,7 +151,7 @@ bool ompi_request_state_ok(ompi_request_t *req)
         { int btsize=32; void*bt[32]={NULL}; btsize=backtrace(bt,btsize);
           backtrace_symbols_fd(bt,btsize, ompi_ftmpi_output_handle);
         }
-        mca_pml.pml_dump(req->req_mpi_object.comm, ompi_ftmpi_output_handle);
+        MCA_PML_CALL(dump(req->req_mpi_object.comm, ompi_ftmpi_output_handle));
 #endif
         /* Cancel and force completion immmediately
          * However, for Revoked and Collective error we can't complete
