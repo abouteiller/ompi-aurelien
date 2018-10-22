@@ -678,6 +678,7 @@ int NBC_Start(NBC_Handle *handle) {
 
   /* kick off first round */
   handle->super.req_state = OMPI_REQUEST_ACTIVE;
+  handle->super.req_status.MPI_ERROR = OMPI_SUCCESS;
   res = NBC_Start_round(handle);
   if (OPAL_UNLIKELY(OMPI_SUCCESS != res)) {
     return res;

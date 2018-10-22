@@ -178,6 +178,7 @@ void ompi_comm_request_start (ompi_comm_request_t *request)
     }
 
     request->super.req_state = OMPI_REQUEST_ACTIVE;
+    request->super.req_status.MPI_ERROR = OMPI_SUCCESS;
 
     opal_mutex_unlock (&ompi_comm_request_mutex);
 }
@@ -260,7 +261,6 @@ ompi_comm_request_t *ompi_comm_request_get (void)
     }
 
     OMPI_REQUEST_INIT((ompi_request_t *) item, false);
-    ((ompi_request_t*)item)->req_status.MPI_ERROR = OMPI_SUCCESS;
 
     return (ompi_comm_request_t *) item;
 }
