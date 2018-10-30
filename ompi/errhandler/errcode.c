@@ -12,7 +12,7 @@
  *                         All rights reserved.
  * Copyright (c) 2006      University of Houston. All rights reserved.
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2013      Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2013-2018 Cisco Systems, Inc.  All rights reserved
  * Copyright (c) 2013      Los Alamos National Security, LLC.  All rights
  *                         reserved.
  * Copyright (c) 2015      Research Organization for Information Science
@@ -30,6 +30,8 @@
 #include <string.h>
 
 #include "mpi.h"
+
+#include "opal/util/string_copy.h"
 
 #include "ompi/errhandler/errcode.h"
 #include "ompi/constants.h"
@@ -130,7 +132,7 @@ do {                                                                      \
     OBJ_CONSTRUCT(&(VAR), ompi_mpi_errcode_t);                            \
     (VAR).code = (ERRCODE);                                               \
     (VAR).cls = (ERRCODE);                                                \
-    strncpy((VAR).errstring, (TXT), MPI_MAX_ERROR_STRING);                \
+    opal_string_copy((VAR).errstring, (TXT), MPI_MAX_ERROR_STRING);       \
     opal_pointer_array_set_item(&ompi_mpi_errcodes, (ERRCODE), &(VAR));   \
 } while (0)
 
@@ -369,7 +371,7 @@ int ompi_mpi_errnum_add_string(int errnum, const char *errstring, int len)
         len = MPI_MAX_ERROR_STRING;
     }
 
-    strncpy ( errcodep->errstring, errstring, len );
+    opal_string_copy( errcodep->errstring, errstring, len );
     return OMPI_SUCCESS;
 }
 

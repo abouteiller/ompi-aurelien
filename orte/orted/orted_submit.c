@@ -10,7 +10,7 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2006-2017 Cisco Systems, Inc.  All rights reserved
+ * Copyright (c) 2006-2018 Cisco Systems, Inc.  All rights reserved
  * Copyright (c) 2007-2009 Sun Microsystems, Inc. All rights reserved.
  * Copyright (c) 2007-2017 Los Alamos National Security, LLC.  All rights
  *                         reserved.
@@ -72,6 +72,7 @@
 #include "opal/util/opal_getcwd.h"
 #include "opal/util/show_help.h"
 #include "opal/util/fd.h"
+#include "opal/util/string_copy.h"
 #include "opal/sys/atomic.h"
 #if OPAL_ENABLE_FT_CR == 1
 #include "opal/runtime/opal_cr.h"
@@ -889,12 +890,12 @@ int orte_submit_job(char *argv[], int *index,
         ORTE_SET_MAPPING_POLICY(jdata->map->mapping, ORTE_MAPPING_PPR);
         ORTE_SET_MAPPING_DIRECTIVE(jdata->map->mapping, ORTE_MAPPING_GIVEN);
         /* define the ppr */
-        (void)asprintf(&jdata->map->ppr, "%d:node", orte_cmd_options.npernode);
+        opal_asprintf(&jdata->map->ppr, "%d:node", orte_cmd_options.npernode);
     } else if (0 < orte_cmd_options.npersocket) {
         ORTE_SET_MAPPING_POLICY(jdata->map->mapping, ORTE_MAPPING_PPR);
         ORTE_SET_MAPPING_DIRECTIVE(jdata->map->mapping, ORTE_MAPPING_GIVEN);
         /* define the ppr */
-        (void)asprintf(&jdata->map->ppr, "%d:socket", orte_cmd_options.npersocket);
+        opal_asprintf(&jdata->map->ppr, "%d:socket", orte_cmd_options.npersocket);
     }
 
 
@@ -1101,7 +1102,7 @@ int orte_submit_job(char *argv[], int *index,
             oldenv = getenv("PATH");
             if (NULL != oldenv) {
                 char *temp;
-                asprintf(&temp, "%s:%s", newenv, oldenv );
+                opal_asprintf(&temp, "%s:%s", newenv, oldenv );
                 free( newenv );
                 newenv = temp;
             }
@@ -1117,7 +1118,7 @@ int orte_submit_job(char *argv[], int *index,
             oldenv = getenv("LD_LIBRARY_PATH");
             if (NULL != oldenv) {
                 char* temp;
-                asprintf(&temp, "%s:%s", newenv, oldenv);
+                opal_asprintf(&temp, "%s:%s", newenv, oldenv);
                 free(newenv);
                 newenv = temp;
             }
@@ -1738,9 +1739,9 @@ static int create_app(int argc, char* argv[],
                 if (NULL == strstr(app->argv[i], opal_install_dirs.libdir)) {
                     /* doesn't appear to - add it to be safe */
                     if (':' == app->argv[i][strlen(app->argv[i]-1)]) {
-                        asprintf(&value, "-Djava.library.path=%s%s", dptr, opal_install_dirs.libdir);
+                        opal_asprintf(&value, "-Djava.library.path=%s%s", dptr, opal_install_dirs.libdir);
                     } else {
-                        asprintf(&value, "-Djava.library.path=%s:%s", dptr, opal_install_dirs.libdir);
+                        opal_asprintf(&value, "-Djava.library.path=%s:%s", dptr, opal_install_dirs.libdir);
                     }
                     free(app->argv[i]);
                     app->argv[i] = value;
@@ -1750,7 +1751,7 @@ static int create_app(int argc, char* argv[],
         }
         if (!found) {
             /* need to add it right after the java command */
-            asprintf(&value, "-Djava.library.path=%s", opal_install_dirs.libdir);
+            opal_asprintf(&value, "-Djava.library.path=%s", opal_install_dirs.libdir);
             opal_argv_insert_element(&app->argv, 1, value);
             free(value);
         }
@@ -1775,7 +1776,7 @@ static int create_app(int argc, char* argv[],
                 }
                 free(value);
                 /* always add the local directory */
-                asprintf(&value, "%s:%s", app->cwd, app->argv[i+1]);
+                opal_asprintf(&value, "%s:%s", app->cwd, app->argv[i+1]);
                 free(app->argv[i+1]);
                 app->argv[i+1] = value;
                 break;
@@ -1802,7 +1803,7 @@ static int create_app(int argc, char* argv[],
                     }
                     free(value);
                     /* always add the local directory */
-                    (void)asprintf(&value, "%s:%s", app->cwd, app->argv[1]);
+                    opal_asprintf(&value, "%s:%s", app->cwd, app->argv[1]);
                     free(app->argv[1]);
                     app->argv[1] = value;
                     opal_argv_insert_element(&app->argv, 1, "-cp");
@@ -1821,7 +1822,7 @@ static int create_app(int argc, char* argv[],
                 /* check for mpi.jar */
                 value = opal_os_path(false, opal_install_dirs.libdir, "mpi.jar", NULL);
                 if (access(value, F_OK ) != -1) {
-                    (void)asprintf(&str2, "%s:%s", str, value);
+                    opal_asprintf(&str2, "%s:%s", str, value);
                     free(str);
                     str = str2;
                 }
@@ -1829,7 +1830,7 @@ static int create_app(int argc, char* argv[],
                 /* check for shmem.jar */
                 value = opal_os_path(false, opal_install_dirs.libdir, "shmem.jar", NULL);
                 if (access(value, F_OK ) != -1) {
-                    asprintf(&str2, "%s:%s", str, value);
+                    opal_asprintf(&str2, "%s:%s", str, value);
                     free(str);
                     str = str2;
                 }
@@ -1892,7 +1893,7 @@ static void set_classpath_jar_file(orte_app_context_t *app, int index, char *jar
         char *fmt = ':' == app->argv[index][strlen(app->argv[index]-1)]
                     ? "%s%s/%s" : "%s:%s/%s";
         char *str;
-        asprintf(&str, fmt, app->argv[index], opal_install_dirs.libdir, jarfile);
+        opal_asprintf(&str, fmt, app->argv[index], opal_install_dirs.libdir, jarfile);
         free(app->argv[index]);
         app->argv[index] = str;
     }
@@ -2268,6 +2269,8 @@ struct MPIR_PROCDESC {
  * spawn we need to check if we are being run under a TotalView-like
  * debugger; if so then inform applications via an MCA parameter.
  */
+static bool mpir_warning_printed = false;
+
 static void orte_debugger_init_before_spawn(orte_job_t *jdata)
 {
     char *env_name;
@@ -2306,7 +2309,8 @@ static void orte_debugger_init_before_spawn(orte_job_t *jdata)
                 free(attach_fifo);
                 return;
             }
-            strncpy(MPIR_attach_fifo, attach_fifo, MPIR_MAX_PATH_LENGTH - 1);
+            opal_string_copy(MPIR_attach_fifo, attach_fifo,
+                             MPIR_MAX_PATH_LENGTH);
             free(attach_fifo);
             open_fifo();
         }
@@ -2315,6 +2319,15 @@ static void orte_debugger_init_before_spawn(orte_job_t *jdata)
 
  launchit:
     opal_output_verbose(1, orte_debug_output, "Info: Spawned by a debugger");
+
+    /* if we haven't previously warned about it */
+    if (!mpir_warning_printed) {
+        mpir_warning_printed = true;
+        /* check for silencing envar */
+        if (NULL == getenv("OMPI_MPIR_DO_NOT_WARN")) {
+            orte_show_help("help-orted.txt", "mpir-debugger-detected", true);
+        }
+    }
 
     /* tell the procs they are being debugged */
     (void) mca_base_var_env_name ("orte_in_parallel_debugger", &env_name);
@@ -2529,6 +2542,14 @@ void orte_debugger_init_after_spawn(int fd, short event, void *cbdata)
         if (MPIR_being_debugged || NULL != orte_debugger_test_daemon ||
             NULL != getenv("ORTE_TEST_DEBUGGER_ATTACH")) {
             OBJ_RELEASE(caddy);
+            /* if we haven't previously warned about it */
+            if (!mpir_warning_printed) {
+                mpir_warning_printed = true;
+                /* check for silencing envar */
+                if (NULL == getenv("OMPI_MPIR_DO_NOT_WARN")) {
+                    orte_show_help("help-orted.txt", "mpir-debugger-detected", true);
+                }
+            }
             if (!mpir_breakpoint_fired) {
                 /* record that we have triggered the debugger */
                 mpir_breakpoint_fired = true;
@@ -2624,6 +2645,15 @@ void orte_debugger_init_after_spawn(int fd, short event, void *cbdata)
      */
     if (MPIR_being_debugged || NULL != orte_debugger_test_daemon ||
         NULL != getenv("ORTE_TEST_DEBUGGER_ATTACH")) {
+        /* if we haven't previously warned about it */
+        if (!mpir_warning_printed) {
+            mpir_warning_printed = true;
+            /* check for silencing envar */
+            if (NULL == getenv("OMPI_MPIR_DO_NOT_WARN")) {
+                orte_show_help("help-orted.txt", "mpir-debugger-detected", true);
+            }
+        }
+
         /* if we are not launching debugger daemons, then trigger
          * the debugger - otherwise, we need to wait for the debugger
          * daemons to be started
@@ -2743,7 +2773,7 @@ static int process(char *orig_line, char *basename, opal_cmd_line_t *cmd_line,
             }
         } else if (0 == strcmp(line_argv[i], "@np@")) {
             used_num_procs = true;
-            asprintf(&tmp, "%d", num_procs);
+            opal_asprintf(&tmp, "%d", num_procs);
             opal_argv_append_nosize(new_argv, tmp);
             free(tmp);
         } else if (0 == strcmp(line_argv[i], "@single_app@")) {
@@ -2932,6 +2962,15 @@ static void attach_debugger(int fd, short event, void *arg)
                         "%s Attaching debugger %s", ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
                         (NULL == orte_debugger_test_daemon) ? MPIR_executable_path : orte_debugger_test_daemon);
 
+    /* if we haven't previously warned about it */
+    if (!mpir_warning_printed) {
+        mpir_warning_printed = true;
+        /* check for silencing envar */
+        if (NULL == getenv("OMPI_MPIR_DO_NOT_WARN")) {
+            orte_show_help("help-orted.txt", "mpir-debugger-detected", true);
+        }
+    }
+
     /* a debugger has attached! All the MPIR_Proctable
      * data is already available, so we only need to
      * check to see if we should spawn any daemons
@@ -3045,6 +3084,15 @@ static void run_debugger(char *basename, opal_cmd_line_t *cmd_line,
     if (OPAL_SUCCESS == ret && NULL != env_name) {
         opal_setenv(env_name, "1", true, &environ);
         free(env_name);
+    }
+
+    /* if we haven't previously warned about it */
+    if (!mpir_warning_printed) {
+        mpir_warning_printed = true;
+        /* check for silencing envar */
+        if (NULL == getenv("OMPI_MPIR_DO_NOT_WARN")) {
+            orte_show_help("help-orted.txt", "mpir-debugger-detected", true);
+        }
     }
 
     /* Launch the debugger */

@@ -9,6 +9,9 @@
  * Copyright (c) 2016      Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2017      Los Alamos National Security, LLC. All rights
  *                         reserved.
+ * Copyright (c) 2018      The University of Tennessee and The University
+ *                         of Tennessee Research Foundation.  All rights
+ *                         reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -39,6 +42,7 @@
 #include "opal/util/opal_environ.h"
 #include "opal/util/proc.h"
 #include "opal/util/show_help.h"
+#include "opal/util/string_copy.h"
 #include "opal/mca/pmix/base/base.h"
 #include "ext3x.h"
 
@@ -123,7 +127,7 @@ int ext3x_server_init(opal_pmix_server_module_t *module,
     n = 0;
     if (NULL != info) {
         OPAL_LIST_FOREACH(kv, info, opal_value_t) {
-            (void)strncpy(pinfo[n].key, kv->key, PMIX_MAX_KEYLEN);
+            (void)opal_string_copy(pinfo[n].key, kv->key, PMIX_MAX_KEYLEN);
             ext3x_value_load(&pinfo[n].value, kv);
             ++n;
         }
@@ -186,6 +190,8 @@ int ext3x_server_finalize(void)
 {
     pmix_status_t rc;
     opal_ext3x_event_t *event, *ev2;
+    opal_list_t evlist;
+    OBJ_CONSTRUCT(&evlist, opal_list_t);
 
     OPAL_PMIX_ACQUIRE_THREAD(&opal_pmix_base.lock);
     --opal_pmix_base.initialized;
@@ -196,12 +202,19 @@ int ext3x_server_finalize(void)
             OPAL_PMIX_DESTRUCT_LOCK(&event->lock);
             OPAL_PMIX_CONSTRUCT_LOCK(&event->lock);
             PMIx_Deregister_event_handler(event->index, dereg_cbfunc, (void*)event);
-            OPAL_PMIX_WAIT_THREAD(&event->lock);
             opal_list_remove_item(&mca_pmix_ext3x_component.events, &event->super);
-            OBJ_RELEASE(event);
+            /* wait and release outside the loop to avoid double mutex
+             * interlock */
+            opal_list_append(&evlist, &event->super);
         }
     }
     OPAL_PMIX_RELEASE_THREAD(&opal_pmix_base.lock);
+    OPAL_LIST_FOREACH_SAFE(event, ev2, &evlist, opal_ext3x_event_t) {
+        OPAL_PMIX_WAIT_THREAD(&event->lock);
+        opal_list_remove_item(&evlist, &event->super);
+        OBJ_RELEASE(event);
+    }
+    OBJ_DESTRUCT(&evlist);
     rc = PMIx_server_finalize();
     return ext3x_convert_rc(rc);
 }
@@ -264,7 +277,7 @@ int ext3x_server_register_nspace(opal_jobid_t jobid,
 
     /* store this job in our list of known nspaces */
     job = OBJ_NEW(opal_ext3x_jobid_trkr_t);
-    (void)strncpy(job->nspace, nspace, PMIX_MAX_NSLEN);
+    (void)opal_string_copy(job->nspace, nspace, PMIX_MAX_NSLEN);
     job->jobid = jobid;
     opal_list_append(&mca_pmix_ext3x_component.jobids, &job->super);
     OPAL_PMIX_RELEASE_THREAD(&opal_pmix_base.lock);
@@ -274,7 +287,7 @@ int ext3x_server_register_nspace(opal_jobid_t jobid,
         PMIX_INFO_CREATE(pinfo, sz);
         n = 0;
         OPAL_LIST_FOREACH(kv, info, opal_value_t) {
-            (void)strncpy(pinfo[n].key, kv->key, PMIX_MAX_KEYLEN);
+            (void)opal_string_copy(pinfo[n].key, kv->key, PMIX_MAX_KEYLEN);
             if (0 == strcmp(kv->key, OPAL_PMIX_PROC_DATA)) {
                 pinfo[n].value.type = PMIX_DATA_ARRAY;
                 /* the value contains a list of values - convert
@@ -289,7 +302,7 @@ int ext3x_server_register_nspace(opal_jobid_t jobid,
                     pinfo[n].value.data.darray->size = szmap;
                     m = 0;
                     OPAL_LIST_FOREACH(k2, pmapinfo, opal_value_t) {
-                        (void)strncpy(pmap[m].key, k2->key, PMIX_MAX_KEYLEN);
+                        (void)opal_string_copy(pmap[m].key, k2->key, PMIX_MAX_KEYLEN);
                         ext3x_value_load(&pmap[m].value, k2);
                         ++m;
                     }
@@ -421,7 +434,7 @@ void ext3x_server_deregister_client(const opal_process_name_t *proc,
     OPAL_LIST_FOREACH(jptr, &mca_pmix_ext3x_component.jobids, opal_ext3x_jobid_trkr_t) {
         if (jptr->jobid == proc->jobid) {
             /* found it - tell the server to deregister */
-            (void)strncpy(p.nspace, jptr->nspace, PMIX_MAX_NSLEN);
+            (void)opal_string_copy(p.nspace, jptr->nspace, PMIX_MAX_NSLEN);
             p.rank = ext3x_convert_opalrank(proc->vpid);
             OPAL_PMIX_CONSTRUCT_LOCK(&lock);
             OPAL_PMIX_RELEASE_THREAD(&opal_pmix_base.lock);
@@ -529,7 +542,7 @@ int ext3x_server_notify_event(int status,
         PMIX_INFO_CREATE(pinfo, sz);
         n = 0;
         OPAL_LIST_FOREACH(kv, info, opal_value_t) {
-            (void)strncpy(pinfo[n].key, kv->key, PMIX_MAX_KEYLEN);
+            (void)opal_string_copy(pinfo[n].key, kv->key, PMIX_MAX_KEYLEN);
             if (0 == strcmp(kv->key, OPAL_PMIX_JOB_TERM_STATUS)) {
                 pinfo[n].value.type = PMIX_STATUS;
                 pinfo[n].value.data.status = ext3x_convert_opalrc(kv->data.integer);
@@ -712,7 +725,7 @@ int ext3x_server_setup_application(opal_jobid_t jobid,
         PMIX_INFO_CREATE(pinfo, sz);
         n = 0;
         OPAL_LIST_FOREACH(kv, info, opal_value_t) {
-            (void)strncpy(pinfo[n].key, kv->key, PMIX_MAX_KEYLEN);
+            (void)opal_string_copy(pinfo[n].key, kv->key, PMIX_MAX_KEYLEN);
             ext3x_value_load(&pinfo[n].value, kv);
             ++n;
         }
@@ -764,7 +777,7 @@ int ext3x_server_setup_local_support(opal_jobid_t jobid,
         PMIX_INFO_CREATE(pinfo, sz);
         n = 0;
         OPAL_LIST_FOREACH(kv, info, opal_value_t) {
-            (void)strncpy(pinfo[n].key, kv->key, PMIX_MAX_KEYLEN);
+            (void)opal_string_copy(pinfo[n].key, kv->key, PMIX_MAX_KEYLEN);
             ext3x_value_load(&pinfo[n].value, kv);
             ++n;
         }

@@ -10,7 +10,7 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2008-2012 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2008-2018 Cisco Systems, Inc.  All rights reserved
  * Copyright (c) 2009      Sun Microsystems, Inc.  All rights reserved.
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
@@ -33,7 +33,8 @@
 #include "ompi/errhandler/errhandler_predefined.h"
 #include "opal/class/opal_pointer_array.h"
 #include "opal/mca/pmix/pmix.h"
-#include "ompi/runtime/params.h"
+#include "opal/util/string_copy.h"
+
 
 /*
  * Table for Fortran <-> C errhandler handle conversion
@@ -107,9 +108,8 @@ int ompi_errhandler_init(void)
   ompi_mpi_errhandler_null.eh.eh_file_fn = NULL;
   ompi_mpi_errhandler_null.eh.eh_win_fn  = NULL ;
   ompi_mpi_errhandler_null.eh.eh_fort_fn = NULL;
-  strncpy (ompi_mpi_errhandler_null.eh.eh_name, "MPI_ERRHANDLER_NULL",
-	   strlen("MPI_ERRHANDLER_NULL")+1 );
-
+  opal_string_copy(ompi_mpi_errhandler_null.eh.eh_name, "MPI_ERRHANDLER_NULL",
+                   sizeof(ompi_mpi_errhandler_null.eh.eh_name));
 
   OBJ_CONSTRUCT( &ompi_mpi_errors_are_fatal.eh, ompi_errhandler_t );
   if( ompi_mpi_errors_are_fatal.eh.eh_f_to_c_index != OMPI_ERRORS_ARE_FATAL_FORTRAN )
@@ -120,8 +120,9 @@ int ompi_errhandler_init(void)
   ompi_mpi_errors_are_fatal.eh.eh_file_fn = ompi_mpi_errors_are_fatal_file_handler;
   ompi_mpi_errors_are_fatal.eh.eh_win_fn  = ompi_mpi_errors_are_fatal_win_handler ;
   ompi_mpi_errors_are_fatal.eh.eh_fort_fn = NULL;
-  strncpy (ompi_mpi_errors_are_fatal.eh.eh_name, "MPI_ERRORS_ARE_FATAL",
-	   strlen("MPI_ERRORS_ARE_FATAL")+1 );
+  opal_string_copy(ompi_mpi_errors_are_fatal.eh.eh_name,
+                   "MPI_ERRORS_ARE_FATAL",
+                   sizeof(ompi_mpi_errors_are_fatal.eh.eh_name));
 
   OBJ_CONSTRUCT( &ompi_mpi_errors_return.eh, ompi_errhandler_t );
   if( ompi_mpi_errors_return.eh.eh_f_to_c_index != OMPI_ERRORS_RETURN_FORTRAN )
@@ -132,8 +133,8 @@ int ompi_errhandler_init(void)
   ompi_mpi_errors_return.eh.eh_file_fn = ompi_mpi_errors_return_file_handler;
   ompi_mpi_errors_return.eh.eh_win_fn  = ompi_mpi_errors_return_win_handler;
   ompi_mpi_errors_return.eh.eh_fort_fn = NULL;
-  strncpy (ompi_mpi_errors_return.eh.eh_name, "MPI_ERRORS_RETURN",
-	   strlen("MPI_ERRORS_RETURN")+1 );
+  opal_string_copy(ompi_mpi_errors_return.eh.eh_name, "MPI_ERRORS_RETURN",
+                   sizeof(ompi_mpi_errors_return.eh.eh_name));
 
   /* If we're going to use C++, functions will be fixed up during
      MPI::Init.  Note that it is proper to use ERRHANDLER_LANG_C here;
@@ -151,8 +152,9 @@ int ompi_errhandler_init(void)
   ompi_mpi_errors_throw_exceptions.eh.eh_win_fn  =
       ompi_mpi_errors_are_fatal_win_handler ;
   ompi_mpi_errors_throw_exceptions.eh.eh_fort_fn = NULL;
-  strncpy (ompi_mpi_errors_throw_exceptions.eh.eh_name, "MPI_ERRORS_THROW_EXCEPTIONS",
-	   strlen("MPI_ERRORS_THROW_EXCEPTIONS")+1 );
+  opal_string_copy(ompi_mpi_errors_throw_exceptions.eh.eh_name,
+                   "MPI_ERRORS_THROW_EXCEPTIONS",
+                   sizeof(ompi_mpi_errors_throw_exceptions.eh.eh_name));
 
   /* All done */
 

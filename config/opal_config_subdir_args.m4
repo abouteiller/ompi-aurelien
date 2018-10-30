@@ -60,7 +60,9 @@ do
 	    ;;
 	-with-platform=* | --with-platform=*)
 	    ;;
-        -with*=internal)
+        --with*=internal)
+            ;;
+        --with*=external)
             ;;
 	*)
 	    case $subdir_arg in
