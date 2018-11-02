@@ -1,5 +1,5 @@
 dnl
-dnl Copyright (c) 2004-2017 The University of Tennessee and The University
+dnl Copyright (c) 2004-2018 The University of Tennessee and The University
 dnl                         of Tennessee Research Foundation.  All rights
 dnl                         reserved.
 dnl Copyright (c) 2009-2012 Oak Ridge National Labs.  All rights reserved.
@@ -142,6 +142,7 @@ AC_DEFUN([OPAL_SETUP_FT],[
         if test -r "${srcdir}/contrib/platform/ft_mpi_ulfm" ; then
             . ${srcdir}/contrib/platform/ft_mpi_ulfm
             AC_MSG_RESULT([Loaded contrib/platform/ft_mpi_ulfm])
+            enable_mca_no_build="$enable_mca_no_build_ft,$enable_mca_no_build"
         else
             AC_MSG_RESULT([Not found])
         fi
@@ -209,5 +210,5 @@ AC_DEFUN([OPAL_SETUP_FT],[
     AC_DEFINE_UNQUOTED([OPAL_ENABLE_FT_THREAD], [$opal_want_ft_thread],
                        [Enable fault tolerance thread in Open PAL])
     AM_CONDITIONAL(WANT_FT_THREAD, test "$opal_want_ft_thread" = "1")
-    OPAL_SUMMARY_ADD([[Miscellaneous]],[[Fault Tolerance support]],[unnecessary], [$with_ft])
+    OPAL_SUMMARY_ADD([[Miscellaneous]],[[Fault Tolerance support]],[unnecessary], [$with_ft (disabling components ${enable_mca_no_build_ft//,/ })])
 ])

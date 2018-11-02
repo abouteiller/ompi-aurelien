@@ -1,15 +1,16 @@
 # disabling non-tested and known broken components in FT-MPI builds
 # The following frameworks/components are UNTESTED. They should work, but use at your own risk with FT.
-#   btl-usnic, btl-portals4, btl-scif, btl-smcuda, pml-monitoring, pml-v, vprotocol, crcp
+#   btl-uct, btl-usnic, btl-portals4, btl-scif, btl-smcuda, pml-monitoring, pml-v, vprotocol, crcp
 # The following frameworks/components are UNTESTED, and probably won't work. You may try.
 #   coll-cuda, coll-fca, coll-hcoll, coll-portals4, 
 # The following frameworks/components are NOT WORKING. Do not enable these with FT.
-#   mtl, pml-bfo, pml-cm, pml-crcpw, pml-yalla, pml-ucx
+#   mtl, pml-cm, pml-crcpw, pml-yalla, pml-ucx
 
-enable_mca_no_build=\
-mtl,pml-bfo,pml-cm,pml-crcpw,pml-yalla,pml-ucx,\
+enable_mca_no_build_ft=\
+mtl,pml-cm,pml-crcpw,pml-yalla,pml-ucx,\
 coll-cuda,coll-fca,coll-hcoll,coll-portals4,\
-btl-usnic,btl-portals4,btl-scif,btl-smcuda,pml-monitoring,pml-v,vprotocol,crcp,\
+btl-usnic,btl-portals4,btl-scif,btl-smcuda,\
+pml-monitoring,pml-v,vprotocol,crcp\
 
-# xpmem generates bus errors when the other end is dead.
-with_cray_xpmem=no
+# older versions of xpmem generate bus errors when the other end is dead.
+#with_cray_xpmem=no
