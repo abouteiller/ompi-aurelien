@@ -152,9 +152,9 @@ tolerant components from operating properly).
     - "bfo", "cm", "crcpw", "ucx", "yalla" **disabled**
 
 - **btl** Point-to-point Byte Transfer Layer
-    - "openib", "tcp", "vader(+cma)" modified to **handle errors** (removed
+    - "openib", "tcp", "vader(+cma,+xpmem)" modified to **handle errors** (removed
       unconditional abort on error, expect performance similar to upstream)
-    - "portals4", "scif", "smcuda", "usnic", "vader(+knem,+xpmem)" unmodified,
+    - "uct", "portals4", "scif", "smcuda", "usnic", "vader(+knem)" unmodified,
       **untested** (may work properly, please report)
 
 - **mtl** Matching transport layer Used for MPI point-to-point messages on
@@ -250,7 +250,9 @@ cases. You can change the default settings with `--mca mpi_ft_foo <value>`.
   timeout (i.e. failure detection speed). Recommended value is 3 times
   the heartbeat period.
 
-## Known Limitations in ULFM-2.0:
+## Known Limitations in ULFM-2.1:
+- Infiniband support is provided through the OpenIB BTL, fault tolerant 
+  operation over UCX is not yet supported.
 - TOPO, FILE, RMA are not fault tolerant.
 - There is a tradeoff between failure detection accuracy and performance.
   The current default is to favor performance. Users that experience
@@ -258,8 +260,6 @@ cases. You can change the default settings with `--mca mpi_ft_foo <value>`.
 - The failure detector operates on MPI_COMM_WORLD exclusively. Processes
   connected from MPI_COMM_CONNECT/ACCEPT and MPI_COMM_SPAWN may
   occasionally not be detected when they fail.
-- Failures during NBC collective may not be recovered properly in some rare
-  cases.
 - Return of OpenIB credits spent toward a failed process can take several
   seconds. Until the `btl_openib_ib_timeout` and `btl_openib_ib_retry_count`
   controlled timeout triggers, lack of send credits may cause a temporary
@@ -271,9 +271,26 @@ ___________________________________________________________________________
 Changelog
 =========
 
+## Release 2.1
+This release is a bugfix and upstream parity upgrade. It improves stability,
+performance and is based on the most current Open MPI master (November 2018).
+
+- ULFM is now based upon Open MPI master branch (#37954b5f).
+- ULFM tuning MCA parameters are exposed by `ompi_info`.
+- Fortran 90 bindings have been updated
+- Bugfixes:
+    - Correct the behavior of process placement during an MPI_COMM_SPAWN when 
+      some slots were occcupied by failed processes.
+    - MPI_COMM_SPAWN accepts process placement directives in the Info object.
+    - Fixed deadlocks in some NBC collective operations.
+    - Crashes and deadlocks in MPI_FINALIZE have been resolved.
+    - Any-source requests that returned with an error status of 
+      MPIX_PROC_FAILED_PENDING can now correctly complete during 
+      later MPI_WAIT/TEST.
+
 ## Release 2.0
-Focus has been toward integration with current Open MPI master, performance,
-and stability.
+Focus has been toward integration with current Open MPI master (November 2017),
+performance, and stability.
 
 - ULFM is now based upon Open MPI master branch (#689f1be9). It will be
   regularly updated until it will eventually be merged.
@@ -395,7 +412,7 @@ Copyright
 =========
 
 ```
-Copyright (c) 2012-2017 The University of Tennessee and The University
+Copyright (c) 2012-2018 The University of Tennessee and The University
                         of Tennessee Research Foundation.  All rights
                         reserved.
 
