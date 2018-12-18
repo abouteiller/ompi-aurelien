@@ -32,7 +32,7 @@ libmpiext_ftmpi_c_la_LIBADD = \
 
 dist_ompidata_DATA = help-ft-mpi.txt
 
-ompidir = $(ompiincludedir)/ompi/mpiext/ftmpi/c
+ompidir = $(ompiincludedir)/mpiext/
 ompi_HEADERS = $(headers)
 
 MAINTAINERCLEANFILES = $(nodist_libmpiext_ftmpi_c_la_SOURCES)
