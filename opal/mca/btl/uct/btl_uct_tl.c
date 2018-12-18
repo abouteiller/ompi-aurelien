@@ -4,6 +4,8 @@
  *                         reserved.
  * Copyright (c) 2018      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2018      Triad National Security, LLC. All rights
+ *                         reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -26,7 +28,7 @@
  * @brief Convert UCT capabilities to BTL flags
  */
 static uint64_t mca_btl_uct_cap_to_btl_flag[][2] = {
-    {UCT_IFACE_FLAG_AM_ZCOPY, MCA_BTL_FLAGS_SEND},
+    {UCT_IFACE_FLAG_AM_SHORT, MCA_BTL_FLAGS_SEND},
     {UCT_IFACE_FLAG_PUT_ZCOPY, MCA_BTL_FLAGS_PUT},
     {UCT_IFACE_FLAG_GET_ZCOPY, MCA_BTL_FLAGS_GET},
     {0,0},
@@ -221,7 +223,7 @@ int mca_btl_uct_process_connection_request (mca_btl_uct_module_t *module, mca_bt
 
         /* to avoid a race with send adding pending frags grab the lock here */
         OPAL_THREAD_SCOPED_LOCK(&endpoint->ep_lock,{
-                BTL_VERBOSE(("connection ready. sending %d frags", opal_list_get_size (&module->pending_frags)));
+                BTL_VERBOSE(("connection ready. sending %" PRIsize_t " frags", opal_list_get_size (&module->pending_frags)));
                 (void) opal_atomic_or_fetch_32 (&tl_endpoint->flags, MCA_BTL_UCT_ENDPOINT_FLAG_CONN_READY);
                 opal_atomic_wmb ();
 
