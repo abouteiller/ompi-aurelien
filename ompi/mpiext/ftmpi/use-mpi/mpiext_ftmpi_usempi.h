@@ -1,6 +1,6 @@
 ! -*- fortran -*-
 ! Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
-! Copyright (c) 2010-2016 The University of Tennessee and the University
+! Copyright (c) 2010-2018 The University of Tennessee and the University
 !                         of Tennessee research foundation.  All rights
 !                         reserved.
 ! $COPYRIGHT$

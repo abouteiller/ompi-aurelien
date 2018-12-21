@@ -1,6 +1,13 @@
 ! -*- f90 -*-
 !
+! Copyright (c) 2018      The University of Tennessee and the University
+!                         of Tennessee Research Foundation.  All rights
+!                         reserved.
 ! $COPYRIGHT$
+!
+! Additional copyrights may follow
+!
+! $HEADER$
 !
 
 subroutine MPIX_Comm_revoke_f08(comm, ierror)
