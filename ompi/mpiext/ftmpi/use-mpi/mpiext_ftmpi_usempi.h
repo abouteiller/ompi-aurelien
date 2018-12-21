@@ -24,6 +24,14 @@ interface MPIX_Comm_revoke
     end subroutine mpix_comm_revoke
 end interface MPIX_Comm_revoke
 
+interface MPIX_Comm_is_revoked
+    subroutine mpix_comm_is_revoked(comm, flag, ierr)
+      integer, intent(IN) :: comm
+      logical, intent(OUT) :: flag
+      integer, intent(OUT) :: ierr
+    end subroutine mpix_comm_is_revoked
+end interface MPIX_Comm_is_revoked
+
 interface MPIX_Comm_shrink
     subroutine mpix_comm_shrink(comm, newcomm, ierr)
       integer, intent(IN) :: comm
@@ -46,16 +54,16 @@ interface MPIX_Comm_failure_get_acked
 end interface MPIX_Comm_failure_get_acked
 
 interface MPIX_Comm_agree
-    subroutine mpix_comm_agree(comm, ierr)
+    subroutine mpix_comm_agree(comm, flag, ierr)
       integer, intent(IN) :: comm
-      integer, intent(OUT) :: ierr
+      integer, intent(OUT) :: flag, ierr
     end subroutine mpix_comm_agree
 end interface MPIX_Comm_agree
 
 interface MPIX_Comm_iagree
-    subroutine mpix_comm_iagree(comm, request, ierr)
+    subroutine mpix_comm_iagree(comm, flag, request, ierr)
       integer, intent(IN) :: comm
-      integer, intent(OUT) :: request, ierr
+      integer, intent(OUT) :: flag, request, ierr
     end subroutine mpix_comm_iagree
 end interface MPIX_Comm_iagree
 

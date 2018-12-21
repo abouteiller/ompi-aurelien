@@ -44,19 +44,21 @@ noinst_HEADERS = mpiext_ftmpi_usempif08.h
 
 # Sources for the convenience libtool library.
 mpi_api_files = \
-    comm_agree_f08.F90 \
+    comm_revoke_f08.F90 \
+    comm_is_revoked_f08.F90 \
     comm_failure_ack_f08.F90 \
     comm_failure_get_acked_f08.F90 \
+    comm_agree_f08.F90 \
     comm_iagree_f08.F90 \
-    comm_revoke_f08.F90 \
     comm_shrink_f08.F90
 
 pmpi_api_files = \
-    profile/pcomm_agree_f08.F90 \
+    profile/pcomm_revoke_f08.F90 \
+    profile/pcomm_is_revoked_f08.F90 \
     profile/pcomm_failure_ack_f08.F90 \
     profile/pcomm_failure_get_acked_f08.F90 \
+    profile/pcomm_agree_f08.F90 \
     profile/pcomm_iagree_f08.F90 \
-    profile/pcomm_revoke_f08.F90 \
     profile/pcomm_shrink_f08.F90
 
 mpi_api_lo_files = $(mpi_api_files:.F90=.lo)

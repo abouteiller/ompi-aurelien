@@ -22,6 +22,7 @@ headers = \
 
 f77_sources = \
     comm_revoke_f.c \
+    comm_is_revoked_f.c \
     comm_shrink_f.c \
     comm_failure_ack_f.c \
     comm_failure_get_acked_f.c \

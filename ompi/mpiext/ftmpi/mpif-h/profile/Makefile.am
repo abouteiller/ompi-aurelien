@@ -31,6 +31,7 @@ headers += pmpiext_ftmpi_mpifh.h
 nodist_libpmpiext_ftmpi_mpifh_la_SOURCES += \
     $(headers) \
     pcomm_revoke_f.c \
+    pcomm_is_revoked_f.c \
     pcomm_shrink_f.c \
     pcomm_failure_ack_f.c \
     pcomm_failure_get_acked_f.c \

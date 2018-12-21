@@ -18,6 +18,7 @@ noinst_LTLIBRARIES = libpmpiext_ftmpi_c.la
 
 nodist_libpmpiext_ftmpi_c_la_SOURCES = \
     pcomm_revoke.c \
+    pcomm_is_revoked.c \
     pcomm_shrink.c \
     pcomm_failure_ack.c \
     pcomm_failure_get_acked.c \
