@@ -23,6 +23,7 @@
  * Communicators
  ********************************/
 OMPI_DECLSPEC int MPIX_Comm_revoke(MPI_Comm comm);
+OMPI_DECLSPEC int MPIX_Comm_is_revoked(MPI_Comm comm, int *flag);
 OMPI_DECLSPEC int MPIX_Comm_shrink(MPI_Comm comm, MPI_Comm *newcomm);
 OMPI_DECLSPEC int MPIX_Comm_failure_ack(MPI_Comm comm);
 OMPI_DECLSPEC int MPIX_Comm_failure_get_acked(MPI_Comm comm, MPI_Group *failedgrp);
@@ -30,6 +31,7 @@ OMPI_DECLSPEC int MPIX_Comm_agree(MPI_Comm comm, int *flag);
 OMPI_DECLSPEC int MPIX_Comm_iagree(MPI_Comm comm, int *flag, MPI_Request *request);
 
 OMPI_DECLSPEC int PMPIX_Comm_revoke(MPI_Comm comm);
+OMPI_DECLSPEC int PMPIX_Comm_is_revoked(MPI_Comm comm, int *flag);
 OMPI_DECLSPEC int PMPIX_Comm_shrink(MPI_Comm comm, MPI_Comm *newcomm);
 OMPI_DECLSPEC int PMPIX_Comm_failure_ack(MPI_Comm comm);
 OMPI_DECLSPEC int PMPIX_Comm_failure_get_acked(MPI_Comm comm, MPI_Group *failedgrp);

@@ -16,15 +16,14 @@
 #include "ompi/communicator/communicator.h"
 #include "ompi/proc/proc.h"
 
+#include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
+
 #if OMPI_BUILD_MPI_PROFILING
 #if OPAL_HAVE_WEAK_SYMBOLS
 #pragma weak MPIX_Comm_is_revoked = PMPIX_Comm_is_revoked
 #endif
 #define MPIX_Comm_is_revoked PMPIX_Comm_is_revoked
 #endif
-
-#include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
-#include "ompi/communicator/communicator.h"
 
 static const char FUNC_NAME[] = "MPIX_Comm_is_revoked";
 

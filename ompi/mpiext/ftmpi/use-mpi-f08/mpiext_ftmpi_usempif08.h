@@ -1,17 +1,35 @@
 ! -*- f90 -*-
 !
+! Copyright (c) 2018      The University of Tennessee and the University
+!                         of Tennessee Research Foundation.  All rights
+!                         reserved.
+! $COPYRIGHT$
+!
+! Additional copyrights may follow
+!
+! $HEADER$
+!
+!
 ! $COPYRIGHT$
 
-
-interface MPIX_Comm_agree
-subroutine MPIX_Comm_agree_f08(comm,flag,ierror)
+interface MPIX_Comm_revoke
+subroutine MPIX_Comm_revoke_f08(comm,ierror)
    use :: mpi_f08_types, only : MPI_Comm
    implicit none
    TYPE(MPI_Comm), INTENT(IN) :: comm
-   INTEGER, INTENT(INOUT) :: flag
    INTEGER, OPTIONAL, INTENT(OUT) :: ierror
-end subroutine MPIX_Comm_agree_f08
-end interface MPIX_Comm_agree
+end subroutine MPIX_Comm_revoke_f08
+end interface MPIX_Comm_revoke
+
+interface MPIX_Comm_is_revoked
+subroutine MPIX_Comm_is_revoked_f08(comm,flag,ierror)
+   use :: mpi_f08_types, only : MPI_Comm
+   implicit none
+   TYPE(MPI_Comm), INTENT(IN) :: comm
+   INTEGER, INTENT(OUT) :: flag
+   INTEGER, OPTIONAL, INTENT(OUT) :: ierror
+end subroutine MPIX_Comm_is_revoked_f08
+end interface MPIX_Comm_is_revoked
 
 interface MPIX_Comm_failure_ack
 subroutine MPIX_Comm_failure_ack_f08(comm,ierror)
@@ -32,6 +50,16 @@ subroutine MPIX_Comm_failure_get_acked_f08(comm,failedgrp,ierror)
 end subroutine MPIX_Comm_failure_get_acked_f08
 end interface MPIX_Comm_failure_get_acked
 
+interface MPIX_Comm_agree
+subroutine MPIX_Comm_agree_f08(comm,flag,ierror)
+   use :: mpi_f08_types, only : MPI_Comm
+   implicit none
+   TYPE(MPI_Comm), INTENT(IN) :: comm
+   INTEGER, INTENT(INOUT) :: flag
+   INTEGER, OPTIONAL, INTENT(OUT) :: ierror
+end subroutine MPIX_Comm_agree_f08
+end interface MPIX_Comm_agree
+
 interface MPIX_Comm_iagree
 subroutine MPIX_Comm_iagree_f08(comm,flag,request,ierror)
    use :: mpi_f08_types, only : MPI_Comm, MPI_Request
@@ -42,15 +70,6 @@ subroutine MPIX_Comm_iagree_f08(comm,flag,request,ierror)
    INTEGER, OPTIONAL, INTENT(OUT) :: ierror
 end subroutine MPIX_Comm_iagree_f08
 end interface MPIX_Comm_iagree
-
-interface MPIX_Comm_revoke
-subroutine MPIX_Comm_revoke_f08(comm,ierror)
-   use :: mpi_f08_types, only : MPI_Comm
-   implicit none
-   TYPE(MPI_Comm), INTENT(IN) :: comm
-   INTEGER, OPTIONAL, INTENT(OUT) :: ierror
-end subroutine MPIX_Comm_revoke_f08
-end interface MPIX_Comm_revoke
 
 interface MPIX_Comm_shrink
 subroutine MPIX_Comm_shrink_f08(comm,newcomm,ierror)
