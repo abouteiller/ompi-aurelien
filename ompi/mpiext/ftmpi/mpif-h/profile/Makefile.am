@@ -10,6 +10,7 @@
 # $HEADER$
 #
 
+include $(top_srcdir)/Makefile.ompi-rules
 #
 # OMPI_PROFILING_DEFINES flag s enabled when we want our MPI_* symbols
 # to be replaced by PMPI_*. In other words, this flag decides
@@ -17,7 +18,7 @@
 # replaces all MPI_* symbols with PMPI_* symbols. In this directory
 # we definately need it to be 1.
 #
-AM_CPPFLAGS = -DOMPI_PROFILE_LAYER=1 -DOMPI_COMPILING_F77_WRAPPERS=1
+AM_CPPFLAGS = -DOMPI_BUILD_MPI_PROFILING=1 -DOMPI_COMPILING_FORTRAN_WRAPPERS=1
 
 headers =
 noinst_LTLIBRARIES =
@@ -25,15 +26,16 @@ nodist_libpmpiext_ftmpi_mpifh_la_SOURCES =
 
 if OMPI_BUILD_FORTRAN_MPIFH_BINDINGS
 
-headers += defines.h
+headers += pmpiext_ftmpi_mpifh.h
 
 nodist_libpmpiext_ftmpi_mpifh_la_SOURCES += \
-	pcomm_revoke_f.c \
-	pcomm_shrink_f.c \
-	pcomm_failure_ack_f.c \
-	pcomm_failure_get_acked_f.c \
-	pcomm_agree_f.c \
-	pcomm_iagree_f.c
+    $(headers) \
+    pcomm_revoke_f.c \
+    pcomm_shrink_f.c \
+    pcomm_failure_ack_f.c \
+    pcomm_failure_get_acked_f.c \
+    pcomm_agree_f.c \
+    pcomm_iagree_f.c
 
 if BUILD_PMPI_FORTRAN_MPIFH_BINDINGS_LAYER
 noinst_LTLIBRARIES += libpmpiext_ftmpi_mpifh.la
@@ -48,11 +50,8 @@ $(nodist_libpmpiext_ftmpi_mpifh_la_SOURCES):
 		$(LN_S) $(top_srcdir)/ompi/mpiext/ftmpi/mpif-h/$$pname $@ ; \
 	fi
 
-# Conditionally install the header files
-if WANT_INSTALL_HEADERS
 ompidir = $(includedir)/openmpi/ompi/mpiext/ftmpi/mpif-h
 ompi_HEADERS = $(headers)
-endif
 
 # These files were created by targets above
 

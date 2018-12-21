@@ -1,6 +1,6 @@
 ! -*- fortran -*-
 ! Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
-! Copyright (c) 2010-2016 The University of Tennessee and the University
+! Copyright (c) 2010-2018 The University of Tennessee and the University
 !                         of Tennessee research foundation.  All rights
 !                         reserved.
 ! $COPYRIGHT$
@@ -59,49 +59,6 @@ interface MPIX_Comm_iagree
     end subroutine mpix_comm_iagree
 end interface MPIX_Comm_iagree
 
-! And the deprecated functions
-
-interface OMPI_Comm_revoke
-    subroutine ompi_comm_revoke(comm, ierr)
-      integer, intent(IN) :: comm
-      integer, intent(OUT) :: ierr
-    end subroutine ompi_comm_revoke
-end interface OMPI_Comm_revoke
-
-interface OMPI_Comm_shrink
-    subroutine ompi_comm_shrink(comm, newcomm, ierr)
-      integer, intent(IN) :: comm
-      integer, intent(OUT) :: newcomm, ierr
-    end subroutine ompi_comm_shrink
-end interface OMPI_Comm_shrink
-
-interface OMPI_Comm_failure_ack
-    subroutine ompi_comm_failure_ack(comm, ierr)
-      integer, intent(IN) :: comm
-      integer, intent(OUT) :: ierr
-    end subroutine ompi_comm_failure_ack
-end interface OMPI_Comm_failure_ack
-
-interface OMPI_Comm_failure_get_acked
-    subroutine ompi_comm_failure_get_acked(comm, failedgrp, ierr)
-        integer, intent(IN) :: comm
-        integer, intent(OUT) :: failedgrp, ierr
-    end subroutine ompi_comm_failure_get_acked
-end interface OMPI_Comm_failure_get_acked
-
-interface OMPI_Comm_agree
-    subroutine ompi_comm_agree(comm, ierr)
-      integer, intent(IN) :: comm
-      integer, intent(OUT) :: ierr
-    end subroutine ompi_comm_agree
-end interface OMPI_Comm_agree
-
-interface OMPI_Comm_iagree
-    subroutine ompi_comm_iagree(comm, request, ierr)
-      integer, intent(IN) :: comm
-      integer, intent(OUT) :: request, ierr
-    end subroutine ompi_comm_iagree
-end interface OMPI_Comm_iagree
 
 !
 ! Validation: Windows

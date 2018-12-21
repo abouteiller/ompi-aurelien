@@ -1,9 +1,13 @@
 ! -*- f90 -*-
 !
-! Copyright (c) 2009-2012 Cisco Systems, Inc.  All rights reserved.
-! Copyright (c) 2009-2012 Los Alamos National Security, LLC.
-!                         All rights reserved.
+! Copyright (c) 2018      The University of Tennessee and the University
+!                         of Tennessee Research Foundation.  All rights
+!                         reserved.
 ! $COPYRIGHT$
+!
+! Additional copyrights may follow
+!
+! $HEADER$
 !
 
 subroutine MPIX_Comm_failure_ack_f08(comm, ierror)
@@ -11,7 +15,7 @@ subroutine MPIX_Comm_failure_ack_f08(comm, ierror)
   implicit none
   interface
      subroutine MPIX_Comm_failure_ack_f(comm, ierror) &
-          BIND(C, name="MPIX_Comm_failure_ack_f")
+          BIND(C, name="ompi_comm_failure_ack_f")
        implicit none
        INTEGER, INTENT(IN) :: comm
        INTEGER, INTENT(OUT) :: ierror

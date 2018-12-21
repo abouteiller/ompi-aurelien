@@ -1,6 +1,13 @@
 ! -*- f90 -*-
 !
+! Copyright (c) 2018      The University of Tennessee and the University
+!                         of Tennessee Research Foundation.  All rights
+!                         reserved.
 ! $COPYRIGHT$
+!
+! Additional copyrights may follow
+!
+! $HEADER$
 !
 
 subroutine MPIX_Comm_agree_f08(comm, flag, ierror)
@@ -8,7 +15,7 @@ subroutine MPIX_Comm_agree_f08(comm, flag, ierror)
   implicit none
   interface
      subroutine MPIX_Comm_agree_f(comm, flag, ierror) &
-          BIND(C, name="MPIX_Comm_agree_f")
+          BIND(C, name="ompi_comm_agree_f")
        implicit none
        INTEGER, INTENT(IN) :: comm
        INTEGER, INTENT(INOUT) :: flag

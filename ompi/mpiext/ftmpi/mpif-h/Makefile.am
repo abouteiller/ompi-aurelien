@@ -10,23 +10,23 @@
 # $HEADER$
 #
 
+include $(top_srcdir)/Makefile.ompi-rules
+
 SUBDIRS = profile
 
-headers =
-f77_sources =
+AM_CPPFLAGS = -DOMPI_BUILD_MPI_PROFILING=0 -DOMPI_COMPILING_FORTRAN_WRAPPERS=1
+
 if OMPI_BUILD_FORTRAN_MPIFH_BINDINGS
-headers += \
-	mpiext_ftmpi_mpifh.h
+headers = \
+    mpiext_ftmpi_mpifh.h
 
-f77_sources += \
-	comm_revoke_f.c \
-	comm_shrink_f.c \
-	comm_failure_ack_f.c \
-	comm_failure_get_acked_f.c \
-	comm_agree_f.c \
-	comm_iagree_f.c
-
-AM_CPPFLAGS = -DOMPI_PROFILE_LAYER=0 -DOMPI_COMPILING_FORTRAN_WRAPPERS=1
+f77_sources = \
+    comm_revoke_f.c \
+    comm_shrink_f.c \
+    comm_failure_ack_f.c \
+    comm_failure_get_acked_f.c \
+    comm_agree_f.c \
+    comm_iagree_f.c
 
 f77_lib = libmpiext_ftmpi_mpifh.la
 f77_lib_sources = $(f77_sources)
@@ -44,6 +44,5 @@ endif
 
 noinst_LTLIBRARIES = $(f77_lib)
 
-# Conditionally install the header files
 ompidir = $(ompiincludedir)/mpiext/
 ompi_HEADERS = $(headers)

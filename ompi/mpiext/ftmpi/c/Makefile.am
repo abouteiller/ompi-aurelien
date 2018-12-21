@@ -13,22 +13,25 @@
 SUBDIRS = profile
 
 headers = \
-	mpiext_ftmpi_c.h
+    mpiext_ftmpi_c.h
 
-AM_CPPFLAGS = -DOMPI_BUILD_MPI_PROFILING=0 -DOMPI_COMPILING_FORTRAN_WRAPPERS=1
+# OMPI_BUILD_MPI_PROFILING is enabled when we want our generated MPI_* symbols
+# to be replaced by PMPI_*.
+# In this directory, we need it to be 0
+
+AM_CPPFLAGS = -DOMPI_BUILD_MPI_PROFILING=0
 
 noinst_LTLIBRARIES = libmpiext_ftmpi_c.la
 
 libmpiext_ftmpi_c_la_SOURCES = \
-	comm_revoke.c \
-	comm_shrink.c \
-	comm_failure_ack.c \
-	comm_failure_get_acked.c \
-	comm_agree.c \
-	comm_iagree.c
+    comm_revoke.c \
+    comm_shrink.c \
+    comm_failure_ack.c \
+    comm_failure_get_acked.c \
+    comm_agree.c \
+    comm_iagree.c
 libmpiext_ftmpi_c_la_LIBADD = \
-	profile/libmpiext_ftmpi_c_pmpi.la
-
+    profile/libpmpiext_ftmpi_c.la
 
 dist_ompidata_DATA = help-ft-mpi.txt
 

@@ -18,14 +18,14 @@
 #include "ompi/proc/proc.h"
 #include "ompi/op/op.h"
 
+#include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
+
 #if OMPI_BUILD_MPI_PROFILING
 #if OPAL_HAVE_WEAK_SYMBOLS
 #pragma weak MPIX_Comm_agree = PMPIX_Comm_agree
 #endif
 #define MPIX_Comm_agree PMPIX_Comm_agree
 #endif
-
-#include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
 
 static const char FUNC_NAME[] = "MPIX_Comm_agree";
 

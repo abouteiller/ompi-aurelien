@@ -10,23 +10,23 @@
 ! $HEADER$
 !
 
-subroutine MPIX_Comm_failure_get_acked_f08(comm, failedgrp, ierror)
+subroutine PMPIX_Comm_failure_get_acked_f08(comm, failedgrp, ierror)
   use :: mpi_f08_types, only : MPI_Comm, MPI_Group
   implicit none
   interface
-     subroutine MPIX_Comm_failure_get_acked_f(comm, failedgrp, ierror) &
-          BIND(C, name="ompi_comm_failure_get_acked_f")
+     subroutine PMPIX_Comm_failure_get_acked_f(comm, failedgrp, ierror) &
+          BIND(C, name="pompi_comm_failure_get_acked_f")
        implicit none
        INTEGER, INTENT(IN) :: comm
        INTEGER, INTENT(OUT) :: failedgrp, ierror
-     end subroutine MPIX_Comm_failure_get_acked_f
+     end subroutine PMPIX_Comm_failure_get_acked_f
   end interface
   TYPE(MPI_Comm), INTENT(IN) :: comm
   TYPE(MPI_Group), INTENT(OUT) :: failedgrp
   INTEGER, OPTIONAL, INTENT(OUT) :: ierror
   integer :: c_ierror
 
-  call MPIX_Comm_failure_get_acked_f(comm%MPI_VAL, failedgrp%MPI_VAL, c_ierror)
+  call PMPIX_Comm_failure_get_acked_f(comm%MPI_VAL, failedgrp%MPI_VAL, c_ierror)
   if (present(ierror)) ierror = c_ierror
 
-end subroutine MPIX_Comm_failure_get_acked_f08
+end subroutine PMPIX_Comm_failure_get_acked_f08
