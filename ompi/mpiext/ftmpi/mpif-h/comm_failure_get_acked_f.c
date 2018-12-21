@@ -27,7 +27,7 @@
 #else /* No weak symbols */
 OMPI_GENERATE_F77_BINDINGS(PMPIX_COMM_FAILURE_GET_ACKED,
                         pmpix_comm_failure_get_acked,
-                        pmpix_comm_failure_get_acked_
+                        pmpix_comm_failure_get_acked_,
                         pmpix_comm_failure_get_acked__,
                         pompi_comm_failure_get_acked_f,
                         (MPI_Fint *comm, MPI_Fint *group, MPI_Fint *ierr),
@@ -48,7 +48,7 @@ OMPI_GENERATE_F77_BINDINGS(PMPIX_COMM_FAILURE_GET_ACKED,
 #else /* No weak symbols */
 OMPI_GENERATE_F77_BINDINGS(MPIX_COMM_FAILURE_GET_ACKED,
                         mpix_comm_failure_get_acked,
-                        mpix_comm_failure_get_acked_
+                        mpix_comm_failure_get_acked_,
                         mpix_comm_failure_get_acked__,
                         ompi_comm_failure_get_acked_f,
                         (MPI_Fint *comm, MPI_Fint *group, MPI_Fint *ierr),

@@ -11,7 +11,7 @@ subroutine MPIX_Comm_failure_get_acked_f08(comm, failedgrp, ierror)
   implicit none
   interface
      subroutine MPIX_Comm_failure_get_acked_f(comm, failedgrp, ierror) &
-          BIND(C, name="MPIX_Comm_failure_get_acked_f")
+          BIND(C, name="ompi_comm_failure_get_acked_f")
        implicit none
        INTEGER, INTENT(IN) :: comm
        INTEGER, INTENT(OUT) :: failedgrp, ierror

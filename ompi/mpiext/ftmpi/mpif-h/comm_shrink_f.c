@@ -26,7 +26,7 @@
 #else /* No weak symbols */
 OMPI_GENERATE_F77_BINDINGS(PMPIX_COMM_SHRINK,
                         pmpix_comm_shrink,
-                        pmpix_comm_shrink_
+                        pmpix_comm_shrink_,
                         pmpix_comm_shrink__,
                         pompi_comm_shrink_f,
                         (MPI_Fint *comm, MPI_Fint *newcomm, MPI_Fint *ierr),
@@ -47,7 +47,7 @@ OMPI_GENERATE_F77_BINDINGS(PMPIX_COMM_SHRINK,
 #else /* No weak symbols */
 OMPI_GENERATE_F77_BINDINGS(MPIX_COMM_SHRINK,
                         mpix_comm_shrink,
-                        mpix_comm_shrink_
+                        mpix_comm_shrink_,
                         mpix_comm_shrink__,
                         ompi_comm_shrink_f,
                         (MPI_Fint *comm, MPI_Fint *newcomm, MPI_Fint *ierr),

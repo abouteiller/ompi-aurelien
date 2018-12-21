@@ -8,7 +8,7 @@ subroutine MPIX_Comm_agree_f08(comm, flag, ierror)
   implicit none
   interface
      subroutine MPIX_Comm_agree_f(comm, flag, ierror) &
-          BIND(C, name="MPIX_Comm_agree_f")
+          BIND(C, name="ompi_comm_agree_f")
        implicit none
        INTEGER, INTENT(IN) :: comm
        INTEGER, INTENT(INOUT) :: flag

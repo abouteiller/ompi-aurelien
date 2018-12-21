@@ -26,11 +26,11 @@
 #else /* No weak symbols */
 OMPI_GENERATE_F77_BINDINGS(PMPIX_COMM_REVOKE,
                         pmpix_comm_revoke,
-                        pmpix_comm_revoke_
+                        pmpix_comm_revoke_,
                         pmpix_comm_revoke__,
                         pompi_comm_revoke_f,
                         (MPI_Fint *comm, MPI_Fint *ierr),
-                        (comm, flag, ierr))
+                        (comm, ierr))
 #endif
 #define ompi_comm_revoke_f pompi_comm_revoke_f
 
@@ -47,11 +47,11 @@ OMPI_GENERATE_F77_BINDINGS(PMPIX_COMM_REVOKE,
 #else /* No weak symbols */
 OMPI_GENERATE_F77_BINDINGS(MPIX_COMM_REVOKE,
                         mpix_comm_revoke,
-                        mpix_comm_revoke_
+                        mpix_comm_revoke_,
                         mpix_comm_revoke__,
                         ompi_comm_revoke_f,
                         (MPI_Fint *comm, MPI_Fint *ierr),
-                        (comm, flag, ierr))
+                        (comm, ierr))
 #endif
 #endif /* PMPI */
 

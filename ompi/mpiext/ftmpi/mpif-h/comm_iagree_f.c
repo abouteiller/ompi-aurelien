@@ -26,7 +26,7 @@
 #else /* No weak symbols */
 OMPI_GENERATE_F77_BINDINGS(PMPIX_COMM_IAGREE,
                         pmpix_comm_iagree,
-                        pmpix_comm_iagree_
+                        pmpix_comm_iagree_,
                         pmpix_comm_iagree__,
                         pompi_comm_iagree_f,
                         (MPI_Fint *comm, ompi_fortran_logical_t *flag, MPI_Fint *request, MPI_Fint *ierr),
@@ -47,7 +47,7 @@ OMPI_GENERATE_F77_BINDINGS(PMPIX_COMM_IAGREE,
 #else /* No weak symbols */
 OMPI_GENERATE_F77_BINDINGS(MPIX_COMM_IAGREE,
                         mpix_comm_iagree,
-                        mpix_comm_iagree_
+                        mpix_comm_iagree_,
                         mpix_comm_iagree__,
                         ompi_comm_iagree_f,
                         (MPI_Fint *comm, ompi_fortran_logical_t *flag, MPI_Fint *request, MPI_Fint *ierr),
