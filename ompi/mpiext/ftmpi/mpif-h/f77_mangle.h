@@ -11,7 +11,7 @@
  */
 #if OMPI_PROFILE_LAYER
 #define F77_STAMP_PROFILE_FN(fn_name_core, fn_name_lower, fn_name_upper, fn_args, pass_args) \
-    static void fn_name_core fn_args;                                   \
+    void fn_name_core fn_args;                                          \
                                                                         \
     OMPI_DECLSPEC void P##fn_name_upper fn_args;                        \
     OMPI_DECLSPEC void p##fn_name_lower fn_args;                        \
@@ -35,7 +35,7 @@
 
 #else
 #define F77_STAMP_FN(fn_name_core, fn_name_lower, fn_name_upper, fn_args, pass_args) \
-    static void fn_name_core fn_args;                                   \
+    void fn_name_core fn_args;                                          \
                                                                         \
     OMPI_DECLSPEC void fn_name_upper fn_args;                           \
     OMPI_DECLSPEC void fn_name_lower fn_args;                           \

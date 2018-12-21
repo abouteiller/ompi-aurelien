@@ -9,5 +9,5 @@
 # $HEADER$
 #
 
-SUBDIRS = c mpif-h use-mpi
+SUBDIRS = c mpif-h use-mpi use-mpi-f08
 
