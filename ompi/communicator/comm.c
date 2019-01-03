@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -1580,6 +1580,8 @@ int ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
 #if OPAL_ENABLE_FT_MPI
             //TODO: ENABLE_FT_MPI: irecv should never return Proc_failed per
             //spec, check.
+            assert( MPI_ERR_PROC_FAILED != rc );
+            assert( MPI_ERR_REVOKED != rc );
             if( MPI_ERR_PROC_FAILED == rc ) {
                 rlen = 0;
                 goto skip_handshake;
@@ -1632,6 +1634,8 @@ int ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
 #if OPAL_ENABLE_FT_MPI
             // TODO: ENABLE_FT_MPI: same as above, should not return
             // PROC_FAILED from irecv.
+            assert( MPI_ERR_PROC_FAILED != rc );
+            assert( MPI_ERR_REVOKED != rc );
             if( MPI_ERR_PROC_FAILED == rc ) {
                 goto skip_handshake2;
             }
@@ -1642,7 +1646,7 @@ int ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
                                MCA_PML_BASE_SEND_STANDARD, bridge_comm ));
         if ( OMPI_SUCCESS != rc ) {
 #if OPAL_ENABLE_FT_MPI
-            if( MPI_ERR_PROC_FAILED == rc ) {
+            if( MPI_ERR_PROC_FAILED == rc || MPI_ERR_REVOKED == rc ) {
                 goto skip_handshake2;
             }
 #endif  /* OPAL_ENABLE_FT_MPI */
@@ -1655,7 +1659,7 @@ int ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
         rc = ompi_request_wait( &req, MPI_STATUS_IGNORE );
 #if OPAL_ENABLE_FT_MPI
         /* let it flow even if there are errors */
-        if ( OMPI_SUCCESS != rc && MPI_ERR_PROC_FAILED != rc ) {
+        if ( OMPI_SUCCESS != rc && MPI_ERR_PROC_FAILED != rc && MPI_ERR_REVOKED != rc ) {
 #else
         if ( OMPI_SUCCESS != rc ) {
 #endif
