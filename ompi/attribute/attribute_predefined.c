@@ -2,7 +2,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2016 The University of Tennessee and The University
+ * Copyright (c) 2004-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -77,11 +77,6 @@
  * doesn't make sense to copy them to new windows (because they're
  * values specific and unique to each window) -- especially when
  * WIN_CREATE will explicitly set them on new windows anyway.
- *
- * These are not supported yet, but are included here for consistency:
- *
- * MPI_IMPI_CLIENT_SIZE, MPI_IMPI_CLIENT_COLOR, MPI_IMPI_HOST_SIZE,
- * and MPI_IMPI_HOST_COLOR are integer-valued attributes.
  */
 
 #include "ompi_config.h"
@@ -127,22 +122,14 @@ int ompi_attr_create_predefined(void)
         OMPI_SUCCESS != (ret = create_comm(MPI_APPNUM, true)) ||
         OMPI_SUCCESS != (ret = create_comm(MPI_LASTUSEDCODE, false)) ||
         OMPI_SUCCESS != (ret = create_comm(MPI_UNIVERSE_SIZE, true)) ||
+#if OPAL_ENABLE_FT_MPI
+        OMPI_SUCCESS != (ret = create_comm(MPI_FT, true)) ||
+#endif /* OPAL_ENABLE_FT_MPI */
         OMPI_SUCCESS != (ret = create_win(MPI_WIN_BASE)) ||
         OMPI_SUCCESS != (ret = create_win(MPI_WIN_SIZE)) ||
         OMPI_SUCCESS != (ret = create_win(MPI_WIN_DISP_UNIT)) ||
         OMPI_SUCCESS != (ret = create_win(MPI_WIN_CREATE_FLAVOR)) ||
-        OMPI_SUCCESS != (ret = create_win(MPI_WIN_MODEL)) ||
-#if OPAL_ENABLE_FT_MPI
-        OMPI_SUCCESS != (ret = create_comm(MPI_FT, true)) ||
-#endif /* OPAL_ENABLE_FT_MPI */
-#if 0
-        /* JMS For when we implement IMPI */
-        OMPI_SUCCESS != (ret = create_comm(IMPI_CLIENT_SIZE, true)) ||
-        OMPI_SUCCESS != (ret = create_comm(IMPI_CLIENT_COLOR, true)) ||
-        OMPI_SUCCESS != (ret = create_comm(IMPI_HOST_SIZE, true)) ||
-        OMPI_SUCCESS != (ret = create_comm(IMPI_HOST_COLOR, true)) ||
-#endif
-        0) {
+        OMPI_SUCCESS != (ret = create_win(MPI_WIN_MODEL))) {
         return ret;
     }
 
@@ -152,26 +139,14 @@ int ompi_attr_create_predefined(void)
         OMPI_SUCCESS != (ret = set_f(MPI_HOST, MPI_PROC_NULL)) ||
         OMPI_SUCCESS != (ret = set_f(MPI_IO, MPI_ANY_SOURCE)) ||
         OMPI_SUCCESS != (ret = set_f(MPI_WTIME_IS_GLOBAL, 0)) ||
-        OMPI_SUCCESS != (ret = set_f(MPI_LASTUSEDCODE,
-                                     ompi_mpi_errcode_lastused)) ||
 #if OPAL_ENABLE_FT_MPI
         /* Although we always define the key to ease fortran integration,
          * lets not set a default value to the attribute if we do not 
          * have fault tolerance built in. */
         OMPI_SUCCESS != (ret = set_f(MPI_FT, ompi_ftmpi_enabled)) ||
 #endif /* OPAL_ENABLE_FT_MPI */
-#if 0
-        /* JMS For when we implement IMPI */
-        OMPI_SUCCESS != (ret = set(IMPI_CLIENT_SIZE,
-                                   &attr_impi_client_size)) ||
-        OMPI_SUCCESS != (ret = set(IMPI_CLIENT_COLOR,
-                                   &attr_impi_client_color)) ||
-        OMPI_SUCCESS != (ret = set(IMPI_HOST_SIZE,
-                                   &attr_impi_host_size)) ||
-        OMPI_SUCCESS != (ret = set(IMPI_HOST_COLOR,
-                                   &attr_impi_host_color)) ||
-#endif
-        0) {
+        OMPI_SUCCESS != (ret = set_f(MPI_LASTUSEDCODE,
+                                     ompi_mpi_errcode_lastused))) {
         return ret;
     }
 
@@ -211,15 +186,7 @@ int ompi_attr_free_predefined(void)
         OMPI_SUCCESS != (ret = free_win(MPI_WIN_SIZE)) ||
         OMPI_SUCCESS != (ret = free_win(MPI_WIN_DISP_UNIT)) ||
         OMPI_SUCCESS != (ret = free_win(MPI_WIN_CREATE_FLAVOR)) ||
-        OMPI_SUCCESS != (ret = free_win(MPI_WIN_MODEL)) ||
-#if 0
-        /* JMS For when we implement IMPI */
-        OMPI_SUCCESS != (ret = free_comm(IMPI_CLIENT_SIZE)) ||
-        OMPI_SUCCESS != (ret = free_comm(IMPI_CLIENT_COLOR)) ||
-        OMPI_SUCCESS != (ret = free_comm(IMPI_HOST_SIZE)) ||
-        OMPI_SUCCESS != (ret = free_comm(IMPI_HOST_COLOR)) ||
-#endif
-        0) {
+        OMPI_SUCCESS != (ret = free_win(MPI_WIN_MODEL))) {
         return ret;
     }
     return OMPI_SUCCESS;

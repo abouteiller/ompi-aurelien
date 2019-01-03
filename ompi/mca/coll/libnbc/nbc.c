@@ -3,7 +3,7 @@
  * Copyright (c) 2006      The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2013-2018 The University of Tennessee and The University
+ * Copyright (c) 2013-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2006      The Technical University of Chemnitz. All
@@ -354,18 +354,9 @@ int NBC_Progress(NBC_Handle *handle) {
                 /* copy the error code from the underlying request and let the
                  * round finish */
                 handle->super.req_status.MPI_ERROR = subreq->req_status.MPI_ERROR;
-                /* clear all other requests for the round */
-                while (handle->req_count) {
-                    ompi_request_cancel(handle->req_array[handle->req_count - 1]);
-                    ompi_request_wait_completion(handle->req_array[handle->req_count - 1]);
-                    ompi_request_free(&handle->req_array[handle->req_count - 1]);
-                    handle->req_count--;
-                }
             }
-            else {
-                handle->req_count--;
-                ompi_request_free(&subreq);
-            }
+            handle->req_count--;
+            ompi_request_free(&subreq);
         } else {
             flag = false;
             break;
@@ -384,12 +375,13 @@ int NBC_Progress(NBC_Handle *handle) {
       free (handle->req_array);
       handle->req_array = NULL;
     }
+
     handle->req_count = 0;
 
     /* previous round had an error */
     if (OPAL_UNLIKELY(OMPI_SUCCESS != handle->super.req_status.MPI_ERROR)) {
       res = handle->super.req_status.MPI_ERROR;
-      NBC_DEBUG(1, "NBC_Progress: error in schedule %p at row-offset %li\n", handle->schedule, handle->row_offset);
+      NBC_DEBUG(1, "NBC_Progress: an error %d was found during schedule %p at row-offset %li - aborting the schedule\n", res, handle->schedule, handle->row_offset);
       handle->nbc_complete = true;
       if (!handle->super.req_persistent) {
         NBC_Free(handle);

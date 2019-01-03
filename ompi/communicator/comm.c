@@ -1530,8 +1530,7 @@ int ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
                            int remote_leader,
                            int tag,
                            int rsize,
-                           ompi_proc_t ***prprocs
-                          )
+                           ompi_proc_t ***prprocs )
 {
     MPI_Request req;
     int rc = OMPI_SUCCESS;
@@ -1623,6 +1622,7 @@ int ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
     /* Allocate temporary buffer */
     recvbuf = (char *)malloc(rlen);
     if ( NULL == recvbuf ) {
+        rc = OMPI_ERR_OUT_OF_RESOURCE;
         goto err_exit;
     }
 
@@ -1678,7 +1678,7 @@ int ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
 
     rbuf = OBJ_NEW(opal_buffer_t);
     if (NULL == rbuf) {
-        rc = OMPI_ERROR;
+        rc = OMPI_ERR_OUT_OF_RESOURCE;
         goto err_exit;
     }
 
@@ -1692,7 +1692,6 @@ int ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
     rc = ompi_proc_unpack(rbuf, rsize, &rprocs, NULL, NULL);
     OBJ_RELEASE(rbuf);
     if (OMPI_SUCCESS != rc) {
-        OMPI_ERROR_LOG(rc);
         goto err_exit;
     }
 
@@ -1712,7 +1711,6 @@ int ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
 
     /* And now add the information into the database */
     if (OMPI_SUCCESS != (rc = MCA_PML_CALL(add_procs(rprocs, rsize)))) {
-        OMPI_ERROR_LOG(rc);
         goto err_exit;
     }
 
@@ -1720,6 +1718,7 @@ int ompi_comm_get_rprocs ( ompi_communicator_t *local_comm,
     /* rprocs isn't freed unless we have an error,
        since it is used in the communicator */
     if ( OMPI_SUCCESS != rc ) {
+        OMPI_ERROR_LOG(rc);
         opal_output(0, "%d: Error in ompi_get_rprocs\n", local_rank);
         if ( NULL != rprocs ) {
             free ( rprocs );
