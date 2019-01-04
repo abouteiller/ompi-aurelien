@@ -122,14 +122,15 @@ int ompi_attr_create_predefined(void)
         OMPI_SUCCESS != (ret = create_comm(MPI_APPNUM, true)) ||
         OMPI_SUCCESS != (ret = create_comm(MPI_LASTUSEDCODE, false)) ||
         OMPI_SUCCESS != (ret = create_comm(MPI_UNIVERSE_SIZE, true)) ||
-#if OPAL_ENABLE_FT_MPI
-        OMPI_SUCCESS != (ret = create_comm(MPI_FT, true)) ||
-#endif /* OPAL_ENABLE_FT_MPI */
         OMPI_SUCCESS != (ret = create_win(MPI_WIN_BASE)) ||
         OMPI_SUCCESS != (ret = create_win(MPI_WIN_SIZE)) ||
         OMPI_SUCCESS != (ret = create_win(MPI_WIN_DISP_UNIT)) ||
         OMPI_SUCCESS != (ret = create_win(MPI_WIN_CREATE_FLAVOR)) ||
-        OMPI_SUCCESS != (ret = create_win(MPI_WIN_MODEL))) {
+        OMPI_SUCCESS != (ret = create_win(MPI_WIN_MODEL)) ||
+#if OPAL_ENABLE_FT_MPI
+        OMPI_SUCCESS != (ret = create_comm(MPI_FT, true)) ||
+#endif /* OPAL_ENABLE_FT_MPI */
+        0) {
         return ret;
     }
 
@@ -176,12 +177,12 @@ int ompi_attr_free_predefined(void)
         OMPI_SUCCESS != (ret = free_comm(MPI_HOST)) ||
         OMPI_SUCCESS != (ret = free_comm(MPI_IO)) ||
         OMPI_SUCCESS != (ret = free_comm(MPI_WTIME_IS_GLOBAL)) ||
-#if OPAL_ENABLE_FT_MPI
-        OMPI_SUCCESS != (ret = free_comm(MPI_FT)) ||
-#endif /* OPAL_ENABLE_FT_MPI */
         OMPI_SUCCESS != (ret = free_comm(MPI_APPNUM)) ||
         OMPI_SUCCESS != (ret = free_comm(MPI_LASTUSEDCODE)) ||
         OMPI_SUCCESS != (ret = free_comm(MPI_UNIVERSE_SIZE)) ||
+#if OPAL_ENABLE_FT_MPI
+        OMPI_SUCCESS != (ret = free_comm(MPI_FT)) ||
+#endif /* OPAL_ENABLE_FT_MPI */
         OMPI_SUCCESS != (ret = free_win(MPI_WIN_BASE)) ||
         OMPI_SUCCESS != (ret = free_win(MPI_WIN_SIZE)) ||
         OMPI_SUCCESS != (ret = free_win(MPI_WIN_DISP_UNIT)) ||
