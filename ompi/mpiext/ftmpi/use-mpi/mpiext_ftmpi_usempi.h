@@ -56,14 +56,16 @@ end interface MPIX_Comm_failure_get_acked
 interface MPIX_Comm_agree
     subroutine mpix_comm_agree(comm, flag, ierr)
       integer, intent(IN) :: comm
-      integer, intent(OUT) :: flag, ierr
+      integer, intent(INOUT) :: flag
+      integer, intent(OUT) :: ierr
     end subroutine mpix_comm_agree
 end interface MPIX_Comm_agree
 
 interface MPIX_Comm_iagree
     subroutine mpix_comm_iagree(comm, flag, request, ierr)
       integer, intent(IN) :: comm
-      integer, intent(OUT) :: flag, request, ierr
+      integer, intent(INOUT) :: flag
+      integer, intent(OUT) :: request, ierr
     end subroutine mpix_comm_iagree
 end interface MPIX_Comm_iagree
 
