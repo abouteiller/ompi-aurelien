@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 The University of Tennessee and The University
+ * Copyright (c) 2013-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -114,9 +114,6 @@ static int ompi_comm_rbcast_n2(ompi_communicator_t* comm, ompi_comm_rbcast_messa
         grp = comm->c_remote_group)
       for(i = 0; i < ompi_group_size(grp); i++) {
         ompi_proc_t* proc;
-        mca_bml_base_btl_t *bml_btl;
-        mca_btl_base_descriptor_t *des;
-        ompi_comm_rbcast_message_t* msgdes;
 
         proc = ompi_group_peer_lookup(grp, i);
         if( ompi_proc_local_proc == proc ) continue;
@@ -288,7 +285,7 @@ int ompi_comm_rbcast_register_params(void) {
     return OMPI_SUCCESS;
 }
 
-int ompi_comm_init_rbcast(void) {
+int ompi_comm_rbcast_init(void) {
     int ret;
 
     switch( rbcast ) {
@@ -316,7 +313,7 @@ int ompi_comm_init_rbcast(void) {
     return ret;
 }
 
-int ompi_comm_finalize_rbcast(void) {
+int ompi_comm_rbcast_finalize(void) {
     if( !comm_rbcast_listener_started ) {
         return OMPI_SUCCESS;
     }

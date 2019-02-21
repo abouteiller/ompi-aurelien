@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2018 The University of Tennessee and The University
+ * Copyright (c) 2004-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -87,7 +87,7 @@ static bool show_override_mca_params = false;
 #if OPAL_ENABLE_FT_MPI
 int ompi_ftmpi_output_handle = 0;
 bool ompi_ftmpi_enabled = false;
-int ompi_comm_ft_register_params(void);
+#include "ompi/communicator/communicator.h"
 #endif
 
 int ompi_mpi_register_params(void)
@@ -110,7 +110,10 @@ int ompi_mpi_register_params(void)
                                   "Enable UFLM MPI Fault Tolerance framework",
                                   MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,
                                   OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY, &ompi_ftmpi_enabled);
-    (void) ompi_comm_ft_register_params();
+
+    (void) ompi_comm_rbcast_register_params();
+    (void) ompi_comm_failure_propagator_register_params();
+    (void) ompi_comm_failure_detector_register_params();
 #endif
 
     /* Whether we want MPI API function parameter checking or not. Disable this by default if

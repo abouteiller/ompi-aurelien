@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2010 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -875,13 +875,13 @@ int ompi_mpi_init(int argc, char **argv, int requested, int *provided,
      * propagator) */
     if( ompi_ftmpi_enabled ) {
         int rc;
-        rc = ompi_comm_init_rbcast();
+        rc = ompi_comm_rbcast_init();
         if( OMPI_SUCCESS != rc ) return rc;
-        rc = ompi_comm_init_revoke();
+        rc = ompi_comm_revoke_init();
         if( OMPI_SUCCESS != rc ) return rc;
-        rc = ompi_comm_init_failure_propagator();
+        rc = ompi_comm_failure_propagator_init();
         if( OMPI_SUCCESS != rc ) return rc;
-        rc = ompi_comm_init_failure_detector();
+        rc = ompi_comm_failure_detector_init();
         if( OMPI_SUCCESS != rc ) return rc;
     }
 #endif
@@ -1030,7 +1030,7 @@ int ompi_mpi_init(int argc, char **argv, int requested, int *provided,
     /* start the failure detector */
     if( ompi_ftmpi_enabled ) {
         int rc;
-        rc = ompi_comm_start_failure_detector();
+        rc = ompi_comm_failure_detector_start();
         if( OMPI_SUCCESS != rc ) return rc;
     }
 #endif

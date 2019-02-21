@@ -21,7 +21,7 @@ static int ompi_comm_revoke_local(ompi_communicator_t* comm,
 
 static int comm_revoke_cb_type = -1;
 
-int ompi_comm_init_revoke(void)
+int ompi_comm_revoke_init(void)
 {
     int ret;
 
@@ -33,7 +33,7 @@ int ompi_comm_init_revoke(void)
     return ret;
 }
 
-int ompi_comm_finalize_revoke(void)
+int ompi_comm_revoke_finalize(void)
 {
     int ret;
     ret = ompi_comm_rbcast_unregister_cb_type(comm_revoke_cb_type);

@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -565,8 +565,9 @@ int ompi_comm_allreduce_intra_pmix_ft( int *inbuf, int* outbuf,
 /*
  * Reliable Bcast infrastructure
  */
-OMPI_DECLSPEC int ompi_comm_init_rbcast(void);
-OMPI_DECLSPEC int ompi_comm_finalize_rbcast(void);
+OMPI_DECLSPEC int ompi_comm_rbcast_register_params(void);
+OMPI_DECLSPEC int ompi_comm_rbcast_init(void);
+OMPI_DECLSPEC int ompi_comm_rbcast_finalize(void);
 
 typedef struct ompi_comm_rbcast_message_t {
     uint32_t cid;
@@ -588,22 +589,24 @@ int ompi_comm_rbcast_send_msg(
 /*
  * Setup/Shutdown 'failure propagator' handler
  */
-OMPI_DECLSPEC int ompi_comm_init_failure_propagator(void);
-OMPI_DECLSPEC int ompi_comm_finalize_failure_propagator(void);
+OMPI_DECLSPEC int ompi_comm_failure_propagator_register_params(void);
+OMPI_DECLSPEC int ompi_comm_failure_propagator_init(void);
+OMPI_DECLSPEC int ompi_comm_failure_propagator_finalize(void);
 OMPI_DECLSPEC int ompi_comm_failure_propagate(ompi_communicator_t* comm, ompi_proc_t* proc, int state);
 
 /*
  * Setup/Shutdown 'failure propagator' handler
  */
-OMPI_DECLSPEC int ompi_comm_init_failure_detector(void);
-OMPI_DECLSPEC int ompi_comm_start_failure_detector(void);
-OMPI_DECLSPEC int ompi_comm_finalize_failure_detector(void);
+OMPI_DECLSPEC int ompi_comm_failure_detector_register_params(void);
+OMPI_DECLSPEC int ompi_comm_failure_detector_init(void);
+OMPI_DECLSPEC int ompi_comm_failure_detector_start(void);
+OMPI_DECLSPEC int ompi_comm_failure_detector_finalize(void);
 
 /*
  * Setup/Shutdown 'revoke' handler
  */
-OMPI_DECLSPEC int ompi_comm_init_revoke(void);
-OMPI_DECLSPEC int ompi_comm_finalize_revoke(void);
+OMPI_DECLSPEC int ompi_comm_revoke_init(void);
+OMPI_DECLSPEC int ompi_comm_revoke_finalize(void);
 
 #endif /* OPAL_ENABLE_FT_MPI */
 

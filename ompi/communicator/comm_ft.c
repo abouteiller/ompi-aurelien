@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2011-2016 The University of Tennessee and The University
+ * Copyright (c) 2011-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -28,17 +28,6 @@
 #include "ompi/mca/bml/base/base.h"
 #include "ompi/mca/coll/base/base.h"
 #include "ompi/mca/coll/base/coll_tags.h"
-
-
-int ompi_comm_rbcast_register_params(void);
-int ompi_comm_failure_propagator_register_params(void);
-int ompi_comm_failure_detector_register_params(void);
-
-int ompi_comm_ft_register_params(void) {
-    (void)ompi_comm_rbcast_register_params();
-    (void)ompi_comm_failure_propagator_register_params();
-    (void)ompi_comm_failure_detector_register_params();
-}
 
 
 ompi_comm_rank_failure_callback_t *ompi_rank_failure_cbfunc = NULL;

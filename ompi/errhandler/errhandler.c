@@ -234,11 +234,13 @@ ompi_errhandler_t *ompi_errhandler_create(ompi_errhandler_type_t object_type,
 #if OPAL_ENABLE_FT_MPI
 #include "opal/threads/wait_sync.h"
 
+#if 0
 static void pmix_notify_cb(int status, void *cbdata)
 {
     volatile bool *active = (volatile bool*)cbdata;
     *active = false;
 }
+#endif
 
 int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, bool forward)
 {
@@ -331,13 +333,13 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
      * forward through errors in collectives" as this is less intrusive to the
      * code base.) */
     if( forward ) {
-        bool active = true;
         /* TODO: this to become redundand when pmix has rbcast */
         ompi_comm_failure_propagate(&ompi_mpi_comm_world.comm, ompi_proc, status);
 #if 0
         /* Let pmix know: flush modex information, propagate to connect/accept
          * jobs */
         //TODO: fill the info array with ompi_proc->super.proc_name
+        bool active = true;
         opal_pmix.notify_event(status, OMPI_PROC_MY_NAME, OPAL_PMIX_RANGE_NAMESPACE,
                                NULL, pmix_notify_cb, &active);
         OMPI_LAZY_WAIT_FOR_COMPLETION(active);

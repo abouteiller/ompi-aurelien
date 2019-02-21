@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2011-2016 The University of Tennessee and The University
+ * Copyright (c) 2011-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -42,7 +41,7 @@ int ompi_comm_failure_propagator_register_params(void) {
 }
 
 
-int ompi_comm_init_failure_propagator(void) {
+int ompi_comm_failure_propagator_init(void) {
     int ret;
 
     if( !comm_rbcast_enable || !ompi_ftmpi_enabled ) return OMPI_SUCCESS;
@@ -55,7 +54,7 @@ int ompi_comm_init_failure_propagator(void) {
     return ret;
 }
 
-int ompi_comm_finalize_failure_propagator(void) {
+int ompi_comm_failure_propagator_finalize(void) {
     int ret;
     if( -1 == comm_failure_propagator_cb_type ) return OMPI_SUCCESS;
     ret = ompi_comm_rbcast_unregister_cb_type(comm_failure_propagator_cb_type);

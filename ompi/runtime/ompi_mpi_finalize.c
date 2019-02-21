@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2010 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -274,10 +274,10 @@ int ompi_mpi_finalize(void)
         /* finalize the fault tolerant infrastructure (revoke,
          * failure propagator, etc). From now-on we do not tolerate failures. */
         OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle, "FT: Rank %05d turning off the failure detector", ompi_comm_rank(comm)));
-        ompi_comm_finalize_failure_detector();
-        ompi_comm_finalize_failure_propagator();
-        ompi_comm_finalize_revoke();
-        ompi_comm_finalize_rbcast();
+        ompi_comm_failure_detector_finalize();
+        ompi_comm_failure_propagator_finalize();
+        ompi_comm_revoke_finalize();
+        ompi_comm_rbcast_finalize();
         opal_output_verbose(40, ompi_ftmpi_output_handle, "Rank %05d: DONE WITH FINALIZE", ompi_comm_rank(comm));
         ompi_ftmpi_enabled = false;
         //ompi_async_mpi_finalize = true; //TODO: when pmix fence_nb can tolerate failures, reenable it to flush UDP transports */
