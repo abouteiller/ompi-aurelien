@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2010-2016 The University of Tennessee and the University
+ * Copyright (c) 2010-2019 The University of Tennessee and the University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -59,6 +59,7 @@ OMPI_GENERATE_F77_BINDINGS(MPIX_COMM_FAILURE_GET_ACKED,
 #include "ompi/communicator/communicator.h"
 #include "ompi/mpi/fortran/base/fint_2_int.h"
 #include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
+void ompi_comm_failure_get_acked_f(MPI_Fint *comm, MPI_Fint *group, MPI_Fint *ierr);
 
 void ompi_comm_failure_get_acked_f(MPI_Fint *comm, MPI_Fint *group, MPI_Fint *ierr)
 {
