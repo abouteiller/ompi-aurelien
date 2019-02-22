@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; -*- */
 /*
- * Copyright (c) 2014-2018 The University of Tennessee and The University
+ * Copyright (c) 2014-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -694,7 +694,7 @@ static void era_agreement_value_set_gcrange(era_identifier_t eid, era_value_t *e
 {
     uint16_t *aid_list = NULL;
     uint64_t key64;
-    int i;
+    size_t i;
     void *value, *node;
     size_t    aid_list_size = 0, aid_list_pos = 0;
 
@@ -979,7 +979,7 @@ static int __tree_errors;
 
 static int era_tree_check_node(era_tree_t *tree, int tree_size, int r, int display)
 {
-    int c, nb = 0, p, f;
+    int c, nb = 0, p;
 
     if(display) {
         fprintf(stderr, "TC %s -- %d/%d (%d) -- Parent: %d\n",
@@ -989,7 +989,6 @@ static int era_tree_check_node(era_tree_t *tree, int tree_size, int r, int displ
 
     if( (p = tree[r].parent) != r ) {
 
-        f = 0;
         for(c = tree[p].first_child;
             c != r && c!=tree_size;
             c = tree[c].next_sibling) {
@@ -1605,7 +1604,7 @@ static void era_decide(era_value_t *decided_value, era_agreement_info_t *ci)
     OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                          "%s ftbasic:agreement (ERA) decide %08x.%d.%d.. on agreement (%d.%d).%d\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
-                         ERA_VALUE_BYTES_COUNT(&decided_value->header)? *(int*)decided_value->bytes: 0,
+                         (0!=ERA_VALUE_BYTES_COUNT(&decided_value->header))? *(int*)decided_value->bytes: 0,
                          decided_value->header.ret,
                          decided_value->header.nb_new_dead,
                          ci->agreement_id.ERAID_FIELDS.contextid,
@@ -1624,7 +1623,7 @@ static void era_decide(era_value_t *decided_value, era_agreement_info_t *ci)
         OPAL_OUTPUT_VERBOSE((30, ompi_ftmpi_output_handle,
                              "%s ftbasic:agreement (ERA) decide %08x.%d.%d on agreement (%d.%d).%d: adding up to %d processes to the list of agreed deaths\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
-                             ERA_VALUE_BYTES_COUNT(&decided_value->header)? *(int*)decided_value->bytes: 0,
+                             (0!=ERA_VALUE_BYTES_COUNT(&decided_value->header))? *(int*)decided_value->bytes: 0,
                              decided_value->header.ret,
                              decided_value->header.nb_new_dead,
                              ci->agreement_id.ERAID_FIELDS.contextid,
@@ -1685,7 +1684,7 @@ static void era_decide(era_value_t *decided_value, era_agreement_info_t *ci)
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s ftbasic:agreement (ERA) decide %08x.%d.%d.. on agreement (%d.%d).%d: group of agreed deaths is of size %d\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
-                         ERA_VALUE_BYTES_COUNT(&decided_value->header)? *(int*)decided_value->bytes: 0,
+                         (0!=ERA_VALUE_BYTES_COUNT(&decided_value->header))? *(int*)decided_value->bytes: 0,
                          decided_value->header.ret,
                          decided_value->header.nb_new_dead,
                          ci->agreement_id.ERAID_FIELDS.contextid,
@@ -1816,7 +1815,7 @@ static void era_check_status(era_agreement_info_t *ci)
 
     opal_output(0, "%s: %s (%s:%d) -- Need to implement function for that case (status = %d)\n",
                 OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
-                __FUNCTION__,
+                __func__,
                 __FILE__, __LINE__,
                 ci->status);
     assert(0);
@@ -1860,7 +1859,6 @@ static void era_mark_process_failed(era_agreement_info_t *ci, int rank)
 {
     int r;
     era_rank_item_t *rl;
-    era_identifier_t era_id;
 
     assert( ci->comm == NULL || (ci->comm->c_local_group->grp_my_rank != rank) );
 
@@ -1989,7 +1987,6 @@ static void era_mark_process_failed(era_agreement_info_t *ci, int rank)
         /* It could also be a child, that's also important but taken care of by check_status */
         era_check_status(ci);
 
-        era_id = ci->agreement_id;
         OBJ_RELEASE(ci);
     }
 }
@@ -2021,7 +2018,6 @@ static void send_msg(ompi_communicator_t *comm,
     era_frag_t *frag;
     ompi_proc_t *peer;
     mca_bml_base_endpoint_t* endpoint;
-    mca_bml_base_endpoint_t *proc_bml;
     mca_bml_base_btl_t *bml_btl;
     struct mca_btl_base_endpoint_t *btl_endpoint;
     mca_btl_base_module_t *btl;
@@ -2040,7 +2036,7 @@ static void send_msg(ompi_communicator_t *comm,
                              agreement_id.ERAID_FIELDS.epoch,
                              agreement_id.ERAID_FIELDS.agreementid,
                              era_msg_type_to_string(type),
-                             ERA_VALUE_BYTES_COUNT(&value->header)? *(int*)value->bytes: 0,
+                             (0!=ERA_VALUE_BYTES_COUNT(&value->header))? *(int*)value->bytes: 0,
                              value->header.ret,
                              value->header.nb_new_dead,
                              dst,
@@ -2057,7 +2053,7 @@ static void send_msg(ompi_communicator_t *comm,
                              agreement_id.ERAID_FIELDS.epoch,
                              agreement_id.ERAID_FIELDS.agreementid,
                              era_msg_type_to_string(type),
-                             ERA_VALUE_BYTES_COUNT(&value->header)? *(int*)value->bytes: 0,
+                             (0!=ERA_VALUE_BYTES_COUNT(&value->header))? *(int*)value->bytes: 0,
                              value->header.ret,
                              value->header.nb_new_dead,
                              nb_ack_failed,
@@ -2071,7 +2067,7 @@ static void send_msg(ompi_communicator_t *comm,
                              agreement_id.ERAID_FIELDS.epoch,
                              agreement_id.ERAID_FIELDS.agreementid,
                              era_msg_type_to_string(type),
-                             ERA_VALUE_BYTES_COUNT(&value->header)? *(int*)value->bytes: 0,
+                             (0!=ERA_VALUE_BYTES_COUNT(&value->header))? *(int*)value->bytes: 0,
                              value->header.ret,
                              value->header.nb_new_dead,
                              dst,
@@ -2151,7 +2147,7 @@ static void send_msg(ompi_communicator_t *comm,
                          agreement_id.ERAID_FIELDS.epoch,
                          agreement_id.ERAID_FIELDS.agreementid,
                          era_msg_type_to_string(type),
-                         ERA_VALUE_BYTES_COUNT(&value->header)? *(int*)value->bytes: 0,
+                         (0!=ERA_VALUE_BYTES_COUNT(&value->header))? *(int*)value->bytes: 0,
                          value->header.ret,
                          value->header.nb_new_dead,
                          msg_header.nb_ack,
@@ -2195,7 +2191,7 @@ static void send_msg(ompi_communicator_t *comm,
                                      agreement_id.ERAID_FIELDS.epoch,
                                      agreement_id.ERAID_FIELDS.agreementid,
                                      era_msg_type_to_string(type),
-                                     ERA_VALUE_BYTES_COUNT(&value->header)? *(int*)value->bytes: 0,
+                                     (0!=ERA_VALUE_BYTES_COUNT(&value->header))? *(int*)value->bytes: 0,
                                      value->header.ret,
                                      value->header.nb_new_dead,
                                      msg_header.nb_ack,
@@ -2341,7 +2337,7 @@ static void msg_up(era_msg_header_t *msg_header, uint8_t *bytes, int *new_dead, 
                          msg_header->agreement_id.ERAID_FIELDS.agreementid,
                          msg_header->src_comm_rank,
                          OMPI_NAME_PRINT(&msg_header->src_proc_name),
-                         ERA_VALUE_BYTES_COUNT(&msg_header->agreement_value_header)? *(int*)bytes: 0,
+                         (0!=ERA_VALUE_BYTES_COUNT(&msg_header->agreement_value_header))? *(int*)bytes: 0,
                          msg_header->agreement_value_header.ret,
                          msg_header->agreement_value_header.nb_new_dead,
                          msg_header->nb_ack));
@@ -2471,7 +2467,7 @@ static void msg_down(era_msg_header_t *msg_header, uint8_t *bytes, int *new_dead
                          msg_header->agreement_id.ERAID_FIELDS.agreementid,
                          msg_header->src_comm_rank,
                          OMPI_NAME_PRINT(&msg_header->src_proc_name),
-                         ERA_VALUE_BYTES_COUNT(&msg_header->agreement_value_header) ? *(int*)bytes : 0,
+                         (0!=ERA_VALUE_BYTES_COUNT(&msg_header->agreement_value_header))? *(int*)bytes: 0,
                          msg_header->agreement_value_header.nb_new_dead));
 
     ci = era_lookup_agreement_info( msg_header->agreement_id );
@@ -2596,7 +2592,7 @@ static void era_cb_fn(struct mca_btl_base_module_t* btl,
                              msg_header->agreement_id.ERAID_FIELDS.epoch,
                              msg_header->agreement_id.ERAID_FIELDS.agreementid,
                              msg_header->msg_type,
-                             ERA_VALUE_BYTES_COUNT(&msg_header->agreement_value_header)? *(int*)value_bytes: 0,
+                             (0!=ERA_VALUE_BYTES_COUNT(&msg_header->agreement_value_header))? *(int*)value_bytes: 0,
                              msg_header->agreement_value_header.ret,
                              msg_header->agreement_value_header.nb_new_dead,
                              msg_header->src_comm_rank,
@@ -3020,7 +3016,7 @@ static int mca_coll_ftbasic_agreement_era_complete_agreement(era_identifier_t ag
                          agreement_id.ERAID_FIELDS.epoch,
                          agreement_id.ERAID_FIELDS.agreementid,
                          ret,
-                         ERA_VALUE_BYTES_COUNT(&av->header)? *(int*)contrib: 0));
+                         (0!=ERA_VALUE_BYTES_COUNT(&av->header))? *(int*)contrib: 0));
 
     return ret;
 }
@@ -3151,11 +3147,9 @@ int mca_coll_ftbasic_iagreement_era_intra(void *contrib,
 {
     opal_free_list_item_t* item;
     era_iagree_request_t *req;
-    int rc;
     era_identifier_t agreement_id;
     era_agreement_info_t *ci;
 
-    rc = OMPI_SUCCESS;
     item = opal_free_list_get(&era_iagree_requests);
     if( NULL == item ) return OMPI_ERR_OUT_OF_RESOURCE;
     req = (era_iagree_request_t*)item;
