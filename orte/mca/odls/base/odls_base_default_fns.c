@@ -1764,9 +1764,10 @@ void orte_odls_base_default_wait_local_proc(int fd, short sd, void *cbdata)
         proc->exit_code = WTERMSIG(proc->exit_code) + 128;
 
         OPAL_OUTPUT_VERBOSE((5, orte_odls_base_framework.framework_output,
-                             "%s odls:waitpid_fired child process %s terminated with signal",
+                             "%s odls:waitpid_fired child process %s terminated with signal (%d)",
                              ORTE_NAME_PRINT(ORTE_PROC_MY_NAME),
-                             ORTE_NAME_PRINT(&proc->name) ));
+                             ORTE_NAME_PRINT(&proc->name),
+                             proc->exit_code  ));
         /* regardless of our eventual code path, we need to
          * flag that this proc has had its waitpid fired */
         ORTE_FLAG_SET(proc, ORTE_PROC_FLAG_WAITPID);
