@@ -72,7 +72,7 @@ typedef struct fd_heartbeat_req_t {
     ompi_comm_rbcast_message_t super;
     int from;
     uint64_t rdma_raddr;
-    char *rdma_rreg;
+    char rdma_rreg[1];
 } ompi_comm_heartbeat_req_t;
 
 static int fd_heartbeat_request(comm_detector_t* detector);
