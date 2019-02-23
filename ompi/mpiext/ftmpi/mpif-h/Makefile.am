@@ -1,6 +1,6 @@
 #
 # Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
-# Copyright (c) 2016      The University of Tennessee and The University
+# Copyright (c) 2016-2019 The University of Tennessee and The University
 #                         of Tennessee Research Foundation.  All rights
 #                         reserved.
 # $COPYRIGHT$
@@ -12,9 +12,7 @@
 
 include $(top_srcdir)/Makefile.ompi-rules
 
-SUBDIRS = profile
-
-AM_CPPFLAGS = -DOMPI_BUILD_MPI_PROFILING=0 -DOMPI_COMPILING_FORTRAN_WRAPPERS=1
+AM_CPPFLAGS = -DOMPI_COMPILING_FORTRAN_WRAPPERS=1
 
 if OMPI_BUILD_FORTRAN_MPIFH_BINDINGS
 headers = \
@@ -35,10 +33,6 @@ f77_lib_sources = $(f77_sources)
 libmpiext_ftmpi_mpifh_la_SOURCES = $(f77_lib_sources)
 libmpiext_ftmpi_mpifh_la_LIBADD  = $(lib_sources)
 libmpiext_ftmpi_mpifh_la_LDFLAGS = -module -avoid-version
-if BUILD_PMPI_FORTRAN_MPIFH_BINDINGS_LAYER
-  libmpiext_ftmpi_mpifh_la_LIBADD += profile/libpmpiext_ftmpi_mpifh.la
-endif
-# These files were created by targets above
 
 MAINTAINERCLEANFILES = $(nodist_libmpiext_ftmpi_mpifh_la_SOURCES)
 endif

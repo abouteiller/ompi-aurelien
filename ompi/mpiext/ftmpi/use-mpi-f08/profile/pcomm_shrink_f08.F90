@@ -15,7 +15,7 @@ subroutine PMPIX_Comm_shrink_f08(comm, newcomm, ierror)
   implicit none
   interface
      subroutine PMPIX_Comm_shrink_f(comm, newcomm, ierror) &
-          BIND(C, name="pompi_comm_shrink_f")
+          BIND(C, name="ompix_comm_shrink_f")
        implicit none
        INTEGER, INTENT(IN) :: comm
        INTEGER, INTENT(OUT) :: newcomm

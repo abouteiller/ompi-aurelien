@@ -15,7 +15,7 @@ subroutine PMPIX_Comm_failure_ack_f08(comm, ierror)
   implicit none
   interface
      subroutine PMPIX_Comm_failure_ack_f(comm, ierror) &
-          BIND(C, name="pompi_comm_failure_ack_f")
+          BIND(C, name="ompix_comm_failure_ack_f")
        implicit none
        INTEGER, INTENT(IN) :: comm
        INTEGER, INTENT(OUT) :: ierror

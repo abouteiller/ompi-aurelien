@@ -17,7 +17,7 @@ subroutine PMPIX_Comm_iagree_f08(comm, flag, request, ierror)
   implicit none
   interface
      subroutine PMPIX_Comm_iagree_f(comm, flag, request, ierror) &
-          BIND(C, name="pompi_comm_iagree_f")
+          BIND(C, name="ompix_comm_iagree_f")
        implicit none
        INTEGER, INTENT(IN) :: comm
        INTEGER, INTENT(INOUT) :: flag

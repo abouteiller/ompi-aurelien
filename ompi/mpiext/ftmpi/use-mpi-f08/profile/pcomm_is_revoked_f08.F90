@@ -15,7 +15,7 @@ subroutine PMPIX_Comm_is_revoked_f08(comm, flag, ierror)
   implicit none
   interface
      subroutine PMPIX_Comm_is_revoked_f(comm, flag, ierror) &
-          BIND(C, name="pompi_comm_is_revoked_f")
+          BIND(C, name="ompix_comm_is_revoked_f")
        implicit none
        INTEGER, INTENT(IN) :: comm
        INTEGER, INTENT(OUT) :: flag
