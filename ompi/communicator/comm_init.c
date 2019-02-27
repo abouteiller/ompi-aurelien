@@ -527,6 +527,18 @@ static char *ompi_comm_set_error_report(opal_infosubscriber_t *obj, char *key, c
             OMPI_COMM_CHECK_ASSERT(comm, OMPI_COMM_REPORT_GROUP) ? "group" : "local";
 }
 
+static char *ompi_comm_set_error_async(opal_infosubscriber_t *obj, char *key, char *value) {
+    ompi_communicator_t *comm = (ompi_communicator_t *)obj;
+
+    if(0 == strcmp("operation", value)) {
+        comm->c_assertions &= ~OMPI_COMM_REPORT_ASYNC;
+    }
+    else if(0 == strcmp("async", value)) {
+        comm->c_assertions |= OMPI_COMM_REPORT_ASYNC;
+    }
+    return OMPI_COMM_CHECK_ASSERT(comm, OMPI_COMM_REPORT_ASYNC)? "async": "operation";
+}
+
 static char *ompi_comm_set_error_uniform(opal_infosubscriber_t *obj, char *key, char *value) {
     ompi_communicator_t *comm = (ompi_communicator_t *) obj;
 
@@ -566,6 +578,9 @@ void ompi_comm_assert_subscribe (ompi_communicator_t *comm, int32_t assert_flag)
     case OMPI_COMM_REPORT_GROUP:
     case OMPI_COMM_REPORT_GLOBAL:
         opal_infosubscribe_subscribe (&comm->super, "mpix_assert_error_scope", "local", ompi_comm_set_error_report);
+        break;
+    case OMPI_COMM_REPORT_ASYNC:
+        opal_infosubscribe_subscribe (&comm->super, "mpix_assert_error_report", "operation", ompi_comm_set_error_async);
         break;
     case OMPI_COMM_UNIFORM_CREATE:
     case OMPI_COMM_UNIFORM_COLL:
