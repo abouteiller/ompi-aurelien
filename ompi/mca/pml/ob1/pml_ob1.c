@@ -219,6 +219,7 @@ int mca_pml_ob1_add_comm(ompi_communicator_t* comm)
 #if OPAL_ENABLE_FT_MPI
     ompi_comm_assert_subscribe (comm, OMPI_COMM_REPORT_GROUP);
     ompi_comm_assert_subscribe (comm, OMPI_COMM_REPORT_GLOBAL);
+    ompi_comm_assert_subscribe (comm, OMPI_COMM_REPORT_ASYNC);
     ompi_comm_assert_subscribe (comm, OMPI_COMM_UNIFORM_CREATE);
     ompi_comm_assert_subscribe (comm, OMPI_COMM_UNIFORM_COLL);
 #endif /* OPAL_ENABLE_FT_MPI */

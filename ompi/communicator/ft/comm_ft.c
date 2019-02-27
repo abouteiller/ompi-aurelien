@@ -654,5 +654,15 @@ int ompi_comm_set_rank_failed(ompi_communicator_t *comm, int peer_id, bool remot
         (*ompi_rank_failure_cbfunc)(comm, peer_id, remote);
     }
 
+    /* Call the error handler if asynchronous reporting is active */
+    if(OMPI_COMM_CHECK_ASSERT_REPORT_ASYNC(comm)) {
+        if(MPI_PROC_NULL == peer_id || !coll_only) {
+            OMPI_ERRHANDLER_INVOKE(comm, MPI_ERR_REVOKED, "Asynchronous report");
+        }
+        else {
+            OMPI_ERRHANDLER_INVOKE(comm, MPI_ERR_PROC_FAILED, "Asynchronous report");
+        }
+    }
+
     return OMPI_SUCCESS;
 }
