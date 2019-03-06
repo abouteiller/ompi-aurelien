@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -19,8 +19,8 @@
  * $HEADER$
  */
 
-#ifndef MCA_COLL_FTBASIC_EXPORT_H
-#define MCA_COLL_FTBASIC_EXPORT_H
+#ifndef MCA_COLL_FTAGREE_EXPORT_H
+#define MCA_COLL_FTAGREE_EXPORT_H
 
 #include "ompi_config.h"
 
@@ -42,39 +42,39 @@ BEGIN_C_DECLS
 /*
  * TAGS for agreement collectives
  */
-#define MCA_COLL_FTBASIC_TAG_AGREEMENT(module)      (module->mccb_coll_tag_agreement)
-#define MCA_COLL_FTBASIC_TAG_AGREEMENT_CATCH_UP     (MCA_COLL_BASE_TAG_AGREEMENT_CATCH_UP)
-#define MCA_COLL_FTBASIC_TAG_AGREEMENT_CATCH_UP_REQ (MCA_COLL_BASE_TAG_AGREEMENT_CATCH_UP_REQ)
-#define MCA_COLL_FTBASIC_TAG_AGREEMENT_UR_ELECTED   (MCA_COLL_BASE_TAG_AGREEMENT_UR_ELECTED)
+#define MCA_COLL_FTAGREE_TAG_AGREEMENT(module)      (module->mccb_coll_tag_agreement)
+#define MCA_COLL_FTAGREE_TAG_AGREEMENT_CATCH_UP     (MCA_COLL_BASE_TAG_AGREEMENT_CATCH_UP)
+#define MCA_COLL_FTAGREE_TAG_AGREEMENT_CATCH_UP_REQ (MCA_COLL_BASE_TAG_AGREEMENT_CATCH_UP_REQ)
+#define MCA_COLL_FTAGREE_TAG_AGREEMENT_UR_ELECTED   (MCA_COLL_BASE_TAG_AGREEMENT_UR_ELECTED)
 
 /* Globally exported variables */
 
 OMPI_MODULE_DECLSPEC extern const mca_coll_base_component_2_0_0_t
-mca_coll_ftbasic_component;
-extern int mca_coll_ftbasic_priority;
-extern int mca_coll_ftbasic_crossover;
+mca_coll_ftagree_component;
+extern int mca_coll_ftagree_priority;
+extern int mca_coll_ftagree_crossover;
 
 #if defined(OPAL_ENABLE_DEBUG)
-OMPI_DECLSPEC extern int coll_ftbasic_era_debug_rank_may_fail;
+OMPI_DECLSPEC extern int coll_ftagree_era_debug_rank_may_fail;
 #endif
 
-enum mca_coll_ftbasic_agreement_method_t {
-    COLL_FTBASIC_NOFT = 0,
-    COLL_FTBASIC_EARLY_RETURNING   = 1,
-    COLL_FTBASIC_EARLY_TERMINATION = 2
+enum mca_coll_ftagree_algorithm_t {
+    COLL_FTAGREE_NOFT = 0,
+    COLL_FTAGREE_EARLY_RETURNING   = 1,
+    COLL_FTAGREE_EARLY_TERMINATION = 2
 };
-typedef enum mca_coll_ftbasic_agreement_method_t mca_coll_ftbasic_agreement_method_t;
+typedef enum mca_coll_ftagree_algorithm_t mca_coll_ftagree_algorithm_t;
 
-extern mca_coll_ftbasic_agreement_method_t mca_coll_ftbasic_cur_agreement_method;
-extern int mca_coll_ftbasic_era_rebuild;
+extern mca_coll_ftagree_algorithm_t mca_coll_ftagree_algorithm;
+extern int mca_coll_ftagree_era_rebuild;
 
-struct mca_coll_ftbasic_request_t;
+struct mca_coll_ftagree_request_t;
 
 /*
  * Base agreement structure
  * Individual agreement algorithms will extend this struct as needed
  */
-struct mca_coll_ftbasic_agreement_t {
+struct mca_coll_ftagree_t {
     /* This is a general object */
     opal_object_t super;
 
@@ -83,13 +83,13 @@ struct mca_coll_ftbasic_agreement_t {
 
     /* Current non-blocking Agreement Request */
 #ifdef IAGREE
-    struct mca_coll_ftbasic_request_t *cur_request;
+    struct mca_coll_ftagree_request_t *cur_request;
 #endif
 };
-typedef struct mca_coll_ftbasic_agreement_t mca_coll_ftbasic_agreement_t;
-OBJ_CLASS_DECLARATION(mca_coll_ftbasic_agreement_t);
+typedef struct mca_coll_ftagree_t mca_coll_ftagree_t;
+OBJ_CLASS_DECLARATION(mca_coll_ftagree_t);
 
-struct mca_coll_ftbasic_module_t {
+struct mca_coll_ftagree_module_t {
     mca_coll_base_module_t super;
 
     /* Array of requests */
@@ -107,32 +107,32 @@ struct mca_coll_ftbasic_module_t {
     int mccb_coll_tag_agreement;
 
     /* Pointer to the agreement structure */
-    mca_coll_ftbasic_agreement_t *agreement_info;
+    mca_coll_ftagree_t *agreement_info;
 };
-typedef struct mca_coll_ftbasic_module_t mca_coll_ftbasic_module_t;
-OBJ_CLASS_DECLARATION(mca_coll_ftbasic_module_t);
+typedef struct mca_coll_ftagree_module_t mca_coll_ftagree_module_t;
+OBJ_CLASS_DECLARATION(mca_coll_ftagree_module_t);
 
 /*
  * API functions
  */
-int mca_coll_ftbasic_init_query(bool enable_progress_threads,
+int mca_coll_ftagree_init_query(bool enable_progress_threads,
                                 bool enable_mpi_threads);
 mca_coll_base_module_t
-*mca_coll_ftbasic_comm_query(struct ompi_communicator_t *comm,
+*mca_coll_ftagree_comm_query(struct ompi_communicator_t *comm,
                              int *priority);
 
-int mca_coll_ftbasic_module_enable(mca_coll_base_module_t *module,
+int mca_coll_ftagree_module_enable(mca_coll_base_module_t *module,
                                    struct ompi_communicator_t *comm);
 
-int mca_coll_ftbasic_ft_event(int status);
+int mca_coll_ftagree_ft_event(int status);
 
 /*
- * Agreement protocols
+ * Agreement algorithms
  */
 
 /* Early termination algorithm */
 int
-mca_coll_ftbasic_agreement_eta_intra(void* contrib,
+mca_coll_ftagree_eta_intra(void* contrib,
                                      int dt_count,
                                      ompi_datatype_t *dt,
                                      ompi_op_t *op,
@@ -141,14 +141,14 @@ mca_coll_ftbasic_agreement_eta_intra(void* contrib,
                                      mca_coll_base_module_t *module);
 /* Early returning algorithm */
 int
-mca_coll_ftbasic_agreement_era_intra(void* contrib,
+mca_coll_ftagree_era_intra(void* contrib,
                                      int dt_count,
                                      ompi_datatype_t *dt,
                                      ompi_op_t *op,
                                      ompi_group_t **group, bool grp_update,
                                      ompi_communicator_t* comm,
                                      mca_coll_base_module_t *module);
-int mca_coll_ftbasic_iagreement_era_intra(void* contrib,
+int mca_coll_ftagree_iera_intra(void* contrib,
                                      int dt_count,
                                      ompi_datatype_t *dt,
                                      ompi_op_t *op,
@@ -156,7 +156,7 @@ int mca_coll_ftbasic_iagreement_era_intra(void* contrib,
                                      ompi_communicator_t* comm,
                                      ompi_request_t **request,
                                      mca_coll_base_module_t *module);
-int mca_coll_ftbasic_agreement_era_inter(void* contrib,
+int mca_coll_ftagree_era_inter(void* contrib,
                                      int dt_count,
                                      ompi_datatype_t *dt,
                                      ompi_op_t *op,
@@ -167,7 +167,7 @@ int mca_coll_ftbasic_agreement_era_inter(void* contrib,
 /*
  * Utility functions
  */
-static inline void mca_coll_ftbasic_free_reqs(ompi_request_t ** reqs,
+static inline void mca_coll_ftagree_free_reqs(ompi_request_t ** reqs,
                                               int count)
 {
     int i;
@@ -180,4 +180,4 @@ static inline void mca_coll_ftbasic_free_reqs(ompi_request_t ** reqs,
 
 END_C_DECLS
 
-#endif /* MCA_COLL_FTBASIC_EXPORT_H */
+#endif /* MCA_COLL_FTAGREE_EXPORT_H */

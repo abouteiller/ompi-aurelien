@@ -2,7 +2,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2016 The University of Tennessee and The University
+ * Copyright (c) 2004-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -26,35 +26,35 @@
 
 #include "ompi_config.h"
 #include "ompi/mca/coll/coll.h"
-#include "ompi/mca/coll/ftbasic/coll_ftbasic.h"
-#include "ompi/mca/coll/ftbasic/coll_ftbasic_agreement.h"
+#include "ompi/mca/coll/ftagree/coll_ftagree.h"
+#include "ompi/mca/coll/ftagree/coll_ftagree_era.h"
 
 
 /*
- * Public string showing the coll ompi_ftbasic component version number
+ * Public string showing the coll ompi_ftagree component version number
  */
-const char *mca_coll_ftbasic_component_version_string =
-    "Open MPI ftbasic collective MCA component version " OMPI_VERSION;
+const char *mca_coll_ftagree_component_version_string =
+    "Open MPI ftagree collective MCA component version " OMPI_VERSION;
 
 /*
  * Global variables
  */
-int mca_coll_ftbasic_priority  = 0;
-mca_coll_ftbasic_agreement_method_t mca_coll_ftbasic_cur_agreement_method = COLL_FTBASIC_EARLY_RETURNING;
-int mca_coll_ftbasic_cur_era_topology = 1;
-int mca_coll_ftbasic_era_rebuild = 0;
+int mca_coll_ftagree_priority  = 0;
+mca_coll_ftagree_algorithm_t mca_coll_ftagree_algorithm = COLL_FTAGREE_EARLY_RETURNING;
+int mca_coll_ftagree_cur_era_topology = 1;
+int mca_coll_ftagree_era_rebuild = 0;
 
 /*
  * Local function
  */
-static int ftbasic_register(void);
-static int ftbasic_close(void);
+static int ftagree_register(void);
+static int ftagree_close(void);
 /*
  * Instantiate the public struct with all of our public information
  * and pointers to our public functions in it
  */
 
-const mca_coll_base_component_2_0_0_t mca_coll_ftbasic_component = {
+const mca_coll_base_component_2_0_0_t mca_coll_ftagree_component = {
 
     /* First, the mca_component_t struct containing meta information
      * about the component itself */
@@ -63,16 +63,16 @@ const mca_coll_base_component_2_0_0_t mca_coll_ftbasic_component = {
      MCA_COLL_BASE_VERSION_2_0_0,
 
      /* Component name and version */
-     "ftbasic",
+     "ftagree",
      OMPI_MAJOR_VERSION,
      OMPI_MINOR_VERSION,
      OMPI_RELEASE_VERSION,
 
      /* Component open and close functions */
      NULL,
-     ftbasic_close,
+     ftagree_close,
      NULL,
-     ftbasic_register
+     ftagree_register
     },
     {
         /* The component is checkpoint ready */
@@ -81,36 +81,36 @@ const mca_coll_base_component_2_0_0_t mca_coll_ftbasic_component = {
 
     /* Initialization / querying functions */
 
-    mca_coll_ftbasic_init_query,
-    mca_coll_ftbasic_comm_query
+    mca_coll_ftagree_init_query,
+    mca_coll_ftagree_comm_query
 };
 
 static int
-ftbasic_close(void)
+ftagree_close(void)
 {
-    if( mca_coll_ftbasic_cur_agreement_method ==  COLL_FTBASIC_EARLY_RETURNING ) {
-        return mca_coll_ftbasic_agreement_era_finalize();
+    if( mca_coll_ftagree_algorithm ==  COLL_FTAGREE_EARLY_RETURNING ) {
+        return mca_coll_ftagree_era_finalize();
     }
     return OMPI_SUCCESS;
 }
 
 static int
-ftbasic_register(void)
+ftagree_register(void)
 {
     int value;
 
     /* Use a low priority, but allow other components to be lower */
-    mca_coll_ftbasic_priority = 30;
-    (void) mca_base_component_var_register(&mca_coll_ftbasic_component.collm_version,
-                                           "priority", "Priority of the ftbasic coll component",
+    mca_coll_ftagree_priority = 30;
+    (void) mca_base_component_var_register(&mca_coll_ftagree_component.collm_version,
+                                           "priority", "Priority of the ftagree coll component",
                                            MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
                                            OPAL_INFO_LVL_6,
                                            MCA_BASE_VAR_SCOPE_READONLY,
-                                           &mca_coll_ftbasic_priority);
+                                           &mca_coll_ftagree_priority);
 
     if( ompi_ftmpi_enabled ) value = 1;
     else value = 0; /* NOFT: do not initialize ERA */
-    (void) mca_base_component_var_register(&mca_coll_ftbasic_component.collm_version,
+    (void) mca_base_component_var_register(&mca_coll_ftagree_component.collm_version,
                                            "agreement", "Agreement algorithm 0: Allreduce (NOT FAULT TOLERANT); 1: Early Returning Concensus (era); 2: Early Terminating Concensus (eta)",
                                            MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
                                            OPAL_INFO_LVL_6,
@@ -118,41 +118,41 @@ ftbasic_register(void)
                                            &value);
     switch(value) {
     case 0:
-        mca_coll_ftbasic_cur_agreement_method = COLL_FTBASIC_NOFT;
+        mca_coll_ftagree_algorithm = COLL_FTAGREE_NOFT;
         opal_output_verbose(6, ompi_ftmpi_output_handle,
-                            "%s ftbasic:register) Agreement Algorithm - Allreduce (NOT FAULT TOLERANT)",
+                            "%s ftagree:register) Agreement Algorithm - Allreduce (NOT FAULT TOLERANT)",
                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) );
         break;
     default:  /* Includes the valid case 1 */
-        mca_coll_ftbasic_cur_agreement_method = COLL_FTBASIC_EARLY_RETURNING;
+        mca_coll_ftagree_algorithm = COLL_FTAGREE_EARLY_RETURNING;
         opal_output_verbose(6, ompi_ftmpi_output_handle,
-                            "%s ftbasic:register) Agreement Algorithm - Early Returning Consensus Algorithm",
+                            "%s ftagree:register) Agreement Algorithm - Early Returning Consensus Algorithm",
                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) );
         break;
     case 2:
-        mca_coll_ftbasic_cur_agreement_method = COLL_FTBASIC_EARLY_TERMINATION;
+        mca_coll_ftagree_algorithm = COLL_FTAGREE_EARLY_TERMINATION;
         opal_output_verbose(6, ompi_ftmpi_output_handle,
-                            "%s ftbasic:register) Agreement Algorithm - Early Terminating Consensus Algorithm",
+                            "%s ftagree:register) Agreement Algorithm - Early Terminating Consensus Algorithm",
                             OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) );
         break;
     }
 
-    mca_coll_ftbasic_cur_era_topology = 1;
-    (void) mca_base_component_var_register(&mca_coll_ftbasic_component.collm_version,
+    mca_coll_ftagree_cur_era_topology = 1;
+    (void) mca_base_component_var_register(&mca_coll_ftagree_component.collm_version,
                                            "era_topology", "ERA topology 1: binary tree; 2: star tree; 3: string tree",
                                            MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
                                            OPAL_INFO_LVL_6,
                                            MCA_BASE_VAR_SCOPE_READONLY,
-                                           &mca_coll_ftbasic_cur_era_topology);
+                                           &mca_coll_ftagree_cur_era_topology);
 
     /* TODO: add an adaptative rebuilding strategy */
-    mca_coll_ftbasic_era_rebuild = 0; /* by default do not rebuild, master-worker application patterns can benefit greatly from rebuilding... */
-    (void) mca_base_component_var_register(&mca_coll_ftbasic_component.collm_version,
+    mca_coll_ftagree_era_rebuild = 0; /* by default do not rebuild, master-worker application patterns can benefit greatly from rebuilding... */
+    (void) mca_base_component_var_register(&mca_coll_ftagree_component.collm_version,
                                            "era_rebuild", "ERA rebuild/rebalance the tree in a first post-failure agreement 0: no rebalancing; 1: rebalance all the time",
                                            MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
                                            OPAL_INFO_LVL_6,
                                            MCA_BASE_VAR_SCOPE_READONLY,
-                                           &mca_coll_ftbasic_era_rebuild);
+                                           &mca_coll_ftagree_era_rebuild);
 
 
     return OMPI_SUCCESS;
@@ -160,7 +160,7 @@ ftbasic_register(void)
 
 
 static void
-mca_coll_ftbasic_module_construct(mca_coll_ftbasic_module_t *module)
+mca_coll_ftagree_module_construct(mca_coll_ftagree_module_t *module)
 {
     module->mccb_reqs = NULL;
     module->mccb_num_reqs = 0;
@@ -175,12 +175,18 @@ mca_coll_ftbasic_module_construct(mca_coll_ftbasic_module_t *module)
 }
 
 static void
-mca_coll_ftbasic_module_destruct(mca_coll_ftbasic_module_t *module)
+mca_coll_ftagree_module_destruct(mca_coll_ftagree_module_t *module)
 {
 
     /* Finalize the agreement function */
     if( ompi_ftmpi_enabled ) {
-        mca_coll_ftbasic_agreement_finalize(module);
+        switch( mca_coll_ftagree_algorithm ) {
+        case COLL_FTAGREE_EARLY_RETURNING:
+            mca_coll_ftagree_era_comm_finalize(module);
+            break;
+        default:
+            break;
+        }
     }
 
     /* This object is managed by the agreement operation selected */
@@ -198,7 +204,7 @@ mca_coll_ftbasic_module_destruct(mca_coll_ftbasic_module_t *module)
 }
 
 
-OBJ_CLASS_INSTANCE(mca_coll_ftbasic_module_t,
+OBJ_CLASS_INSTANCE(mca_coll_ftagree_module_t,
                    mca_coll_base_module_t,
-                   mca_coll_ftbasic_module_construct,
-                   mca_coll_ftbasic_module_destruct);
+                   mca_coll_ftagree_module_construct,
+                   mca_coll_ftagree_module_destruct);

@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; -*- */
 /*
- * Copyright (c) 2013-2015 The University of Tennessee and The University
+ * Copyright (c) 2013-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -12,8 +12,8 @@
  */
 
 #include "ompi_config.h"
-#include "coll_ftbasic.h"
-#include "coll_ftbasic_agreement.h"
+#include "coll_ftagree.h"
+#include "coll_ftagree_era.h"
 
 #include "mpi.h"
 #include "ompi/constants.h"
@@ -24,11 +24,11 @@
 #include "ompi/mca/pml/pml.h"
 
 #include MCA_timer_IMPLEMENTATION_HEADER
-#include "coll_ftbasic.h"
+#include "coll_ftagree.h"
 
 #if OPAL_ENABLE_DEBUG && 0
 #define PROGRESS_FAILURE_PROB 0.05
-extern int coll_ftbasic_debug_rank_may_fail;
+extern int coll_ftagree_debug_rank_may_fail;
 #endif
 
 /**
@@ -53,12 +53,12 @@ typedef struct {
     int knows;
     int pf;
     char est_value[4];
-} ftbasic_eta_agreement_msg_t;
+} ftagree_eta_agreement_msg_t;
 
-#define FTBASIC_ETA_TAG_AGREEMENT MCA_COLL_BASE_TAG_AGREEMENT
+#define FTAGREE_ETA_TAG_AGREEMENT MCA_COLL_BASE_TAG_AGREEMENT
 
 /*
- *	agreement_eta_intra
+ *	eta_intra
  *
  *	Function:	- MPI_Comm_agree()
  *	Accepts:	- same as MPI_Comm_agree()
@@ -66,7 +66,7 @@ typedef struct {
  */
 
 int
-mca_coll_ftbasic_agreement_eta_intra(void *contrib,
+mca_coll_ftagree_eta_intra(void *contrib,
                                      int dt_count,
                                      ompi_datatype_t *dt,
                                      ompi_op_t *op,
@@ -74,7 +74,7 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
                                      ompi_communicator_t* comm,
                                      mca_coll_base_module_t *module)
 {
-    ftbasic_eta_agreement_msg_t *out, *in;
+    ftagree_eta_agreement_msg_t *out, *in;
     size_t msg_size;
     int *proc_status; /**< char would be enough, but we use the same area to build the group of dead processes at the end */
     ompi_request_t **reqs;
@@ -85,13 +85,13 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
     me = ompi_comm_rank(comm);
     proc_status = (int *)calloc( np, sizeof(int) );
 
-    msg_size = sizeof(ftbasic_eta_agreement_msg_t) - 4 + dt_count * ompi_datatype_basicDatatypes[dt->id]->super.size;
+    msg_size = sizeof(ftagree_eta_agreement_msg_t) - 4 + dt_count * ompi_datatype_basicDatatypes[dt->id]->super.size;
 
     /* This should go in the module query, and a module member should be used here */
     reqs = (ompi_request_t **)calloc( 2 * np, sizeof(ompi_request_t *) ); /** < Need to calloc or set to MPI_REQUEST_NULL to ensure cleanup in all cases. */
     statuses = (MPI_Status*)malloc( 2 * np * sizeof(MPI_Status) );
-    in = (ftbasic_eta_agreement_msg_t*)calloc( np, msg_size );
-    out = (ftbasic_eta_agreement_msg_t*)malloc( msg_size );
+    in = (ftagree_eta_agreement_msg_t*)calloc( np, msg_size );
+    out = (ftagree_eta_agreement_msg_t*)malloc( msg_size );
 
     memcpy(out->est_value, contrib, dt_count * ompi_datatype_basicDatatypes[dt->id]->super.size);
     out->knows = 0;
@@ -99,7 +99,7 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
     round = 1;
 
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ETA) Starting Agreement with message size of %lu bytes (%lu bytes for the agreement value)\n",
+                         "%s ftagree:agreement (ETA) Starting Agreement with message size of %lu bytes (%lu bytes for the agreement value)\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), msg_size, dt_count * ompi_datatype_basicDatatypes[dt->id]->super.size));
 
     { /* ignore acked failures (add them later to the result) */
@@ -126,7 +126,7 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
 
     while(round <= (np + 1)) {
         OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ETA) Starting Round %d\n",
+                             "%s ftagree:agreement (ETA) Starting Round %d\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), round));
 
         /**
@@ -137,10 +137,10 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
 
 #if defined(PROGRESS_FAILURE_PROB)
 #pragma message("Hard coded probability of failure inside the agreement")
-            if( coll_ftbasic_debug_rank_may_fail &&
+            if( coll_ftagree_debug_rank_may_fail &&
                 (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
                 OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
-                                     "%s ftbasic:agreement (ETA) Killing myself just before posting message reception to/from %d\n",
+                                     "%s ftagree:agreement (ETA) Killing myself just before posting message reception to/from %d\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                      i));
                 raise(SIGKILL);
@@ -150,11 +150,11 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
             if( NEED_TO_RECV(i) ) {
                 /* Need to know more about this guy */
                 MCA_PML_CALL(irecv(((char*)in) + (i*msg_size), msg_size, MPI_BYTE,
-                                   i, FTBASIC_ETA_TAG_AGREEMENT, comm,
+                                   i, FTAGREE_ETA_TAG_AGREEMENT, comm,
                                    &reqs[nr++]));
                 proc_status[i] &= ~STATUS_RECV_COMPLETE;
                 OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
-                                     "%s ftbasic:agreement (ETA) Request for recv of rank %d is at %d(%p)\n",
+                                     "%s ftagree:agreement (ETA) Request for recv of rank %d is at %d(%p)\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), i, nr-1, (void*)reqs[nr-1]));
             } else {
                 proc_status[i] |= STATUS_RECV_COMPLETE;
@@ -162,12 +162,12 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
             if( NEED_TO_SEND(i) ) {
                 /* Need to communicate with this guy */
                 MCA_PML_CALL(isend(out, msg_size, MPI_BYTE,
-                                   i, FTBASIC_ETA_TAG_AGREEMENT,
+                                   i, FTAGREE_ETA_TAG_AGREEMENT,
                                    MCA_PML_BASE_SEND_STANDARD, comm,
                                    &reqs[nr++]));
                 proc_status[i] &= ~STATUS_SEND_COMPLETE;
                 OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
-                                     "%s ftbasic:agreement (ETA) Request for send of rank %d is at %d(%p)\n",
+                                     "%s ftagree:agreement (ETA) Request for send of rank %d is at %d(%p)\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), i, nr-1, (void*)reqs[nr-1]));
             } else {
                 proc_status[i] |= STATUS_SEND_COMPLETE;
@@ -179,15 +179,15 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
 
         do {
             OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
-                                 "%s ftbasic:agreement (ETA) Entering waitall(%d)\n",
+                                 "%s ftagree:agreement (ETA) Entering waitall(%d)\n",
                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), nr));
 
 #if defined(PROGRESS_FAILURE_PROB)
 #pragma message("Hard coded probability of failure inside the agreement")
-            if( coll_ftbasic_debug_rank_may_fail &&
+            if( coll_ftagree_debug_rank_may_fail &&
                 (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
                 OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
-                                     "%s ftbasic:agreement (ETA) Killing myself just before waitall\n",
+                                     "%s ftagree:agreement (ETA) Killing myself just before waitall\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME)));
                 raise(SIGKILL);
             }
@@ -197,10 +197,10 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
 
 #if defined(PROGRESS_FAILURE_PROB)
 #pragma message("Hard coded probability of failure inside the agreement")
-            if( coll_ftbasic_debug_rank_may_fail &&
+            if( coll_ftagree_debug_rank_may_fail &&
                 (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
                 OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
-                                     "%s ftbasic:agreement (ETA) Killing myself just after waitall\n",
+                                     "%s ftagree:agreement (ETA) Killing myself just after waitall\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME)));
                 raise(SIGKILL);
             }
@@ -232,14 +232,14 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
                         nbrecv++;
 
                         OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
-                                             "%s ftbasic:agreement (ETA) Request %d(%p) for recv of rank %d is completed.\n",
+                                             "%s ftagree:agreement (ETA) Request %d(%p) for recv of rank %d is completed.\n",
                                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), ri, (void*)reqs[ri], i));
                     } else {
                         if( (MPI_ERR_PROC_FAILED == statuses[ri].MPI_ERROR) ) {
                             /* Failure detected */
                             proc_status[i] |= (STATUS_CRASHED | STATUS_RECV_COMPLETE);
                             OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
-                                                 "%s ftbasic:agreement (ETA) recv with rank %d failed on request at index %d(%p). Mark it as dead!",
+                                                 "%s ftagree:agreement (ETA) recv with rank %d failed on request at index %d(%p). Mark it as dead!",
                                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), i, ri, (void*)reqs[ri]));
                             out->pf = 1;
 /* per spec this should already be completed; TODO remove of proven correct */
@@ -252,7 +252,7 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
                             assert( MPI_REQUEST_NULL != reqs[ri] );
                             assert( ri == nr || reqs[nr] == MPI_REQUEST_NULL );
                             OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
-                                                 "%s ftbasic:agreement (ETA) Request %d(%p) for recv of rank %d remains pending. Renaming it as Request %d\n",
+                                                 "%s ftagree:agreement (ETA) Request %d(%p) for recv of rank %d remains pending. Renaming it as Request %d\n",
                                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), ri, (void*)reqs[ri], i, nr));
                             reqs[nr] = reqs[ri];
                             if( ri != nr )
@@ -272,7 +272,7 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
                         proc_status[i] |= ((out->knows * STATUS_KNOWS_I_KNOW) | STATUS_SEND_COMPLETE);
 
                         OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
-                                             "%s ftbasic:agreement (ETA) Request %d(%p) for send of rank %d is completed.\n",
+                                             "%s ftagree:agreement (ETA) Request %d(%p) for send of rank %d is completed.\n",
                                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), ri, (void*)reqs[ri], i));
                     } else {
                         if( (MPI_ERR_PROC_FAILED == statuses[ri].MPI_ERROR) ) {
@@ -280,7 +280,7 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
                             proc_status[i] |= (STATUS_CRASHED | STATUS_SEND_COMPLETE);
 
                             OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
-                                                 "%s ftbasic:agreement (ETA) send with rank %d failed on Request %d(%p). Mark it as dead!",
+                                                 "%s ftagree:agreement (ETA) send with rank %d failed on Request %d(%p). Mark it as dead!",
                                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), i, ri, (void*)reqs[ri]));
                             out->pf = 1;
 /* per spec this should already be completed; TODO understand why not */
@@ -293,7 +293,7 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
                             assert( MPI_REQUEST_NULL != reqs[ri] );
                             assert( ri == nr || reqs[nr] == MPI_REQUEST_NULL );
                             OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
-                                                 "%s ftbasic:agreement (ETA) Request %d(%p) for send of rank %d remains pending. Renaming it as Request %d\n",
+                                                 "%s ftagree:agreement (ETA) Request %d(%p) for send of rank %d remains pending. Renaming it as Request %d\n",
                                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), ri, (void*)reqs[ri], i, nr));
                             reqs[nr] = reqs[ri];
                             if( ri != nr )
@@ -324,7 +324,7 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
                 nbknow++;
 
         OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ETA) end of Round %d: nbcrashed = %d, nbknow = %d, nbrecv = %d. out.knows = %d\n",
+                             "%s ftagree:agreement (ETA) end of Round %d: nbcrashed = %d, nbknow = %d, nbrecv = %d. out.knows = %d\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              round, nbcrashed, nbknow, nbrecv, out->knows));
 
@@ -370,7 +370,7 @@ mca_coll_ftbasic_agreement_eta_intra(void *contrib,
     free(out);
 
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ETA) return %d with 4 first bytes of result 0x%08x and dead group with %d processes",
+                         "%s ftagree:agreement (ETA) return %d with 4 first bytes of result 0x%08x and dead group with %d processes",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), ret, *(int*)contrib,
                          (NULL == group) ? 0 : (*group)->grp_proc_count));
     return ret;

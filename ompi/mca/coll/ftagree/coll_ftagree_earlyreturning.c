@@ -25,11 +25,11 @@
 #include "ompi/op/op.h"
 #include "ompi/mca/bml/base/base.h"
 
-#include "coll_ftbasic.h"
-#include "coll_ftbasic_agreement.h"
+#include "coll_ftagree.h"
+#include "coll_ftagree_era.h"
 
 
-extern int mca_coll_ftbasic_cur_era_topology;
+extern int mca_coll_ftagree_cur_era_topology;
 
 static int era_inited = 0;
 static opal_hash_table_t era_passed_agreements;
@@ -39,7 +39,7 @@ static ompi_comm_rank_failure_callback_t *ompi_stacked_rank_failure_callback_fct
 static uint64_t msg_seqnum = 1;
 static opal_free_list_t era_iagree_requests = {{{0}}};
 
-extern int coll_ftbasic_debug_rank_may_fail;
+extern int coll_ftagree_debug_rank_may_fail;
 
 typedef enum {
     MSG_UP = 1,
@@ -315,7 +315,7 @@ static void  era_agreement_info_constructor (era_agreement_info_t *agreement_inf
     OBJ_CONSTRUCT(&agreement_info->waiting_res_from, opal_list_t);
     OBJ_CONSTRUCT(&agreement_info->early_requesters, opal_list_t);
     OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Constructing Agreement Info %p\n",
+                         "%s ftagree:agreement (ERA) Constructing Agreement Info %p\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          (void*)agreement_info));
 }
@@ -474,7 +474,7 @@ static void era_debug_print_group(int lvl, ompi_group_t *group, ompi_communicato
     }
     snprintf(str + p, s-p, ")");
     OPAL_OUTPUT_VERBOSE((lvl, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) %s: %s\n",
+                         "%s ftagree:agreement (ERA) %s: %s\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          info,
                          str));
@@ -499,7 +499,7 @@ static void era_update_return_value(era_agreement_info_t *ci, int nb_acked, int 
      */
     if( ci->current_value->header.ret == MPI_ERR_PROC_FAILED ) {
         OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) compute local return value for Agreement ID = (%d.%d).%d: already decided FAILED at line %s:%d\n",
+                             "%s ftagree:agreement (ERA) compute local return value for Agreement ID = (%d.%d).%d: already decided FAILED at line %s:%d\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              ci->agreement_id.ERAID_FIELDS.contextid,
                              ci->agreement_id.ERAID_FIELDS.epoch,
@@ -527,7 +527,7 @@ static void era_update_return_value(era_agreement_info_t *ci, int nb_acked, int 
             /** This contribution and mine must match exactly */
             if( nb_acked != ci->nb_acked ) {
                 OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                                     "%s ftbasic:agreement (ERA) compute local return value for Agreement ID = (%d.%d).%d: decide FAILED because the acked arrays are of different size\n",
+                                     "%s ftagree:agreement (ERA) compute local return value for Agreement ID = (%d.%d).%d: decide FAILED because the acked arrays are of different size\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                      ci->agreement_id.ERAID_FIELDS.contextid,
                                      ci->agreement_id.ERAID_FIELDS.epoch,
@@ -543,7 +543,7 @@ static void era_update_return_value(era_agreement_info_t *ci, int nb_acked, int 
                 /** Both arrays should be globally ordered */
                 if( acked[r] != ci->acked[r] ) {
                     OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                                         "%s ftbasic:agreement (ERA) compute local return value for Agreement ID = (%d.%d).%d: decide FAILED because the acked arrays do not hold the same elements\n",
+                                         "%s ftagree:agreement (ERA) compute local return value for Agreement ID = (%d.%d).%d: decide FAILED because the acked arrays do not hold the same elements\n",
                                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                          ci->agreement_id.ERAID_FIELDS.contextid,
                                          ci->agreement_id.ERAID_FIELDS.epoch,
@@ -578,7 +578,7 @@ static void era_update_return_value(era_agreement_info_t *ci, int nb_acked, int 
 
         if( ompi_group_size(ack_after_agreement_group) != ci->nb_acked ) {
             OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                                 "%s ftbasic:agreement (ERA) compute local return value for Agreement ID = (%d.%d).%d: decide FAILED because new failures happened: |acked| = %d, |afp on c_local_group| = %d\n",
+                                 "%s ftagree:agreement (ERA) compute local return value for Agreement ID = (%d.%d).%d: decide FAILED because new failures happened: |acked| = %d, |afp on c_local_group| = %d\n",
                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                  ci->agreement_id.ERAID_FIELDS.contextid,
                                  ci->agreement_id.ERAID_FIELDS.epoch,
@@ -589,7 +589,7 @@ static void era_update_return_value(era_agreement_info_t *ci, int nb_acked, int 
             goto cleanup;
         } else {
             OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                                 "%s ftbasic:agreement (ERA) compute local return value for Agreement ID = (%d.%d).%d: decide SUCCESS (1)\n",
+                                 "%s ftagree:agreement (ERA) compute local return value for Agreement ID = (%d.%d).%d: decide SUCCESS (1)\n",
                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                  ci->agreement_id.ERAID_FIELDS.contextid,
                                  ci->agreement_id.ERAID_FIELDS.epoch,
@@ -598,7 +598,7 @@ static void era_update_return_value(era_agreement_info_t *ci, int nb_acked, int 
         OBJ_RELEASE(ack_after_agreement_group);
     } else {
         OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) compute local return value for Agreement ID = (%d.%d).%d: decide SUCCESS (2)\n",
+                             "%s ftagree:agreement (ERA) compute local return value for Agreement ID = (%d.%d).%d: decide SUCCESS (2)\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              ci->agreement_id.ERAID_FIELDS.contextid,
                              ci->agreement_id.ERAID_FIELDS.epoch,
@@ -731,7 +731,7 @@ static void era_agreement_value_set_gcrange(era_identifier_t eid, era_value_t *e
         }
     }
     OPAL_OUTPUT_VERBOSE((17, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) GC: agreement (%d.%d).%d: agreements %u to %u have been locally acknowledged\n",
+                         "%s ftagree:agreement (ERA) GC: agreement (%d.%d).%d: agreements %u to %u have been locally acknowledged\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          eid.ERAID_FIELDS.contextid,
                          eid.ERAID_FIELDS.epoch,
@@ -767,7 +767,7 @@ static void era_update_new_dead_list(era_agreement_info_t *ci)
     }
 
     OPAL_OUTPUT_VERBOSE((30, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) agreement (%d.%d).%d -- adding %d procs to the list of newly dead processes",
+                         "%s ftagree:agreement (ERA) agreement (%d.%d).%d -- adding %d procs to the list of newly dead processes",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          ci->agreement_id.ERAID_FIELDS.contextid,
                          ci->agreement_id.ERAID_FIELDS.epoch,
@@ -837,7 +837,7 @@ static void era_ci_get_clean_ags_copy(era_agreement_info_t *ci)
     OBJ_RETAIN(ci->ags);
 
     OPAL_OUTPUT_VERBOSE((30, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Agreement (%d.%d).%d: the tree structure is %s, the AFR is %s\n",
+                         "%s ftagree:agreement (ERA) Agreement (%d.%d).%d: the tree structure is %s, the AFR is %s\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          ci->agreement_id.ERAID_FIELDS.contextid,
                          ci->agreement_id.ERAID_FIELDS.epoch,
@@ -868,7 +868,7 @@ static void era_agreement_info_set_comm(era_agreement_info_t *ci, ompi_communica
     OBJ_RETAIN(comm);
 
     OPAL_OUTPUT_VERBOSE((30, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Agreement (%d.%d).%d: assigning to communicator %d\n",
+                         "%s ftagree:agreement (ERA) Agreement (%d.%d).%d: assigning to communicator %d\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          ci->agreement_id.ERAID_FIELDS.contextid,
                          ci->agreement_id.ERAID_FIELDS.epoch,
@@ -900,11 +900,11 @@ static void era_agreement_info_set_comm(era_agreement_info_t *ci, ompi_communica
     era_ci_get_clean_ags_copy(ci);
 }
 
-int mca_coll_ftbasic_agreement_era_comm_init(ompi_communicator_t *comm, mca_coll_ftbasic_module_t *module)
+int mca_coll_ftagree_era_comm_init(ompi_communicator_t *comm, mca_coll_ftagree_module_t *module)
 {
-    mca_coll_ftbasic_agreement_t *comm_ag_info;
+    mca_coll_ftagree_t *comm_ag_info;
 
-    comm_ag_info = OBJ_NEW(mca_coll_ftbasic_agreement_t);
+    comm_ag_info = OBJ_NEW(mca_coll_ftagree_t);
     comm_ag_info->agreement_seq_num = 0;
 
     module->agreement_info = comm_ag_info;
@@ -912,9 +912,9 @@ int mca_coll_ftbasic_agreement_era_comm_init(ompi_communicator_t *comm, mca_coll
     return OMPI_SUCCESS;
 }
 
-int mca_coll_ftbasic_agreement_era_comm_finalize(mca_coll_ftbasic_module_t *module)
+int mca_coll_ftagree_era_comm_finalize(mca_coll_ftagree_module_t *module)
 {
-    mca_coll_ftbasic_agreement_t *comm_ag_info;
+    mca_coll_ftagree_t *comm_ag_info;
     comm_ag_info = module->agreement_info;
     OBJ_RELEASE(comm_ag_info);
     return OMPI_SUCCESS;
@@ -1128,7 +1128,7 @@ static void era_call_tree_fn(era_agreement_info_t *ci)
     era_tree_t  *subtree, *rep_tree;
     int          subtree_size, rep_tree_size;
 
-    if( mca_coll_ftbasic_cur_era_topology > 0 ) {
+    if( mca_coll_ftagree_cur_era_topology > 0 ) {
         assert( sizeof(daemon_id) == sizeof(uint32_t) );
 
         rep_table = OBJ_NEW(opal_hash_table_t);
@@ -1331,7 +1331,7 @@ static void era_build_tree_structure(era_agreement_info_t *ci)
 
     if( ompi_comm_rank(ci->comm) == 0 ) {
         OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) Agreement (%d.%d).%d: re-built the tree structure with size %d: %s\n",
+                             "%s ftagree:agreement (ERA) Agreement (%d.%d).%d: re-built the tree structure with size %d: %s\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              ci->agreement_id.ERAID_FIELDS.contextid,
                              ci->agreement_id.ERAID_FIELDS.epoch,
@@ -1461,7 +1461,7 @@ static void era_tree_remove_node(era_agreement_info_t *ci, int r_in_tree)
         era_tree_check(ci->ags->tree, ci->ags->tree_size, 0);
 
         OPAL_OUTPUT_VERBOSE((30, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) Agreement (%d.%d).%d: removed node %d (at position %d) from the tree structure: %s\n",
+                             "%s ftagree:agreement (ERA) Agreement (%d.%d).%d: removed node %d (at position %d) from the tree structure: %s\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              ci->agreement_id.ERAID_FIELDS.contextid,
                              ci->agreement_id.ERAID_FIELDS.epoch,
@@ -1535,7 +1535,7 @@ static void era_collect_passed_agreements(era_identifier_t agreement_id, uint16_
 
     /* Garbage collect agreements that have been decided by all */
     OPAL_OUTPUT_VERBOSE((17, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Agreement (%d.%d).%d: GC: Agreements %u to %u have been acknowledged by all and can be collected\n",
+                         "%s ftagree:agreement (ERA) Agreement (%d.%d).%d: GC: Agreements %u to %u have been acknowledged by all and can be collected\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          agreement_id.ERAID_FIELDS.contextid,
                          agreement_id.ERAID_FIELDS.epoch,
@@ -1553,7 +1553,7 @@ static void era_collect_passed_agreements(era_identifier_t agreement_id, uint16_
                 opal_hash_table_remove_value_uint64(&era_passed_agreements, pid.ERAID_KEY);
                 OBJ_RELEASE(av);
                 OPAL_OUTPUT_VERBOSE((17, ompi_ftmpi_output_handle,
-                                     "%s ftbasic:agreement (ERA) Agreement (%d.%d).%d: GC: collect agreement (%d.%d).%d\n",
+                                     "%s ftagree:agreement (ERA) Agreement (%d.%d).%d: GC: collect agreement (%d.%d).%d\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                      agreement_id.ERAID_FIELDS.contextid,
                                      agreement_id.ERAID_FIELDS.epoch,
@@ -1602,7 +1602,7 @@ static void era_decide(era_value_t *decided_value, era_agreement_info_t *ci)
     OBJ_RETAIN(decided_value);
 
     OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) decide %08x.%d.%d.. on agreement (%d.%d).%d\n",
+                         "%s ftagree:agreement (ERA) decide %08x.%d.%d.. on agreement (%d.%d).%d\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          (0!=ERA_VALUE_BYTES_COUNT(&decided_value->header))? *(int*)decided_value->bytes: 0,
                          decided_value->header.ret,
@@ -1621,7 +1621,7 @@ static void era_decide(era_value_t *decided_value, era_agreement_info_t *ci)
 
     if( decided_value->header.nb_new_dead != 0 ) {
         OPAL_OUTPUT_VERBOSE((30, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) decide %08x.%d.%d on agreement (%d.%d).%d: adding up to %d processes to the list of agreed deaths\n",
+                             "%s ftagree:agreement (ERA) decide %08x.%d.%d on agreement (%d.%d).%d: adding up to %d processes to the list of agreed deaths\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              (0!=ERA_VALUE_BYTES_COUNT(&decided_value->header))? *(int*)decided_value->bytes: 0,
                              decided_value->header.ret,
@@ -1655,7 +1655,7 @@ static void era_decide(era_value_t *decided_value, era_agreement_info_t *ci)
                        decided_value->new_dead_array + r,
                        (decided_value->header.nb_new_dead - r) * sizeof(int));
                 AGS(comm)->afr_size += decided_value->header.nb_new_dead - r;
-                if(mca_coll_ftbasic_era_rebuild) AGS(comm)->ags_status |= AGS_TREE_DIRTY;
+                if(mca_coll_ftagree_era_rebuild) AGS(comm)->ags_status |= AGS_TREE_DIRTY;
                 break;
             } else if( AGS(comm)->agreed_failed_ranks[s] > decided_value->new_dead_array[r] ) {
                 /** make some room for one int */
@@ -1663,7 +1663,7 @@ static void era_decide(era_value_t *decided_value, era_agreement_info_t *ci)
                         AGS(comm)->agreed_failed_ranks + s,
                         (AGS(comm)->afr_size - s) * sizeof(int));
                 AGS(comm)->afr_size++;
-                if(mca_coll_ftbasic_era_rebuild) AGS(comm)->ags_status |= AGS_TREE_DIRTY;
+                if(mca_coll_ftagree_era_rebuild) AGS(comm)->ags_status |= AGS_TREE_DIRTY;
                 /** and insert new_dead[r] */
                 AGS(comm)->agreed_failed_ranks[s] = decided_value->new_dead_array[r];
             } else {
@@ -1682,7 +1682,7 @@ static void era_decide(era_value_t *decided_value, era_agreement_info_t *ci)
     }
 
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) decide %08x.%d.%d.. on agreement (%d.%d).%d: group of agreed deaths is of size %d\n",
+                         "%s ftagree:agreement (ERA) decide %08x.%d.%d.. on agreement (%d.%d).%d: group of agreed deaths is of size %d\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          (0!=ERA_VALUE_BYTES_COUNT(&decided_value->header))? *(int*)decided_value->bytes: 0,
                          decided_value->header.ret,
@@ -1732,7 +1732,7 @@ static void era_check_status(era_agreement_info_t *ci)
     era_rank_item_t *rl;
 
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) check_status for Agreement ID = (%d.%d).%d, current status = %s\n",
+                         "%s ftagree:agreement (ERA) check_status for Agreement ID = (%d.%d).%d, current status = %s\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          ci->agreement_id.ERAID_FIELDS.contextid,
                          ci->agreement_id.ERAID_FIELDS.epoch,
@@ -1751,7 +1751,7 @@ static void era_check_status(era_agreement_info_t *ci)
         r = -1;
         while( (r = era_next_child(ci, r)) < ompi_comm_size(ci->comm) ) {
             OPAL_OUTPUT_VERBOSE((30, ompi_ftmpi_output_handle,
-                                 "%s ftbasic:agreement (ERA) check_status for Agreement ID = (%d.%d).%d, child %d is supposed to contribute\n",
+                                 "%s ftagree:agreement (ERA) check_status for Agreement ID = (%d.%d).%d, child %d is supposed to contribute\n",
                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                  ci->agreement_id.ERAID_FIELDS.contextid,
                                  ci->agreement_id.ERAID_FIELDS.epoch,
@@ -1762,7 +1762,7 @@ static void era_check_status(era_agreement_info_t *ci)
                  rl =  (era_rank_item_t*)opal_list_get_next(&rl->super) ) {
                 if( rl->rank == r ) {
                     OPAL_OUTPUT_VERBOSE((20, ompi_ftmpi_output_handle,
-                                         "%s ftbasic:agreement (ERA) check_status for Agreement ID = (%d.%d).%d, child %d has sent its message\n",
+                                         "%s ftagree:agreement (ERA) check_status for Agreement ID = (%d.%d).%d, child %d has sent its message\n",
                                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                          ci->agreement_id.ERAID_FIELDS.contextid,
                                          ci->agreement_id.ERAID_FIELDS.epoch,
@@ -1773,7 +1773,7 @@ static void era_check_status(era_agreement_info_t *ci)
             }
             if( rl == (era_rank_item_t*)opal_list_get_end(&ci->gathered_info) ) {
                 OPAL_OUTPUT_VERBOSE((20, ompi_ftmpi_output_handle,
-                                     "%s ftbasic:agreement (ERA) check_status for Agreement ID = (%d.%d).%d, some children have not contributed\n",
+                                     "%s ftagree:agreement (ERA) check_status for Agreement ID = (%d.%d).%d, some children have not contributed\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                      ci->agreement_id.ERAID_FIELDS.contextid,
                                      ci->agreement_id.ERAID_FIELDS.epoch,
@@ -1788,7 +1788,7 @@ static void era_check_status(era_agreement_info_t *ci)
 
         if( ci->comm->c_my_rank == (r = era_parent(ci)) ) {
             OPAL_OUTPUT_VERBOSE((20, ompi_ftmpi_output_handle,
-                                 "%s ftbasic:agreement (ERA) check_status for Agreement ID = (%d.%d).%d, all children of root have contributed\n",
+                                 "%s ftagree:agreement (ERA) check_status for Agreement ID = (%d.%d).%d, all children of root have contributed\n",
                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                  ci->agreement_id.ERAID_FIELDS.contextid,
                                  ci->agreement_id.ERAID_FIELDS.epoch,
@@ -1798,7 +1798,7 @@ static void era_check_status(era_agreement_info_t *ci)
             era_decide(ci->current_value, ci);
         } else {
             OPAL_OUTPUT_VERBOSE((20, ompi_ftmpi_output_handle,
-                                 "%s ftbasic:agreement (ERA) check_status for Agreement ID = (%d.%d).%d, all children of non-root have contributed\n",
+                                 "%s ftagree:agreement (ERA) check_status for Agreement ID = (%d.%d).%d, all children of non-root have contributed\n",
                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                  ci->agreement_id.ERAID_FIELDS.contextid,
                                  ci->agreement_id.ERAID_FIELDS.epoch,
@@ -1870,7 +1870,7 @@ static void era_mark_process_failed(era_agreement_info_t *ci, int rank)
          * be MPI_SUCCESS
          */
         OPAL_OUTPUT_VERBOSE((30,  ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) Handling failure of process %d: Agreement (%d.%d).%d will have to return ERR_PROC_FAILED.\n",
+                             "%s ftagree:agreement (ERA) Handling failure of process %d: Agreement (%d.%d).%d will have to return ERR_PROC_FAILED.\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              rank,
                              ci->agreement_id.ERAID_FIELDS.contextid,
@@ -1880,7 +1880,7 @@ static void era_mark_process_failed(era_agreement_info_t *ci, int rank)
     }
     if( ci->status == BROADCASTING ) {
         OPAL_OUTPUT_VERBOSE((20,  ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) Handling failure of process %d: Agreement (%d.%d).%d is in the BROADCASTING state.\n",
+                             "%s ftagree:agreement (ERA) Handling failure of process %d: Agreement (%d.%d).%d is in the BROADCASTING state.\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              rank,
                              ci->agreement_id.ERAID_FIELDS.contextid,
@@ -1893,7 +1893,7 @@ static void era_mark_process_failed(era_agreement_info_t *ci, int rank)
             r = era_parent(ci);
             if( r == ci->comm->c_my_rank ) {
                 OPAL_OUTPUT_VERBOSE((20,  ompi_ftmpi_output_handle,
-                                     "%s ftbasic:agreement (ERA) Handling failure of process %d: Restarting Agreement (%d.%d).%d as I am the new root.\n",
+                                     "%s ftagree:agreement (ERA) Handling failure of process %d: Restarting Agreement (%d.%d).%d as I am the new root.\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                      rank,
                                      ci->agreement_id.ERAID_FIELDS.contextid,
@@ -1907,7 +1907,7 @@ static void era_mark_process_failed(era_agreement_info_t *ci, int rank)
                 restart_agreement_from_me(ci);
             } else {
                 OPAL_OUTPUT_VERBOSE((20,  ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) Handling failure of process %d: My parent changed to %d for Agreement (%d.%d).%d, sending the UP message to it\n",
+                             "%s ftagree:agreement (ERA) Handling failure of process %d: My parent changed to %d for Agreement (%d.%d).%d, sending the UP message to it\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                      rank, r,
                                      ci->agreement_id.ERAID_FIELDS.contextid,
@@ -1920,14 +1920,14 @@ static void era_mark_process_failed(era_agreement_info_t *ci, int rank)
         }
     } else if( ci->status == GATHERING ) {
         OPAL_OUTPUT_VERBOSE((20,  ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) Handling failure of process %d: Agreement (%d.%d).%d is in the GATHERING state.\n",
+                             "%s ftagree:agreement (ERA) Handling failure of process %d: Agreement (%d.%d).%d is in the GATHERING state.\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              rank,
                              ci->agreement_id.ERAID_FIELDS.contextid,
                              ci->agreement_id.ERAID_FIELDS.epoch,
                              ci->agreement_id.ERAID_FIELDS.agreementid));
         OPAL_OUTPUT_VERBOSE((20,  ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) Retaining agreement info for (%d.%d).%d while resolving failure during agreement.\n",
+                             "%s ftagree:agreement (ERA) Retaining agreement info for (%d.%d).%d while resolving failure during agreement.\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              ci->agreement_id.ERAID_FIELDS.contextid,
                              ci->agreement_id.ERAID_FIELDS.epoch,
@@ -1939,7 +1939,7 @@ static void era_mark_process_failed(era_agreement_info_t *ci, int rank)
             rl = (era_rank_item_t*)opal_list_get_next(&rl->super)) {
             if(rl->rank == rank) {
                 OPAL_OUTPUT_VERBOSE((20,  ompi_ftmpi_output_handle,
-                                     "%s ftbasic:agreement (ERA) Handling failure of process %d: I was waiting for the contribution of that process for Agreement (%d.%d).%d.\n",
+                                     "%s ftagree:agreement (ERA) Handling failure of process %d: I was waiting for the contribution of that process for Agreement (%d.%d).%d.\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                      rank,
                                      ci->agreement_id.ERAID_FIELDS.contextid,
@@ -1967,7 +1967,7 @@ static void era_mark_process_failed(era_agreement_info_t *ci, int rank)
 
                     if( rl == (era_rank_item_t*)opal_list_get_end(&ci->waiting_res_from) ) {
                         OPAL_OUTPUT_VERBOSE((20,  ompi_ftmpi_output_handle,
-                                             "%s ftbasic:agreement (ERA) Handling failure of process %d: Requesting contribution of process %d for Agreement (%d.%d).%d.\n",
+                                             "%s ftagree:agreement (ERA) Handling failure of process %d: Requesting contribution of process %d for Agreement (%d.%d).%d.\n",
                                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                              rank, r,
                                              ci->agreement_id.ERAID_FIELDS.contextid,
@@ -2027,10 +2027,10 @@ static void send_msg(ompi_communicator_t *comm,
 
 #if defined(PROGRESS_FAILURE_PROB)
 #pragma message("Hard coded probability of failure inside the agreement")
-    if( coll_ftbasic_debug_rank_may_fail &&
+    if( coll_ftagree_debug_rank_may_fail &&
         (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
         OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) Killing myself just before sending message [(%d.%d).%d, %s, %08x.%d.%d..] to %d/%s\n",
+                             "%s ftagree:agreement (ERA) Killing myself just before sending message [(%d.%d).%d, %s, %08x.%d.%d..] to %d/%s\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              agreement_id.ERAID_FIELDS.contextid,
                              agreement_id.ERAID_FIELDS.epoch,
@@ -2047,7 +2047,7 @@ static void send_msg(ompi_communicator_t *comm,
 
     if( MSG_UP == type ) {
         OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) send message [(%d.%d).%d, %s, %08x.%d.%d/%d] to %d/%s\n",
+                             "%s ftagree:agreement (ERA) send message [(%d.%d).%d, %s, %08x.%d.%d/%d] to %d/%s\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              agreement_id.ERAID_FIELDS.contextid,
                              agreement_id.ERAID_FIELDS.epoch,
@@ -2061,7 +2061,7 @@ static void send_msg(ompi_communicator_t *comm,
                              NULL != proc_name ? OMPI_NAME_PRINT(proc_name) : "(null)"));
     } else {
         OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) send message [(%d.%d).%d, %s, %08x.%d.%d..] to %d/%s\n",
+                             "%s ftagree:agreement (ERA) send message [(%d.%d).%d, %s, %08x.%d.%d..] to %d/%s\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              agreement_id.ERAID_FIELDS.contextid,
                              agreement_id.ERAID_FIELDS.epoch,
@@ -2141,7 +2141,7 @@ static void send_msg(ompi_communicator_t *comm,
     }
 
     OPAL_OUTPUT_VERBOSE((30, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) send message [(%d.%d).%d, %s, %08x.%d.%d/%d..] to %d/%s: send %d bytes through iov (nb = %lu, lens = %lu,%lu,%lu,%lu)\n",
+                         "%s ftagree:agreement (ERA) send message [(%d.%d).%d, %s, %08x.%d.%d/%d..] to %d/%s: send %d bytes through iov (nb = %lu, lens = %lu,%lu,%lu,%lu)\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          agreement_id.ERAID_FIELDS.contextid,
                          agreement_id.ERAID_FIELDS.epoch,
@@ -2185,7 +2185,7 @@ static void send_msg(ompi_communicator_t *comm,
                 }
 
                 OPAL_OUTPUT_VERBOSE((30, ompi_ftmpi_output_handle,
-                                     "%s ftbasic:agreement (ERA) send message [(%d.%d).%d, %s, %08x.%d.%d/%d..] to %d/%s: %d bytes including header = %s\n",
+                                     "%s ftagree:agreement (ERA) send message [(%d.%d).%d, %s, %08x.%d.%d/%d..] to %d/%s: %d bytes including header = %s\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                      agreement_id.ERAID_FIELDS.contextid,
                                      agreement_id.ERAID_FIELDS.epoch,
@@ -2249,7 +2249,7 @@ static void result_request(era_msg_header_t *msg_header)
     int r;
 
     OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Received RESULT_REQUEST Message: Agreement ID = (%d.%d).%d, sender: %d/%s\n",
+                         "%s ftagree:agreement (ERA) Received RESULT_REQUEST Message: Agreement ID = (%d.%d).%d, sender: %d/%s\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          msg_header->agreement_id.ERAID_FIELDS.contextid,
                          msg_header->agreement_id.ERAID_FIELDS.epoch,
@@ -2330,7 +2330,7 @@ static void msg_up(era_msg_header_t *msg_header, uint8_t *bytes, int *new_dead, 
     era_value_t *av;
 
     OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Received UP Message: Agreement ID = (%d.%d).%d, sender: %d/%s, msg value: %08x.%d.%d/%d\n",
+                         "%s ftagree:agreement (ERA) Received UP Message: Agreement ID = (%d.%d).%d, sender: %d/%s, msg value: %08x.%d.%d/%d\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          msg_header->agreement_id.ERAID_FIELDS.contextid,
                          msg_header->agreement_id.ERAID_FIELDS.epoch,
@@ -2360,7 +2360,7 @@ static void msg_up(era_msg_header_t *msg_header, uint8_t *bytes, int *new_dead, 
     ci = era_lookup_agreement_info( msg_header->agreement_id );
 
     OPAL_OUTPUT_VERBOSE((20, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Managing UP Message, agreement is %s\n",
+                         "%s ftagree:agreement (ERA) Managing UP Message, agreement is %s\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          ci == NULL ? "unknown" : "known"));
 
@@ -2386,7 +2386,7 @@ static void msg_up(era_msg_header_t *msg_header, uint8_t *bytes, int *new_dead, 
          *  directly.
          */
         OPAL_OUTPUT_VERBOSE((20, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) Managing UP Message -- Already in BROADCASTING state: ignoring message, adding %d in the requesters\n",
+                             "%s ftagree:agreement (ERA) Managing UP Message -- Already in BROADCASTING state: ignoring message, adding %d in the requesters\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              msg_header->src_comm_rank));
 
@@ -2446,7 +2446,7 @@ static void msg_up(era_msg_header_t *msg_header, uint8_t *bytes, int *new_dead, 
     rank_item->rank = msg_header->src_comm_rank;
     opal_list_append(&ci->gathered_info, &rank_item->super);
     OPAL_OUTPUT_VERBOSE((20, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Received UP Message: adding %d in list of people that contributed\n",
+                         "%s ftagree:agreement (ERA) Received UP Message: adding %d in list of people that contributed\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          rank_item->rank));
 
@@ -2460,7 +2460,7 @@ static void msg_down(era_msg_header_t *msg_header, uint8_t *bytes, int *new_dead
     size_t value_bytes;
 
     OPAL_OUTPUT_VERBOSE((3, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Received DOWN Message: Agreement ID = (%d.%d).%d, sender: %d/%s, msg value: %08x.%d.\n",
+                         "%s ftagree:agreement (ERA) Received DOWN Message: Agreement ID = (%d.%d).%d, sender: %d/%s, msg value: %08x.%d.\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          msg_header->agreement_id.ERAID_FIELDS.contextid,
                          msg_header->agreement_id.ERAID_FIELDS.epoch,
@@ -2583,10 +2583,10 @@ static void era_cb_fn(struct mca_btl_base_module_t* btl,
 
 #if defined(PROGRESS_FAILURE_PROB)
 #pragma message("Hard coded probability of failure inside the agreement")
-    if( coll_ftbasic_debug_rank_may_fail &&
+    if( coll_ftagree_debug_rank_may_fail &&
         (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
         OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) Killing myself just before receiving message [(%d.%d).%d, %d, %08x.%d.%d...] from %d/%s\n",
+                             "%s ftagree:agreement (ERA) Killing myself just before receiving message [(%d.%d).%d, %d, %08x.%d.%d...] from %d/%s\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              msg_header->agreement_id.ERAID_FIELDS.contextid,
                              msg_header->agreement_id.ERAID_FIELDS.epoch,
@@ -2630,7 +2630,7 @@ static void era_on_comm_rank_failure(ompi_communicator_t *comm, int rank, bool r
     opal_hash_table_t *msg_table;
 
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) %d in communicator (%d.%d) died\n",
+                         "%s ftagree:agreement (ERA) %d in communicator (%d.%d) died\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          rank,
                          comm->c_contextid,
@@ -2670,7 +2670,7 @@ static void era_on_comm_rank_failure(ompi_communicator_t *comm, int rank, bool r
                 cid.ERAID_FIELDS.epoch     == comm->c_epoch ) {
                 ci = (era_agreement_info_t *)value;
                 OPAL_OUTPUT_VERBOSE((6, ompi_ftmpi_output_handle,
-                                     "%s ftbasic:agreement (ERA) Agreement ID (%d.%d).%d, rank %d died while doing the agreement\n",
+                                     "%s ftagree:agreement (ERA) Agreement ID (%d.%d).%d, rank %d died while doing the agreement\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                      ci->agreement_id.ERAID_FIELDS.contextid,
                                      ci->agreement_id.ERAID_FIELDS.epoch,
@@ -2700,13 +2700,13 @@ static void era_on_comm_rank_failure(ompi_communicator_t *comm, int rank, bool r
         (*ompi_stacked_rank_failure_callback_fct)(comm, rank, remote);
 }
 
-int mca_coll_ftbasic_agreement_era_init(void)
+int mca_coll_ftagree_era_init(void)
 {
     if( era_inited ) {
         return OMPI_SUCCESS;
     }
 
-    switch( mca_coll_ftbasic_cur_era_topology < 0 ? -mca_coll_ftbasic_cur_era_topology : mca_coll_ftbasic_cur_era_topology ) {
+    switch( mca_coll_ftagree_cur_era_topology < 0 ? -mca_coll_ftagree_cur_era_topology : mca_coll_ftagree_cur_era_topology ) {
     case 1:
         era_tree_fn = era_tree_fn_binary;
         break;
@@ -2756,7 +2756,7 @@ int mca_coll_ftbasic_agreement_era_init(void)
     ompi_rank_failure_cbfunc = era_on_comm_rank_failure;
 
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Initialized\n",
+                         "%s ftagree:agreement (ERA) Initialized\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME)));
 
     era_inited = 1;
@@ -2764,7 +2764,7 @@ int mca_coll_ftbasic_agreement_era_init(void)
     return OMPI_SUCCESS;
 }
 
-int mca_coll_ftbasic_agreement_era_finalize(void)
+int mca_coll_ftagree_era_finalize(void)
 {
     void                 *node;
     void                 *value;
@@ -2781,10 +2781,10 @@ int mca_coll_ftbasic_agreement_era_finalize(void)
     ompi_rank_failure_cbfunc = ompi_stacked_rank_failure_callback_fct;
 
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Finalizing\n",
+                         "%s ftagree:agreement (ERA) Finalizing\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME)));
     OPAL_OUTPUT_VERBOSE((7, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) GC: %lu passed agreements remain in the passed agreements hash table\n",
+                         "%s ftagree:agreement (ERA) GC: %lu passed agreements remain in the passed agreements hash table\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          opal_hash_table_get_size(&era_passed_agreements)));
     if( opal_hash_table_get_first_key_uint64(&era_passed_agreements,
@@ -2796,7 +2796,7 @@ int mca_coll_ftbasic_agreement_era_finalize(void)
             pid.ERAID_KEY = key64;
             assert(0!=pid.ERAID_FIELDS.agreementid);
             OPAL_OUTPUT_VERBOSE((7, ompi_ftmpi_output_handle,
-                                 "%s ftbasic:agreement (ERA) GC: agreement (%d.%d).%d belongs to the passed agreements hash table\n",
+                                 "%s ftagree:agreement (ERA) GC: agreement (%d.%d).%d belongs to the passed agreements hash table\n",
                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                  pid.ERAID_FIELDS.contextid,
                                  pid.ERAID_FIELDS.epoch,
@@ -2816,7 +2816,7 @@ int mca_coll_ftbasic_agreement_era_finalize(void)
                                              &value, &node) == OPAL_SUCCESS ) {
         do {
             un_agreement = (era_agreement_info_t *)value;
-            opal_output(0, "%s ftbasic:agreement (ERA) Error: Agreement ID (%d.%d).%d was started by some processor, but I never completed to it\n",
+            opal_output(0, "%s ftagree:agreement (ERA) Error: Agreement ID (%d.%d).%d was started by some processor, but I never completed to it\n",
                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                         un_agreement->agreement_id.ERAID_FIELDS.contextid,
                         un_agreement->agreement_id.ERAID_FIELDS.epoch,
@@ -2858,7 +2858,7 @@ int mca_coll_ftbasic_agreement_era_finalize(void)
     return OMPI_SUCCESS;
 }
 
-static int mca_coll_ftbasic_agreement_era_prepare_agreement(ompi_communicator_t* comm,
+static int mca_coll_ftagree_era_prepare_agreement(ompi_communicator_t* comm,
                                                             ompi_group_t *group,
                                                             ompi_op_t *op,
                                                             ompi_datatype_t *dt,
@@ -2873,9 +2873,9 @@ static int mca_coll_ftbasic_agreement_era_prepare_agreement(ompi_communicator_t*
     void *value;
     era_value_t agreement_value;
     era_value_t *pa;
-    mca_coll_ftbasic_agreement_t *ag_info;
+    mca_coll_ftagree_t *ag_info;
 
-    ag_info = ( (mca_coll_ftbasic_module_t *)module )->agreement_info;
+    ag_info = ( (mca_coll_ftagree_module_t *)module )->agreement_info;
     assert( NULL != ag_info );
 
     /** Avoid cycling silently */
@@ -2891,7 +2891,7 @@ static int mca_coll_ftbasic_agreement_era_prepare_agreement(ompi_communicator_t*
     agreement_id.ERAID_FIELDS.agreementid = (uint16_t)ag_info->agreement_seq_num;
 
     OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Entering Agreement ID = (%d.%d).%d\n",
+                         "%s ftagree:agreement (ERA) Entering Agreement ID = (%d.%d).%d\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          agreement_id.ERAID_FIELDS.contextid,
                          agreement_id.ERAID_FIELDS.epoch,
@@ -2900,10 +2900,10 @@ static int mca_coll_ftbasic_agreement_era_prepare_agreement(ompi_communicator_t*
 
 #if defined(PROGRESS_FAILURE_PROB)
 #pragma message("Hard coded probability of failure inside the agreement")
-    if( coll_ftbasic_debug_rank_may_fail &&
+    if( coll_ftagree_debug_rank_may_fail &&
         (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
         OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
-                             "%s ftbasic:agreement (ERA) Killing myself just before entering the agreement (%d.%d).%d\n",
+                             "%s ftagree:agreement (ERA) Killing myself just before entering the agreement (%d.%d).%d\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              agreement_id.ERAID_FIELDS.contextid,
                              agreement_id.ERAID_FIELDS.epoch,
@@ -2931,7 +2931,7 @@ static int mca_coll_ftbasic_agreement_era_prepare_agreement(ompi_communicator_t*
     era_agreement_info_set_comm(ci, comm, group);
 
     if( opal_hash_table_get_value_uint64(&era_passed_agreements, agreement_id.ERAID_KEY, &value) == OMPI_SUCCESS ) {
-        opal_output(0, "*** WARNING *** %s ftbasic:agreement (ERA) removing old agreement (%d.%d).%d from history, due to cycling of identifiers\n",
+        opal_output(0, "*** WARNING *** %s ftagree:agreement (ERA) removing old agreement (%d.%d).%d from history, due to cycling of identifiers\n",
                     OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                     agreement_id.ERAID_FIELDS.contextid,
                     agreement_id.ERAID_FIELDS.epoch,
@@ -2962,7 +2962,7 @@ static int mca_coll_ftbasic_agreement_era_prepare_agreement(ompi_communicator_t*
     return OMPI_SUCCESS;
 }
 
-static int mca_coll_ftbasic_agreement_era_complete_agreement(era_identifier_t agreement_id,
+static int mca_coll_ftagree_era_complete_agreement(era_identifier_t agreement_id,
                                                              void *contrib,
                                                              ompi_group_t **group)
 {
@@ -3010,7 +3010,7 @@ static int mca_coll_ftbasic_agreement_era_complete_agreement(era_identifier_t ag
     }
 
     OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Leaving Agreement ID = (%d.%d).%d with ret = %d, 4 first bytes of flag = 0x%08x\n",
+                         "%s ftagree:agreement (ERA) Leaving Agreement ID = (%d.%d).%d with ret = %d, 4 first bytes of flag = 0x%08x\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          agreement_id.ERAID_FIELDS.contextid,
                          agreement_id.ERAID_FIELDS.epoch,
@@ -3022,13 +3022,13 @@ static int mca_coll_ftbasic_agreement_era_complete_agreement(era_identifier_t ag
 }
 
 /*
- * mca_coll_ftbasic_agreement_era_intra
+ * mca_coll_ftagree_era_intra
  *
  * Function:	- MPI_Comm_agree()
  * Accepts:	- same as MPI_Comm_agree()
  * Returns:	- MPI_SUCCESS or an MPI error code
  */
-int mca_coll_ftbasic_agreement_era_intra(void *contrib,
+int mca_coll_ftagree_era_intra(void *contrib,
                                          int dt_count,
                                          ompi_datatype_t *dt,
                                          ompi_op_t *op,
@@ -3039,7 +3039,7 @@ int mca_coll_ftbasic_agreement_era_intra(void *contrib,
     era_identifier_t agreement_id;
     era_agreement_info_t *ci;
 
-    mca_coll_ftbasic_agreement_era_prepare_agreement(comm, *group, op, dt, dt_count, contrib, module,
+    mca_coll_ftagree_era_prepare_agreement(comm, *group, op, dt, dt_count, contrib, module,
                                                      &agreement_id, &ci);
 
     /* Wait for the agreement to be resolved */
@@ -3047,17 +3047,17 @@ int mca_coll_ftbasic_agreement_era_intra(void *contrib,
         opal_progress();
     }
 
-    return mca_coll_ftbasic_agreement_era_complete_agreement(agreement_id, contrib, grp_update? group: NULL);
+    return mca_coll_ftagree_era_complete_agreement(agreement_id, contrib, grp_update? group: NULL);
 }
 
 /*
- * mca_coll_ftbasic_agreement_era_inter
+ * mca_coll_ftagree_era_inter
  *
  * Function:	- MPI_Comm_agree()
  * Accepts:	- same as MPI_Comm_agree()
  * Returns:	- MPI_SUCCESS or an MPI error code
  */
-int mca_coll_ftbasic_agreement_era_inter(void *contrib,
+int mca_coll_ftagree_era_inter(void *contrib,
                                          int dt_count,
                                          ompi_datatype_t *dt,
                                          ompi_op_t *op,
@@ -3098,7 +3098,7 @@ int mca_coll_ftbasic_agreement_era_inter(void *contrib,
     shadowcomm->any_source_offset = comm->any_source_offset;
     shadowcomm->agreement_specific = comm->agreement_specific;
 
-    rc = mca_coll_ftbasic_agreement_era_intra(contriblh, dt_count*2, dt, op, group, grp_update, shadowcomm, module);
+    rc = mca_coll_ftagree_era_intra(contriblh, dt_count*2, dt, op, group, grp_update, shadowcomm, module);
 
     comm->agreement_specific = shadowcomm->agreement_specific;
     if( NULL != comm->agreement_specific ) OBJ_RETAIN(comm->agreement_specific);
@@ -3130,13 +3130,13 @@ static int era_iagree_req_complete_cb(struct ompi_request_t* request)
     assert( req->ci != NULL );
     assert( req->ci->status == COMPLETED );
 
-    rc = mca_coll_ftbasic_agreement_era_complete_agreement(req->agreement_id, req->contrib, req->outgroup);
+    rc = mca_coll_ftagree_era_complete_agreement(req->agreement_id, req->contrib, req->outgroup);
     req->ci = NULL;
     req->super.req_status.MPI_ERROR = rc;
     return 0;
 }
 
-int mca_coll_ftbasic_iagreement_era_intra(void *contrib,
+int mca_coll_ftagree_iera_intra(void *contrib,
                                           int dt_count,
                                           ompi_datatype_t *dt,
                                           ompi_op_t *op,
@@ -3157,7 +3157,7 @@ int mca_coll_ftbasic_iagreement_era_intra(void *contrib,
     OMPI_REQUEST_INIT(&req->super, false);
     assert(MPI_UNDEFINED == req->super.req_f_to_c_index);
 
-    mca_coll_ftbasic_agreement_era_prepare_agreement(comm, *group, op, dt, dt_count, contrib, module,
+    mca_coll_ftagree_era_prepare_agreement(comm, *group, op, dt, dt_count, contrib, module,
                                                      &agreement_id, &ci);
     req->super.req_state = OMPI_REQUEST_ACTIVE;
     req->super.req_type = OMPI_REQUEST_COLL;
@@ -3191,7 +3191,7 @@ int mca_coll_ftbasic_iagreement_era_intra(void *contrib,
     return OMPI_SUCCESS;
 }
 
-int mca_coll_ftbasic_agreement_era_free_comm(ompi_communicator_t* comm,
+int mca_coll_ftagree_era_free_comm(ompi_communicator_t* comm,
                                              mca_coll_base_module_t *module)
 {
     ompi_group_t* acked;
@@ -3199,14 +3199,14 @@ int mca_coll_ftbasic_agreement_era_free_comm(ompi_communicator_t* comm,
     int rc;
 
     OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
-                         "%s ftbasic:agreement (ERA) Freeing Communicator (%d.%d).\n",
+                         "%s ftagree:agreement (ERA) Freeing Communicator (%d.%d).\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                          comm->c_contextid,
                          comm->c_epoch));
 
     ompi_group_intersection(comm->c_remote_group, ompi_group_all_failed_procs, &acked);
     do {
-        rc = mca_coll_ftbasic_agreement_era_intra(NULL,
+        rc = mca_coll_ftagree_era_intra(NULL,
                                                   0,
                                                   &ompi_mpi_int.dt,
                                                   &ompi_mpi_op_band.op,

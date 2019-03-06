@@ -8,10 +8,10 @@
 # $HEADER$
 #
 
-# MCA_coll_ftbasic_CONFIG([action-if-found], [action-if-not-found])
+# MCA_coll_ftagree_CONFIG([action-if-found], [action-if-not-found])
 # -----------------------------------------------------------
-AC_DEFUN([MCA_ompi_coll_ftbasic_CONFIG],[
-    AC_CONFIG_FILES([ompi/mca/coll/ftbasic/Makefile])
+AC_DEFUN([MCA_ompi_coll_ftagree_CONFIG],[
+    AC_CONFIG_FILES([ompi/mca/coll/ftagree/Makefile])
 
     # If we don't want FT, don't compile this component
     AS_IF([test "$opal_want_ft_mpi" = "1"],

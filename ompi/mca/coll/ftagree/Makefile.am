@@ -2,7 +2,7 @@
 # Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
 #                         University Research and Technology
 #                         Corporation.  All rights reserved.
-# Copyright (c) 2004-2014 The University of Tennessee and The University
+# Copyright (c) 2004-2019 The University of Tennessee and The University
 #                         of Tennessee Research Foundation.  All rights
 #                         reserved.
 # Copyright (c) 2004-2009 High Performance Computing Center Stuttgart,
@@ -20,31 +20,31 @@
 EXTRA_DIST = .windows
 
 sources = \
-        coll_ftbasic.h \
-        coll_ftbasic_component.c \
-        coll_ftbasic_module.c \
-        coll_ftbasic_agreement.c \
-        coll_ftbasic_agreement.h \
-        coll_ftbasic_agreement_earlyreturning.c \
-        coll_ftbasic_agreement_earlyterminating.c
+        coll_ftagree.h \
+        coll_ftagree_component.c \
+        coll_ftagree_module.c \
+        coll_ftagree.c \
+        coll_ftagree_era.h \
+        coll_ftagree_earlyreturning.c \
+        coll_ftagree_earlyterminating.c
 
 # Make the output library in this directory, and name it either
 # mca_<type>_<name>.la (for DSO builds) or libmca_<type>_<name>.la
 # (for static builds).
 
-if MCA_BUILD_ompi_coll_ftbasic_DSO
+if MCA_BUILD_ompi_coll_ftagree_DSO
 component_noinst =
-component_install = mca_coll_ftbasic.la
+component_install = mca_coll_ftagree.la
 else
-component_noinst = libmca_coll_ftbasic.la
+component_noinst = libmca_coll_ftagree.la
 component_install =
 endif
 
 mcacomponentdir = $(pkglibdir)
 mcacomponent_LTLIBRARIES = $(component_install)
-mca_coll_ftbasic_la_SOURCES = $(sources)
-mca_coll_ftbasic_la_LDFLAGS = -module -avoid-version
+mca_coll_ftagree_la_SOURCES = $(sources)
+mca_coll_ftagree_la_LDFLAGS = -module -avoid-version
 
 noinst_LTLIBRARIES = $(component_noinst)
-libmca_coll_ftbasic_la_SOURCES =$(sources)
-libmca_coll_ftbasic_la_LDFLAGS = -module -avoid-version
+libmca_coll_ftagree_la_SOURCES =$(sources)
+libmca_coll_ftagree_la_LDFLAGS = -module -avoid-version
