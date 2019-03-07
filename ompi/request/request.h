@@ -433,11 +433,12 @@ static inline bool ompi_request_tag_is_collective(int tag) {
 static inline void ompi_request_wait_completion(ompi_request_t *req)
 {
     if (opal_using_threads () && !REQUEST_COMPLETE(req)) {
-        void *_tmp_ptr = REQUEST_PENDING;
+        void *_tmp_ptr;
         ompi_wait_sync_t sync;
 #if OPAL_ENABLE_FT_MPI
 redo:
 #endif /* OPAL_ENABLE_FT_MPI */
+        _tmp_ptr = REQUEST_PENDING;
 
         WAIT_SYNC_INIT(&sync, 1);
 
@@ -450,7 +451,9 @@ redo:
 
 #if OPAL_ENABLE_FT_MPI
         if (OPAL_UNLIKELY(OMPI_SUCCESS != sync.status)) {
-            if (OPAL_ATOMIC_COMPARE_EXCHANGE_STRONG_PTR(&req->req_complete, &sync, REQUEST_PENDING)
+            OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle, "Status %d reported for sync %p rearming req %p", sync.status, (void*)&sync, (void*)req));
+            _tmp_ptr = &sync;
+            if (OPAL_ATOMIC_COMPARE_EXCHANGE_STRONG_PTR(&req->req_complete, &_tmp_ptr, REQUEST_PENDING)
              && ompi_request_state_ok(req)) {
                 goto redo;
             }
