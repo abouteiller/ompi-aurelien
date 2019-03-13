@@ -235,6 +235,15 @@ ompi_mtl_ofi_component_register(void)
                                      &av_type);
     OBJ_RELEASE(new_enum);
 
+    ompi_mtl_ofi.enable_sep = 0;
+    mca_base_component_var_register(&mca_mtl_ofi_component.super.mtl_version,
+                                    "enable_sep",
+                                    "Enable SEP feature",
+                                    MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
+                                    OPAL_INFO_LVL_3,
+                                    MCA_BASE_VAR_SCOPE_READONLY,
+                                    &ompi_mtl_ofi.enable_sep);
+
     ompi_mtl_ofi.thread_grouping = 0;
     mca_base_component_var_register(&mca_mtl_ofi_component.super.mtl_version,
                                     "thread_grouping",
@@ -243,6 +252,20 @@ ompi_mtl_ofi_component_register(void)
                                     OPAL_INFO_LVL_3,
                                     MCA_BASE_VAR_SCOPE_READONLY,
                                     &ompi_mtl_ofi.thread_grouping);
+
+    /*
+     * Default Policy: Create 1 context and let user ask for more for
+     * multi-threaded workloads. User needs to ask for as many contexts as the
+     * number of threads that are anticipated to make MPI calls.
+     */
+    ompi_mtl_ofi.num_ofi_contexts = 1;
+    mca_base_component_var_register(&mca_mtl_ofi_component.super.mtl_version,
+                                    "num_ctxts",
+                                    "Specify number of OFI contexts to create",
+                                    MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
+                                    OPAL_INFO_LVL_4,
+                                    MCA_BASE_VAR_SCOPE_READONLY,
+                                    &ompi_mtl_ofi.num_ofi_contexts);
 
     return OMPI_SUCCESS;
 }
@@ -445,9 +468,9 @@ ompi_mtl_ofi_define_tag_mode(int ofi_tag_mode, int *bits_for_cid) {
     }
 }
 
-#define MTL_OFI_ALLOC_COMM_TO_CONTEXT(num_ofi_ctxts)                                    \
+#define MTL_OFI_ALLOC_COMM_TO_CONTEXT(arr_size)                                         \
     do {                                                                                \
-        ompi_mtl_ofi.comm_to_context = calloc(num_ofi_ctxts, sizeof(int));              \
+        ompi_mtl_ofi.comm_to_context = calloc(arr_size, sizeof(int));                   \
         if (OPAL_UNLIKELY(!ompi_mtl_ofi.comm_to_context)) {                             \
             opal_output_verbose(1, ompi_mtl_base_framework.framework_output,            \
                                    "%s:%d: alloc of comm_to_context array failed: %s\n",\
@@ -458,7 +481,7 @@ ompi_mtl_ofi_define_tag_mode(int ofi_tag_mode, int *bits_for_cid) {
 
 #define MTL_OFI_ALLOC_OFI_CTXTS()                                                           \
     do {                                                                                    \
-        ompi_mtl_ofi.ofi_ctxt = (mca_mtl_ofi_context_t *) malloc(ompi_mtl_ofi.max_ctx_cnt * \
+        ompi_mtl_ofi.ofi_ctxt = (mca_mtl_ofi_context_t *) malloc(ompi_mtl_ofi.num_ofi_contexts * \
                                                           sizeof(mca_mtl_ofi_context_t));   \
         if (OPAL_UNLIKELY(!ompi_mtl_ofi.ofi_ctxt)) {                                        \
             opal_output_verbose(1, ompi_mtl_base_framework.framework_output,                \
@@ -468,13 +491,13 @@ ompi_mtl_ofi_define_tag_mode(int ofi_tag_mode, int *bits_for_cid) {
         }                                                                                   \
     } while(0);
 
-static int ompi_mtl_ofi_init_sep(struct fi_info *prov)
+static int ompi_mtl_ofi_init_sep(struct fi_info *prov, int universe_size)
 {
     int ret = OMPI_SUCCESS, num_ofi_ctxts;
     struct fi_av_attr av_attr = {0};
 
     prov->ep_attr->tx_ctx_cnt = prov->ep_attr->rx_ctx_cnt =
-                                ompi_mtl_ofi.max_ctx_cnt;
+                                ompi_mtl_ofi.num_ofi_contexts;
 
     ret = fi_scalable_ep(ompi_mtl_ofi.domain, prov, &ompi_mtl_ofi.sep, NULL);
     if (0 != ret) {
@@ -486,11 +509,11 @@ static int ompi_mtl_ofi_init_sep(struct fi_info *prov)
     }
 
     ompi_mtl_ofi.rx_ctx_bits = 0;
-    while (ompi_mtl_ofi.max_ctx_cnt >> ++ompi_mtl_ofi.rx_ctx_bits);
+    while (ompi_mtl_ofi.num_ofi_contexts >> ++ompi_mtl_ofi.rx_ctx_bits);
 
     av_attr.type = (MTL_OFI_AV_TABLE == av_type) ? FI_AV_TABLE: FI_AV_MAP;
     av_attr.rx_ctx_bits = ompi_mtl_ofi.rx_ctx_bits;
-    av_attr.count = ompi_mtl_ofi.max_ctx_cnt;
+    av_attr.count = ompi_mtl_ofi.num_ofi_contexts * universe_size;
     ret = fi_av_open(ompi_mtl_ofi.domain, &av_attr, &ompi_mtl_ofi.av, NULL);
 
     if (0 != ret) {
@@ -506,12 +529,12 @@ static int ompi_mtl_ofi_init_sep(struct fi_info *prov)
 
     /*
      * If SEP supported and Thread Grouping feature enabled, use
-     * max_ctx_cnt + 2. Extra 2 items is to accomodate Open MPI contextid
+     * num_ofi_contexts + 2. Extra 2 items is to accomodate Open MPI contextid
      * numbering- COMM_WORLD is 0, COMM_SELF is 1. Other user created
      * Comm contextid values are assigned sequentially starting with 3.
      */
     num_ofi_ctxts = ompi_mtl_ofi.thread_grouping ?
-                ompi_mtl_ofi.max_ctx_cnt + 2 : 1;
+                ompi_mtl_ofi.num_ofi_contexts + 2 : 1;
     MTL_OFI_ALLOC_COMM_TO_CONTEXT(num_ofi_ctxts);
 
     ompi_mtl_ofi.total_ctxts_used = 0;
@@ -523,15 +546,16 @@ static int ompi_mtl_ofi_init_sep(struct fi_info *prov)
     return ret;
 }
 
-static int ompi_mtl_ofi_init_regular_ep(struct fi_info * prov)
+static int ompi_mtl_ofi_init_regular_ep(struct fi_info * prov, int universe_size)
 {
-    int ret = OMPI_SUCCESS, num_ofi_ctxts;
+    int ret = OMPI_SUCCESS;
     struct fi_av_attr av_attr = {0};
     struct fi_cq_attr cq_attr = {0};
     cq_attr.format = FI_CQ_FORMAT_TAGGED;
     cq_attr.size = ompi_mtl_ofi.ofi_progress_event_count;
 
-    ompi_mtl_ofi.max_ctx_cnt = 1;
+    /* Override any user defined setting */
+    ompi_mtl_ofi.num_ofi_contexts = 1;
     ret = fi_endpoint(ompi_mtl_ofi.domain, /* In:  Domain object   */
                       prov,                /* In:  Provider        */
                       &ompi_mtl_ofi.sep,    /* Out: Endpoint object */
@@ -550,6 +574,7 @@ static int ompi_mtl_ofi_init_regular_ep(struct fi_info * prov)
      *     - address vector and completion queues
      */
     av_attr.type = (MTL_OFI_AV_TABLE == av_type) ? FI_AV_TABLE: FI_AV_MAP;
+    av_attr.count = universe_size;
     ret = fi_av_open(ompi_mtl_ofi.domain, &av_attr, &ompi_mtl_ofi.av, NULL);
     if (ret) {
         MTL_OFI_LOG_FI_ERR(ret, "fi_av_open failed");
@@ -564,8 +589,7 @@ static int ompi_mtl_ofi_init_regular_ep(struct fi_info * prov)
         return ret;
     }
 
-    num_ofi_ctxts = 1;
-    MTL_OFI_ALLOC_COMM_TO_CONTEXT(num_ofi_ctxts);
+    MTL_OFI_ALLOC_COMM_TO_CONTEXT(1);
 
     /* Allocate memory for OFI contexts */
     MTL_OFI_ALLOC_OFI_CTXTS();
@@ -594,7 +618,8 @@ static mca_mtl_base_module_t*
 ompi_mtl_ofi_component_init(bool enable_progress_threads,
                             bool enable_mpi_threads)
 {
-    int ret, fi_version, num_local_ranks;
+    int ret, fi_version;
+    int num_local_ranks, sep_support_in_provider, max_ofi_ctxts;
     int ofi_tag_leading_zeros, ofi_tag_bits_for_cid;
     struct fi_info *hints;
     struct fi_info *providers = NULL;
@@ -602,6 +627,8 @@ ompi_mtl_ofi_component_init(bool enable_progress_threads,
     struct fi_info *prov_cq_data = NULL;
     char ep_name[FI_NAME_MAX] = {0};
     size_t namelen;
+    int universe_size;
+    char *univ_size_str;
 
     /**
      * Hints to filter providers
@@ -741,6 +768,31 @@ ompi_mtl_ofi_component_init(bool enable_progress_threads,
     }
 
     /**
+     * Initialize the MTL OFI Symbol Tables & function pointers
+     * for specialized functions.
+     */
+
+    ompi_mtl_ofi_send_symtable_init(&ompi_mtl_ofi.sym_table);
+    ompi_mtl_ofi.base.mtl_send =
+        ompi_mtl_ofi.sym_table.ompi_mtl_ofi_send[ompi_mtl_ofi.fi_cq_data];
+
+    ompi_mtl_ofi_isend_symtable_init(&ompi_mtl_ofi.sym_table);
+    ompi_mtl_ofi.base.mtl_isend =
+        ompi_mtl_ofi.sym_table.ompi_mtl_ofi_isend[ompi_mtl_ofi.fi_cq_data];
+
+    ompi_mtl_ofi_irecv_symtable_init(&ompi_mtl_ofi.sym_table);
+    ompi_mtl_ofi.base.mtl_irecv =
+        ompi_mtl_ofi.sym_table.ompi_mtl_ofi_irecv[ompi_mtl_ofi.fi_cq_data];
+
+    ompi_mtl_ofi_iprobe_symtable_init(&ompi_mtl_ofi.sym_table);
+    ompi_mtl_ofi.base.mtl_iprobe =
+        ompi_mtl_ofi.sym_table.ompi_mtl_ofi_iprobe[ompi_mtl_ofi.fi_cq_data];
+
+    ompi_mtl_ofi_improbe_symtable_init(&ompi_mtl_ofi.sym_table);
+    ompi_mtl_ofi.base.mtl_improbe =
+        ompi_mtl_ofi.sym_table.ompi_mtl_ofi_improbe[ompi_mtl_ofi.fi_cq_data];
+
+    /**
      * Check for potential bits in the OFI tag that providers may be reserving
      * for internal usage (see mem_tag_format in fi_endpoint man page).
      */
@@ -766,24 +818,32 @@ ompi_mtl_ofi_component_init(bool enable_progress_threads,
     ompi_mtl_ofi.num_peers = 0;
 
     /* Check if Scalable Endpoints can be enabled for the provider */
-    ompi_mtl_ofi.enable_sep = 0;
+    sep_support_in_provider = 0;
     if ((prov->domain_attr->max_ep_tx_ctx > 1) ||
         (prov->domain_attr->max_ep_rx_ctx > 1)) {
-        ompi_mtl_ofi.enable_sep = 1;
-        opal_output_verbose(1, ompi_mtl_base_framework.framework_output,
-                            "%s:%d: Scalable EP supported in %s provider. Enabling in MTL.\n",
-                            __FILE__, __LINE__, prov->fabric_attr->prov_name);
+        sep_support_in_provider = 1;
     }
 
-    /*
-     * Scalable Endpoints is required for Thread Grouping feature
-     */
-    if (!ompi_mtl_ofi.enable_sep && ompi_mtl_ofi.thread_grouping) {
-        opal_show_help("help-mtl-ofi.txt", "SEP unavailable", true,
-                       prov->fabric_attr->prov_name,
-                       ompi_process_info.nodename, __FILE__, __LINE__,
-                       fi_strerror(-ret), -ret);
-        goto error;
+    if (1 == ompi_mtl_ofi.enable_sep) {
+        if (0 == sep_support_in_provider) {
+            opal_show_help("help-mtl-ofi.txt", "SEP unavailable", true,
+                           prov->fabric_attr->prov_name,
+                           ompi_process_info.nodename, __FILE__, __LINE__);
+            goto error;
+        } else if (1 == sep_support_in_provider) {
+            opal_output_verbose(1, ompi_mtl_base_framework.framework_output,
+                                "%s:%d: Scalable EP supported in %s provider. Enabling in MTL.\n",
+                                __FILE__, __LINE__, prov->fabric_attr->prov_name);
+        }
+    } else {
+        /*
+         * Scalable Endpoints is required for Thread Grouping feature
+         */
+        if (1 == ompi_mtl_ofi.thread_grouping) {
+            opal_show_help("help-mtl-ofi.txt", "SEP required", true,
+                           ompi_process_info.nodename, __FILE__, __LINE__);
+            goto error;
+        }
     }
 
     /**
@@ -840,23 +900,52 @@ ompi_mtl_ofi_component_init(bool enable_progress_threads,
      * vectors, completion counters or event queues etc, and enabled.
      * See man fi_endpoint for more details.
      */
-    ompi_mtl_ofi.max_ctx_cnt = (prov->domain_attr->max_ep_tx_ctx <
-                                prov->domain_attr->max_ep_rx_ctx) ?
-                                prov->domain_attr->max_ep_tx_ctx :
-                                prov->domain_attr->max_ep_rx_ctx;
 
-    num_local_ranks = 1 + ompi_process_info.num_local_peers;
-    if (ompi_mtl_ofi.max_ctx_cnt <= num_local_ranks) {
-        ompi_mtl_ofi.enable_sep = 0;
+    /* use the universe size as a rough guess on the address vector
+     * size hint that should be passed to fi_av_open().  For regular
+     * endpoints, the count will be the universe size.  For scalable
+     * endpoints, the count will be the universe size multiplied by
+     * the number of contexts.  In either case, if the universe grows
+     * (via dynamic processes), the count is a hint, not a hard limit,
+     * so libfabric will just be slightly less efficient.
+     */
+    univ_size_str = getenv("OMPI_UNIVERSE_SIZE");
+    if (NULL == univ_size_str ||
+        (universe_size = strtol(univ_size_str, NULL, 0)) <= 0) {
+        universe_size = ompi_proc_world_size();
     }
 
     if (1 == ompi_mtl_ofi.enable_sep) {
-        /* Provision enough contexts to service all ranks in a node */
-        ompi_mtl_ofi.max_ctx_cnt /= num_local_ranks;
+        max_ofi_ctxts = (prov->domain_attr->max_ep_tx_ctx <
+                         prov->domain_attr->max_ep_rx_ctx) ?
+                         prov->domain_attr->max_ep_tx_ctx :
+                         prov->domain_attr->max_ep_rx_ctx;
 
-        ret = ompi_mtl_ofi_init_sep(prov);
+        num_local_ranks = 1 + ompi_process_info.num_local_peers;
+        if (max_ofi_ctxts <= num_local_ranks) {
+            opal_show_help("help-mtl-ofi.txt", "Local ranks exceed ofi contexts",
+                           true, prov->fabric_attr->prov_name,
+                           ompi_process_info.nodename, __FILE__, __LINE__);
+            goto error;
+        }
+
+        /* Provision enough contexts to service all ranks in a node */
+        max_ofi_ctxts /= num_local_ranks;
+
+        /*
+         *  If num ctxts user specified is more than max allowed, limit to max
+         *  and start round-robining. Print warning to user.
+         */
+        if (max_ofi_ctxts < ompi_mtl_ofi.num_ofi_contexts) {
+            opal_show_help("help-mtl-ofi.txt", "Ctxts exceeded available",
+                           true, max_ofi_ctxts,
+                           ompi_process_info.nodename, __FILE__, __LINE__);
+            ompi_mtl_ofi.num_ofi_contexts = max_ofi_ctxts;
+        }
+
+        ret = ompi_mtl_ofi_init_sep(prov, universe_size);
     } else {
-        ret = ompi_mtl_ofi_init_regular_ep(prov);
+        ret = ompi_mtl_ofi_init_regular_ep(prov, universe_size);
     }
 
     if (OMPI_SUCCESS != ret) {

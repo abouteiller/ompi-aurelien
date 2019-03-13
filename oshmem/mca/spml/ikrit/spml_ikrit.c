@@ -2,8 +2,8 @@
 /*
  * Copyright (c) 2013-2015 Mellanox Technologies, Inc.
  *                         All rights reserved.
- * Copyright (c) 2014-2016 Research Organization for Information Science
- *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2014-2019 Research Organization for Information Science
+ *                         and Technology (RIST).  All rights reserved.
  * Copyright (c) 2015      Los Alamos National Security, LLC. All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -23,8 +23,7 @@
 #include "oshmem_config.h"
 #include "opal/datatype/opal_convertor.h"
 #include "opal/mca/memchecker/base/base.h"
-#include "orte/include/orte/types.h"
-#include "orte/runtime/orte_globals.h"
+#include "opal/util/show_help.h"
 #include "oshmem/mca/spml/ikrit/spml_ikrit.h"
 #include "oshmem/include/shmem.h"
 #include "oshmem/mca/memheap/memheap.h"
@@ -33,7 +32,6 @@
 #include "oshmem/mca/spml/base/base.h"
 #include "oshmem/mca/spml/base/spml_base_putreq.h"
 #include "oshmem/runtime/runtime.h"
-#include "orte/util/show_help.h"
 #include "oshmem/mca/sshmem/sshmem.h"
 
 #include "oshmem/mca/spml/ikrit/spml_ikrit_component.h"
@@ -151,7 +149,7 @@ int mca_spml_ikrit_put_simple(void* dst_addr,
                               void* src_addr,
                               int dst);
 
-static void mca_spml_ikrit_cache_mkeys(sshmem_mkey_t *, uint32_t seg, int remote_pe, int tr_id);
+static void mca_spml_ikrit_cache_mkeys(shmem_ctx_t ctx, sshmem_mkey_t *, uint32_t seg, int remote_pe, int tr_id);
 
 static mxm_mem_key_t *mca_spml_ikrit_get_mkey_slow(int pe, void *va, int ptl_id, void **rva);
 
@@ -187,7 +185,7 @@ mca_spml_ikrit_t mca_spml_ikrit = {
     mca_spml_ikrit_get_mkey_slow
 };
 
-static void mca_spml_ikrit_cache_mkeys(sshmem_mkey_t *mkey, uint32_t seg, int dst_pe, int tr_id)
+static void mca_spml_ikrit_cache_mkeys(shmem_ctx_t ctx, sshmem_mkey_t *mkey, uint32_t seg, int dst_pe, int tr_id)
 {
     mxm_peer_t *peer;
 
@@ -351,7 +349,7 @@ int mca_spml_ikrit_add_procs(ompi_proc_t** procs, size_t nprocs)
     if (mca_spml_ikrit.hw_rdma_channel) {
         err = mxm_ep_get_address(mca_spml_ikrit.mxm_hw_rdma_ep, &my_ep_info.addr.ep_addr, &mxm_addr_len);
         if (MXM_OK != err) {
-            orte_show_help("help-oshmem-spml-ikrit.txt", "unable to get endpoint address", true,
+            opal_show_help("help-oshmem-spml-ikrit.txt", "unable to get endpoint address", true,
                     mxm_error_string(err));
             rc = OSHMEM_ERROR;
             goto bail;
@@ -361,7 +359,7 @@ int mca_spml_ikrit_add_procs(ompi_proc_t** procs, size_t nprocs)
     }
     err = mxm_ep_get_address(mca_spml_ikrit.mxm_ep, &my_ep_info.addr.ep_addr, &mxm_addr_len);
     if (MXM_OK != err) {
-        orte_show_help("help-oshmem-spml-ikrit.txt", "unable to get endpoint address", true,
+        opal_show_help("help-oshmem-spml-ikrit.txt", "unable to get endpoint address", true,
                 mxm_error_string(err));
         rc = OSHMEM_ERROR;
         goto bail;
@@ -506,7 +504,7 @@ sshmem_mkey_t *mca_spml_ikrit_register(void* addr,
                      my_rank, i, addr, (unsigned long long)size,
                      mca_spml_base_mkey2str(&mkeys[i]));
 
-        mca_spml_ikrit_cache_mkeys(&mkeys[i], memheap_find_segnum(addr), my_rank, i);
+        mca_spml_ikrit_cache_mkeys(NULL, &mkeys[i], memheap_find_segnum(addr), my_rank, i);
     }
     *count = MXM_PTL_LAST;
 
@@ -550,7 +548,7 @@ int mca_spml_ikrit_deregister(sshmem_mkey_t *mkeys)
 
 }
 
-int mca_spml_ikrit_oob_get_mkeys(int pe, uint32_t seg, sshmem_mkey_t *mkeys)
+int mca_spml_ikrit_oob_get_mkeys(shmem_ctx_t ctx, int pe, uint32_t seg, sshmem_mkey_t *mkeys)
 {
     int ptl;
 
@@ -569,7 +567,7 @@ int mca_spml_ikrit_oob_get_mkeys(int pe, uint32_t seg, sshmem_mkey_t *mkeys)
         mkeys[ptl].len     = 0;
         mkeys[ptl].va_base = mca_memheap_seg2base_va(seg);
         mkeys[ptl].u.key   = MAP_SEGMENT_SHM_INVALID;
-        mca_spml_ikrit_cache_mkeys(&mkeys[ptl], seg, pe, ptl);
+        mca_spml_ikrit_cache_mkeys(NULL, &mkeys[ptl], seg, pe, ptl);
         return OSHMEM_SUCCESS;
     }
 

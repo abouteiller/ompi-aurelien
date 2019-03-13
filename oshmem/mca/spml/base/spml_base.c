@@ -2,6 +2,8 @@
  * Copyright (c) 2013      Mellanox Technologies, Inc.
  *                         All rights reserved.
  * Copyright (c) 2017      ARM, Inc. All rights reserved.
+ * Copyright (c) 2019      Research Organization for Information Science
+ *                         and Technology (RIST).  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -12,8 +14,6 @@
 #include "oshmem_config.h"
 #include "ompi/mca/bml/base/base.h"
 #include "opal/datatype/opal_convertor.h"
-#include "orte/include/orte/types.h"
-#include "orte/runtime/orte_globals.h"
 #include "oshmem/proc/proc.h"
 #include "oshmem/mca/spml/base/base.h"
 #include "opal/mca/btl/btl.h"
@@ -247,12 +247,12 @@ int mca_spml_base_wait_nb(void* handle)
     return OSHMEM_SUCCESS;
 }
 
-int mca_spml_base_oob_get_mkeys(int pe, uint32_t segno, sshmem_mkey_t *mkeys)
+int mca_spml_base_oob_get_mkeys(shmem_ctx_t ctx, int pe, uint32_t segno, sshmem_mkey_t *mkeys)
 {
     return OSHMEM_ERROR;
 }
 
-void mca_spml_base_rmkey_unpack(sshmem_mkey_t *mkey, uint32_t segno, int pe, int tr_id)
+void mca_spml_base_rmkey_unpack(shmem_ctx_t ctx, sshmem_mkey_t *mkey, uint32_t segno, int pe, int tr_id)
 {
 }
 

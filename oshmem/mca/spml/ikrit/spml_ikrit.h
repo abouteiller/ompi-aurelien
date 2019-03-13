@@ -4,8 +4,8 @@
  *                         All rights reserved.
  * Copyright (c) 2015      Los Alamos National Security, LLC. All rights
  *                         reserved.
- * Copyright (c) 2016      Research Organization for Information Science
- *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2016-2019 Research Organization for Information Science
+ *                         and Technology (RIST).  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -32,7 +32,6 @@
 #include "opal/class/opal_free_list.h"
 #include "opal/class/opal_list.h"
 
-#include "orte/runtime/orte_globals.h"
 #include "oshmem/mca/memheap/base/base.h"
 
 #include <mxm/api/mxm_api.h>
@@ -183,7 +182,7 @@ extern sshmem_mkey_t *mca_spml_ikrit_register(void* addr,
                                                 uint64_t shmid,
                                                 int *count);
 extern int mca_spml_ikrit_deregister(sshmem_mkey_t *mkeys);
-extern int mca_spml_ikrit_oob_get_mkeys(int pe,
+extern int mca_spml_ikrit_oob_get_mkeys(shmem_ctx_t ctx, int pe,
                                         uint32_t segno,
                                         sshmem_mkey_t *mkeys);
 

@@ -16,6 +16,7 @@
 # Copyright (c) 2014-2016 Research Organization for Information Science
 #                         and Technology (RIST). All rights reserved.
 # Copyright (c) 2016      IBM Corporation.  All rights reserved.
+# Copyright (c) 2018      FUJITSU LIMITED.  All rights reserved.
 # $COPYRIGHT$
 #
 # Additional copyrights may follow
@@ -59,12 +60,10 @@ lib_LTLIBRARIES += lib@OMPI_LIBMPI_NAME@_usempi.la
 mpi.lo: mpi.F90
 mpi.lo: mpi-f90-interfaces.h
 mpi.lo: mpi-f90-file-interfaces.h
-mpi.lo: mpi-f90-removed-interfaces.h
 mpi.lo: $(top_builddir)/ompi/mpi/fortran/configure-fortran-output.h
 mpi.lo: mpi-f90-cptr-interfaces.h
 mpi.lo: pmpi-f90-interfaces.h
 mpi.lo: pmpi-f90-file-interfaces.h
-mpi.lo: pmpi-f90-removed-interfaces.h
 mpi.lo: pmpi-f90-cptr-interfaces.h
 
 # Per MPI-3 p610:34-41, if we're building a TKR mpi module, we should
@@ -120,7 +119,9 @@ mpi-tkr-sizeof.h:
 	    --header=$@ --ierror=mandatory \
 	    --maxrank=$(OMPI_FORTRAN_MAX_ARRAY_RANK) \
 	    --generate=$(OMPI_FORTRAN_BUILD_SIZEOF) \
+	    --real2=$(OMPI_HAVE_FORTRAN_REAL2) \
 	    --real16=$(OMPI_HAVE_FORTRAN_REAL16) \
+	    --complex4=$(OMPI_HAVE_FORTRAN_COMPLEX4) \
 	    --complex32=$(OMPI_HAVE_FORTRAN_COMPLEX32)
 
 mpi-tkr-sizeof.f90: $(top_builddir)/config.status
@@ -130,7 +131,9 @@ mpi-tkr-sizeof.f90:
 	    --impl=$@ --ierror=mandatory --mpi --pmpi \
 	    --maxrank=$(OMPI_FORTRAN_MAX_ARRAY_RANK) \
 	    --generate=$(OMPI_FORTRAN_BUILD_SIZEOF) \
+	    --real2=$(OMPI_HAVE_FORTRAN_REAL2) \
 	    --real16=$(OMPI_HAVE_FORTRAN_REAL16) \
+	    --complex4=$(OMPI_HAVE_FORTRAN_COMPLEX4) \
 	    --complex32=$(OMPI_HAVE_FORTRAN_COMPLEX32)
 
 #
@@ -170,10 +173,8 @@ endif
 EXTRA_DIST = \
      mpi-f90-interfaces.h \
      mpi-f90-file-interfaces.h \
-     mpi-f90-removed-interfaces.h \
      mpi-f90-cptr-interfaces.h \
      pmpi-f90-interfaces.h \
      pmpi-f90-file-interfaces.h \
-     pmpi-f90-removed-interfaces.h \
      pmpi-f90-cptr-interfaces.h
 

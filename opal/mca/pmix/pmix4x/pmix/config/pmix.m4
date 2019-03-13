@@ -17,7 +17,7 @@ dnl Copyright (c) 2009      Los Alamos National Security, LLC.  All rights
 dnl                         reserved.
 dnl Copyright (c) 2009-2011 Oak Ridge National Labs.  All rights reserved.
 dnl Copyright (c) 2011-2013 NVIDIA Corporation.  All rights reserved.
-dnl Copyright (c) 2013-2018 Intel, Inc. All rights reserved.
+dnl Copyright (c) 2013-2019 Intel, Inc.  All rights reserved.
 dnl Copyright (c) 2015-2017 Research Organization for Information Science
 dnl                         and Technology (RIST). All rights reserved.
 dnl Copyright (c) 2016      Mellanox Technologies, Inc.
@@ -415,7 +415,8 @@ AC_DEFUN([PMIX_SETUP_CORE],[
                       crt_externs.h signal.h \
                       ioLib.h sockLib.h hostLib.h limits.h \
                       sys/statfs.h sys/statvfs.h \
-                      netdb.h ucred.h zlib.h sys/auxv.h])
+                      netdb.h ucred.h zlib.h sys/auxv.h \
+                      sys/sysctl.h])
 
     AC_CHECK_HEADERS([sys/mount.h], [], [],
                      [AC_INCLUDES_DEFAULT
@@ -644,6 +645,11 @@ AC_DEFUN([PMIX_SETUP_CORE],[
 
     pmix_show_title "Library and Function tests"
 
+    # Darwin doesn't need -lutil, as it's something other than this -lutil.
+    PMIX_SEARCH_LIBS_CORE([openpty], [util])
+
+    PMIX_SEARCH_LIBS_CORE([gethostbyname], [nsl])
+
     PMIX_SEARCH_LIBS_CORE([socket], [socket])
 
     # IRIX and CentOS have dirname in -lgen, usually in libc
@@ -651,6 +657,9 @@ AC_DEFUN([PMIX_SETUP_CORE],[
 
     # Darwin doesn't need -lm, as it's a symlink to libSystem.dylib
     PMIX_SEARCH_LIBS_CORE([ceil], [m])
+
+    # -lrt might be needed for clock_gettime
+    PMIX_SEARCH_LIBS_CORE([clock_gettime], [rt])
 
     AC_CHECK_FUNCS([asprintf snprintf vasprintf vsnprintf strsignal socketpair strncpy_s usleep statfs statvfs getpeereid getpeerucred strnlen posix_fallocate tcgetpgrp])
 

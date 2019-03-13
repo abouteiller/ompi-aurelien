@@ -17,6 +17,7 @@
 # Copyright (c) 2015-2017 Research Organization for Information Science
 #                         and Technology (RIST). All rights reserved.
 # Copyright (c) 2016      IBM Corporation.  All rights reserved.
+# Copyright (c) 2018      FUJITSU LIMITED.  All rights reserved.
 # $COPYRIGHT$
 #
 # Additional copyrights may follow
@@ -120,7 +121,9 @@ sizeof_f.f90:
 	    --impl=$@ --ierror=mandatory --mpi \
 	    --maxrank=$(OMPI_FORTRAN_MAX_ARRAY_RANK) \
 	    --generate=$(OMPI_FORTRAN_BUILD_SIZEOF) \
+	    --real2=$(OMPI_HAVE_FORTRAN_REAL2) \
 	    --real16=$(OMPI_HAVE_FORTRAN_REAL16) \
+	    --complex4=$(OMPI_HAVE_FORTRAN_COMPLEX4) \
 	    --complex32=$(OMPI_HAVE_FORTRAN_COMPLEX32)
 
 if BUILD_MPI_FORTRAN_MPIFH_BINDINGS_LAYER
@@ -480,21 +483,6 @@ lib@OMPI_LIBMPI_NAME@_mpifh_la_SOURCES += \
         win_flush_all_f.c \
         win_flush_local_f.c \
         win_flush_local_all_f.c
-
-
-if OMPI_ENABLE_MPI1_COMPAT
-lib@OMPI_LIBMPI_NAME@_mpifh_la_SOURCES += \
-        address_f.c \
-        errhandler_create_f.c \
-        errhandler_get_f.c \
-        errhandler_set_f.c \
-        type_extent_f.c \
-        type_hindexed_f.c \
-        type_hvector_f.c \
-        type_lb_f.c \
-        type_struct_f.c \
-        type_ub_f.c
-endif
 endif
 
 #

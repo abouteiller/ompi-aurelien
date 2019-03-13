@@ -37,6 +37,7 @@
 #include "ompi/mca/mtl/base/mtl_base_datatype.h"
 #include "ompi/message/message.h"
 
+#include "mtl_ofi_opt.h"
 #include "mtl_ofi_types.h"
 #include "mtl_ofi_request.h"
 #include "mtl_ofi_endpoint.h"
@@ -324,19 +325,18 @@ ompi_mtl_ofi_isend_callback(struct fi_cq_tagged_entry *wc,
     return OMPI_SUCCESS;
 }
 
-#define MTL_OFI_MAP_COMM_TO_CONTEXT(comm_id, ctxt_id)                           \
-    do {                                                                        \
-        if (ompi_mtl_ofi.thread_grouping &&                                     \
-            (!ompi_mtl_ofi.threshold_comm_context_id ||                         \
-            ((uint32_t) ompi_mtl_ofi.threshold_comm_context_id > comm_id))) {   \
-            ctxt_id = ompi_mtl_ofi.comm_to_context[comm_id];                    \
-        } else if (ompi_mtl_ofi.thread_grouping) {                              \
-            /* Round-robin assignment of contexts if threshold is reached */    \
-            ctxt_id = comm_id % ompi_mtl_ofi.total_ctxts_used;                  \
-        } else {                                                                \
-            ctxt_id = 0;                                                        \
-        }                                                                       \
-    } while (0);
+/* Return OFI context ID associated with the specific communicator */
+__opal_attribute_always_inline__ static inline int
+ompi_mtl_ofi_map_comm_to_ctxt(uint32_t comm_id)
+{
+    /* For non-thread-grouping use case, only one context is used which is
+     * associated to MPI_COMM_WORLD, so use that. */
+    if (0 == ompi_mtl_ofi.thread_grouping) {
+        comm_id = 0;
+    }
+
+    return ompi_mtl_ofi.comm_to_context[comm_id];
+}
 
 __opal_attribute_always_inline__ static inline int
 ompi_mtl_ofi_ssend_recv(ompi_mtl_ofi_request_t *ack_req,
@@ -347,49 +347,50 @@ ompi_mtl_ofi_ssend_recv(ompi_mtl_ofi_request_t *ack_req,
                   uint64_t *match_bits,
                   int tag)
 {
-        ssize_t ret = OMPI_SUCCESS;
-        int ctxt_id = 0;
+    ssize_t ret = OMPI_SUCCESS;
+    int ctxt_id = 0;
 
-        MTL_OFI_MAP_COMM_TO_CONTEXT(comm->c_contextid, ctxt_id);
-        set_thread_context(ctxt_id);
+    ctxt_id = ompi_mtl_ofi_map_comm_to_ctxt(comm->c_contextid);
+    set_thread_context(ctxt_id);
 
-        ack_req = malloc(sizeof(ompi_mtl_ofi_request_t));
-        assert(ack_req);
+    ack_req = malloc(sizeof(ompi_mtl_ofi_request_t));
+    assert(ack_req);
 
-        ack_req->parent = ofi_req;
-        ack_req->event_callback = ompi_mtl_ofi_send_ack_callback;
-        ack_req->error_callback = ompi_mtl_ofi_send_ack_error_callback;
+    ack_req->parent = ofi_req;
+    ack_req->event_callback = ompi_mtl_ofi_send_ack_callback;
+    ack_req->error_callback = ompi_mtl_ofi_send_ack_error_callback;
 
-        ofi_req->completion_count += 1;
+    ofi_req->completion_count += 1;
 
-        MTL_OFI_RETRY_UNTIL_DONE(fi_trecv(ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep,
-                                          NULL,
-                                          0,
-                                          NULL,
-                                          *src_addr,
-                                          *match_bits | ompi_mtl_ofi.sync_send_ack,
-                                          0, /* Exact match, no ignore bits */
-                                          (void *) &ack_req->ctx), ret);
-        if (OPAL_UNLIKELY(0 > ret)) {
-            opal_output_verbose(1, ompi_mtl_base_framework.framework_output,
-                                "%s:%d: fi_trecv failed: %s(%zd)",
-                                __FILE__, __LINE__, fi_strerror(-ret), ret);
-            free(ack_req);
-            return ompi_mtl_ofi_get_error(ret);
-        }
+    MTL_OFI_RETRY_UNTIL_DONE(fi_trecv(ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep,
+                                      NULL,
+                                      0,
+                                      NULL,
+                                      *src_addr,
+                                      *match_bits | ompi_mtl_ofi.sync_send_ack,
+                                      0, /* Exact match, no ignore bits */
+                                      (void *) &ack_req->ctx), ret);
+    if (OPAL_UNLIKELY(0 > ret)) {
+        opal_output_verbose(1, ompi_mtl_base_framework.framework_output,
+                            "%s:%d: fi_trecv failed: %s(%zd)",
+                            __FILE__, __LINE__, fi_strerror(-ret), ret);
+        free(ack_req);
+        return ompi_mtl_ofi_get_error(ret);
+    }
 
-         /* The SYNC_SEND tag bit is set for the send operation only.*/
-        MTL_OFI_SET_SYNC_SEND(*match_bits);
-        return OMPI_SUCCESS;
+     /* The SYNC_SEND tag bit is set for the send operation only.*/
+    MTL_OFI_SET_SYNC_SEND(*match_bits);
+    return OMPI_SUCCESS;
 }
 
 __opal_attribute_always_inline__ static inline int
-ompi_mtl_ofi_send(struct mca_mtl_base_module_t *mtl,
+ompi_mtl_ofi_send_generic(struct mca_mtl_base_module_t *mtl,
                   struct ompi_communicator_t *comm,
                   int dest,
                   int tag,
                   struct opal_convertor_t *convertor,
-                  mca_pml_base_send_mode_t mode)
+                  mca_pml_base_send_mode_t mode,
+                  bool ofi_cq_data)
 {
     ssize_t ret = OMPI_SUCCESS;
     ompi_mtl_ofi_request_t ofi_req;
@@ -404,7 +405,7 @@ ompi_mtl_ofi_send(struct mca_mtl_base_module_t *mtl,
     fi_addr_t src_addr = 0;
     fi_addr_t sep_peer_fiaddr = 0;
 
-    MTL_OFI_MAP_COMM_TO_CONTEXT(comm->c_contextid, ctxt_id);
+    ctxt_id = ompi_mtl_ofi_map_comm_to_ctxt(comm->c_contextid);
     set_thread_context(ctxt_id);
 
     /**
@@ -427,7 +428,7 @@ ompi_mtl_ofi_send(struct mca_mtl_base_module_t *mtl,
     ofi_req.status.MPI_ERROR = OMPI_SUCCESS;
     ofi_req.completion_count = 0;
 
-    if (ompi_mtl_ofi.fi_cq_data) {
+    if (ofi_cq_data) {
         match_bits = mtl_ofi_create_send_tag_CQD(comm->c_contextid, tag);
         src_addr = sep_peer_fiaddr;
     } else {
@@ -445,7 +446,7 @@ ompi_mtl_ofi_send(struct mca_mtl_base_module_t *mtl,
     }
 
     if (ompi_mtl_ofi.max_inject_size >= length) {
-        if (ompi_mtl_ofi.fi_cq_data) {
+        if (ofi_cq_data) {
             MTL_OFI_RETRY_UNTIL_DONE(fi_tinjectdata(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
                                             start,
                                             length,
@@ -461,7 +462,7 @@ ompi_mtl_ofi_send(struct mca_mtl_base_module_t *mtl,
         }
         if (OPAL_UNLIKELY(0 > ret)) {
             MTL_OFI_LOG_FI_ERR(ret,
-                               ompi_mtl_ofi.fi_cq_data ? "fi_tinjectdata failed"
+                               ofi_cq_data ? "fi_tinjectdata failed"
                                : "fi_tinject failed");
             if (ack_req) {
                 fi_cancel((fid_t)ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep, &ack_req->ctx);
@@ -473,7 +474,7 @@ ompi_mtl_ofi_send(struct mca_mtl_base_module_t *mtl,
         }
     } else {
         ofi_req.completion_count += 1;
-        if (ompi_mtl_ofi.fi_cq_data) {
+        if (ofi_cq_data) {
             MTL_OFI_RETRY_UNTIL_DONE(fi_tsenddata(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
                                           start,
                                           length,
@@ -493,7 +494,7 @@ ompi_mtl_ofi_send(struct mca_mtl_base_module_t *mtl,
         }
         if (OPAL_UNLIKELY(0 > ret)) {
             MTL_OFI_LOG_FI_ERR(ret,
-                               ompi_mtl_ofi.fi_cq_data ? "fi_tsenddata failed"
+                               ofi_cq_data ? "fi_tsenddata failed"
                                : "fi_tsend failed");
             ofi_req.status.MPI_ERROR = ompi_mtl_ofi_get_error(ret);
             goto free_request_buffer;
@@ -517,14 +518,15 @@ free_request_buffer:
 }
 
 __opal_attribute_always_inline__ static inline int
-ompi_mtl_ofi_isend(struct mca_mtl_base_module_t *mtl,
+ompi_mtl_ofi_isend_generic(struct mca_mtl_base_module_t *mtl,
                    struct ompi_communicator_t *comm,
                    int dest,
                    int tag,
                    struct opal_convertor_t *convertor,
                    mca_pml_base_send_mode_t mode,
                    bool blocking,
-                   mca_mtl_request_t *mtl_request)
+                   mca_mtl_request_t *mtl_request,
+                   bool ofi_cq_data)
 {
     ssize_t ret = OMPI_SUCCESS;
     ompi_mtl_ofi_request_t *ofi_req = (ompi_mtl_ofi_request_t *) mtl_request;
@@ -538,7 +540,7 @@ ompi_mtl_ofi_isend(struct mca_mtl_base_module_t *mtl,
     ompi_mtl_ofi_request_t *ack_req = NULL; /* For synchronous send */
     fi_addr_t sep_peer_fiaddr = 0;
 
-    MTL_OFI_MAP_COMM_TO_CONTEXT(comm->c_contextid, ctxt_id);
+    ctxt_id = ompi_mtl_ofi_map_comm_to_ctxt(comm->c_contextid);
     set_thread_context(ctxt_id);
 
     ofi_req->event_callback = ompi_mtl_ofi_isend_callback;
@@ -558,7 +560,7 @@ ompi_mtl_ofi_isend(struct mca_mtl_base_module_t *mtl,
     ofi_req->status.MPI_ERROR = OMPI_SUCCESS;
     ofi_req->completion_count = 1;
 
-    if (ompi_mtl_ofi.fi_cq_data) {
+    if (ofi_cq_data) {
         match_bits = mtl_ofi_create_send_tag_CQD(comm->c_contextid, tag);
     } else {
         match_bits = mtl_ofi_create_send_tag(comm->c_contextid,
@@ -574,7 +576,7 @@ ompi_mtl_ofi_isend(struct mca_mtl_base_module_t *mtl,
             goto free_request_buffer;
     }
 
-    if (ompi_mtl_ofi.fi_cq_data) {
+    if (ofi_cq_data) {
         MTL_OFI_RETRY_UNTIL_DONE(fi_tsenddata(ompi_mtl_ofi.ofi_ctxt[ctxt_id].tx_ep,
                                       start,
                                       length,
@@ -594,7 +596,7 @@ ompi_mtl_ofi_isend(struct mca_mtl_base_module_t *mtl,
     }
     if (OPAL_UNLIKELY(0 > ret)) {
         MTL_OFI_LOG_FI_ERR(ret,
-                           ompi_mtl_ofi.fi_cq_data ? "fi_tsenddata failed"
+                           ofi_cq_data ? "fi_tsenddata failed"
                            : "fi_tsend failed");
         ofi_req->status.MPI_ERROR = ompi_mtl_ofi_get_error(ret);
     }
@@ -623,7 +625,7 @@ ompi_mtl_ofi_recv_callback(struct fi_cq_tagged_entry *wc,
     ompi_status_public_t *status = NULL;
     struct fi_msg_tagged tagged_msg;
 
-    MTL_OFI_MAP_COMM_TO_CONTEXT(ofi_req->comm->c_contextid, ctxt_id);
+    ctxt_id = ompi_mtl_ofi_map_comm_to_ctxt(ofi_req->comm->c_contextid);
 
     assert(ofi_req->super.ompi_req);
     status = &ofi_req->super.ompi_req->req_status;
@@ -745,12 +747,13 @@ ompi_mtl_ofi_recv_error_callback(struct fi_cq_err_entry *error,
 }
 
 __opal_attribute_always_inline__ static inline int
-ompi_mtl_ofi_irecv(struct mca_mtl_base_module_t *mtl,
+ompi_mtl_ofi_irecv_generic(struct mca_mtl_base_module_t *mtl,
                    struct ompi_communicator_t *comm,
                    int src,
                    int tag,
                    struct opal_convertor_t *convertor,
-                   mca_mtl_request_t *mtl_request)
+                   mca_mtl_request_t *mtl_request,
+                   bool ofi_cq_data)
 {
     int ompi_ret = OMPI_SUCCESS, ctxt_id = 0;
     ssize_t ret;
@@ -763,10 +766,10 @@ ompi_mtl_ofi_irecv(struct mca_mtl_base_module_t *mtl,
     size_t length;
     bool free_after;
 
-    MTL_OFI_MAP_COMM_TO_CONTEXT(comm->c_contextid, ctxt_id);
+    ctxt_id = ompi_mtl_ofi_map_comm_to_ctxt(comm->c_contextid);
     set_thread_context(ctxt_id);
 
-    if (ompi_mtl_ofi.fi_cq_data) {
+    if (ofi_cq_data) {
         if (MPI_ANY_SOURCE != src) {
             ompi_proc = ompi_comm_peer_lookup(comm, src);
             endpoint = ompi_mtl_ofi_get_endpoint(mtl, ompi_proc);
@@ -889,7 +892,7 @@ ompi_mtl_ofi_imrecv(struct mca_mtl_base_module_t *mtl,
     uint64_t msgflags = FI_CLAIM | FI_COMPLETION;
     struct ompi_communicator_t *comm = (*message)->comm;
 
-    MTL_OFI_MAP_COMM_TO_CONTEXT(comm->c_contextid, ctxt_id);
+    ctxt_id = ompi_mtl_ofi_map_comm_to_ctxt(comm->c_contextid);
     set_thread_context(ctxt_id);
 
     ompi_ret = ompi_mtl_datatype_recv_buf(convertor,
@@ -964,12 +967,13 @@ ompi_mtl_ofi_probe_error_callback(struct fi_cq_err_entry *error,
 }
 
 __opal_attribute_always_inline__ static inline int
-ompi_mtl_ofi_iprobe(struct mca_mtl_base_module_t *mtl,
+ompi_mtl_ofi_iprobe_generic(struct mca_mtl_base_module_t *mtl,
                     struct ompi_communicator_t *comm,
                     int src,
                     int tag,
                     int *flag,
-                    struct ompi_status_public_t *status)
+                    struct ompi_status_public_t *status,
+                    bool ofi_cq_data)
 {
     struct ompi_mtl_ofi_request_t ofi_req;
     ompi_proc_t *ompi_proc = NULL;
@@ -981,10 +985,10 @@ ompi_mtl_ofi_iprobe(struct mca_mtl_base_module_t *mtl,
     uint64_t msgflags = FI_PEEK | FI_COMPLETION;
     int ctxt_id = 0;
 
-    MTL_OFI_MAP_COMM_TO_CONTEXT(comm->c_contextid, ctxt_id);
+    ctxt_id = ompi_mtl_ofi_map_comm_to_ctxt(comm->c_contextid);
     set_thread_context(ctxt_id);
 
-    if (ompi_mtl_ofi.fi_cq_data) {
+    if (ofi_cq_data) {
      /* If the source is known, use its peer_fiaddr. */
         if (MPI_ANY_SOURCE != src) {
             ompi_proc = ompi_comm_peer_lookup( comm, src );
@@ -1051,13 +1055,14 @@ ompi_mtl_ofi_iprobe(struct mca_mtl_base_module_t *mtl,
 }
 
 __opal_attribute_always_inline__ static inline int
-ompi_mtl_ofi_improbe(struct mca_mtl_base_module_t *mtl,
+ompi_mtl_ofi_improbe_generic(struct mca_mtl_base_module_t *mtl,
                      struct ompi_communicator_t *comm,
                      int src,
                      int tag,
                      int *matched,
                      struct ompi_message_t **message,
-                     struct ompi_status_public_t *status)
+                     struct ompi_status_public_t *status,
+                     bool ofi_cq_data)
 {
     struct ompi_mtl_ofi_request_t *ofi_req;
     ompi_proc_t *ompi_proc = NULL;
@@ -1069,7 +1074,7 @@ ompi_mtl_ofi_improbe(struct mca_mtl_base_module_t *mtl,
     uint64_t msgflags = FI_PEEK | FI_CLAIM | FI_COMPLETION;
     int ctxt_id = 0;
 
-    MTL_OFI_MAP_COMM_TO_CONTEXT(comm->c_contextid, ctxt_id);
+    ctxt_id = ompi_mtl_ofi_map_comm_to_ctxt(comm->c_contextid);
     set_thread_context(ctxt_id);
 
     ofi_req = malloc(sizeof *ofi_req);
@@ -1081,7 +1086,7 @@ ompi_mtl_ofi_improbe(struct mca_mtl_base_module_t *mtl,
      * If the source is known, use its peer_fiaddr.
      */
 
-    if (ompi_mtl_ofi.fi_cq_data) {
+    if (ofi_cq_data) {
         if (MPI_ANY_SOURCE != src) {
             ompi_proc = ompi_comm_peer_lookup( comm, src );
             endpoint = ompi_mtl_ofi_get_endpoint(mtl, ompi_proc);
@@ -1171,7 +1176,7 @@ ompi_mtl_ofi_cancel(struct mca_mtl_base_module_t *mtl,
     int ret, ctxt_id = 0;
     ompi_mtl_ofi_request_t *ofi_req = (ompi_mtl_ofi_request_t*) mtl_request;
 
-    MTL_OFI_MAP_COMM_TO_CONTEXT(ofi_req->comm->c_contextid, ctxt_id);
+    ctxt_id = ompi_mtl_ofi_map_comm_to_ctxt(ofi_req->comm->c_contextid);
 
     switch (ofi_req->type) {
         case OMPI_MTL_OFI_SEND:
@@ -1192,14 +1197,8 @@ ompi_mtl_ofi_cancel(struct mca_mtl_base_module_t *mtl,
                 ret = fi_cancel((fid_t)ompi_mtl_ofi.ofi_ctxt[ctxt_id].rx_ep,
                                &ofi_req->ctx);
                 if (0 == ret) {
-                    /**
-                     * Wait for the request to be cancelled.
-                     */
-                    while (!ofi_req->super.ompi_req->req_status._cancelled) {
-                        opal_progress();
-                        if (ofi_req->req_started)
-                            goto ofi_cancel_not_possible;
-                    }
+                    if (ofi_req->req_started)
+                        goto ofi_cancel_not_possible;
                 } else {
 ofi_cancel_not_possible:
                     /**
@@ -1236,17 +1235,19 @@ static int ompi_mtl_ofi_init_contexts(struct mca_mtl_base_module_t *mtl,
     }
 
     /*
-     * We only create upto Max number of contexts allowed by provider.
+     * We only create upto Max number of contexts asked for by the user.
      * If user enables thread grouping feature and creates more number of
-     * communicators than we have contexts, then we set the threshold
-     * context_id so we know to use context 0 for operations involving these
-     * "extra" communicators.
+     * communicators than available contexts, then we set the threshold
+     * context_id so that new communicators created beyond the threshold
+     * will be assigned to contexts in a round-robin fashion.
      */
-    if (ompi_mtl_ofi.max_ctx_cnt <= ctxt_id) {
+    if (ompi_mtl_ofi.num_ofi_contexts <= ompi_mtl_ofi.total_ctxts_used) {
+        ompi_mtl_ofi.comm_to_context[comm->c_contextid] = comm->c_contextid %
+                                                          ompi_mtl_ofi.total_ctxts_used;
         if (!ompi_mtl_ofi.threshold_comm_context_id) {
             ompi_mtl_ofi.threshold_comm_context_id = comm->c_contextid;
 
-            opal_show_help("help-mtl-ofi.txt", "SEP ctxt limit", true, ctxt_id,
+            opal_show_help("help-mtl-ofi.txt", "SEP thread grouping ctxt limit", true, ctxt_id,
                            ompi_process_info.nodename, __FILE__, __LINE__);
         }
 
@@ -1436,6 +1437,77 @@ ompi_mtl_ofi_del_comm(struct mca_mtl_base_module_t *mtl,
 
     return ret;
 }
+
+#ifdef MCA_ompi_mtl_DIRECT_CALL
+
+__opal_attribute_always_inline__ static inline int
+ompi_mtl_ofi_send(struct mca_mtl_base_module_t *mtl,
+                  struct ompi_communicator_t *comm,
+                  int dest,
+                  int tag,
+                  struct opal_convertor_t *convertor,
+                  mca_pml_base_send_mode_t mode)
+{
+    return ompi_mtl_ofi_send_generic(mtl, comm, dest, tag,
+                                    convertor, mode,
+                                    ompi_mtl_ofi.fi_cq_data);
+}
+
+__opal_attribute_always_inline__ static inline int
+ompi_mtl_ofi_isend(struct mca_mtl_base_module_t *mtl,
+               struct ompi_communicator_t *comm,
+               int dest,
+               int tag,
+               struct opal_convertor_t *convertor,
+               mca_pml_base_send_mode_t mode,
+               bool blocking,
+               mca_mtl_request_t *mtl_request)
+{
+    return ompi_mtl_ofi_isend_generic(mtl, comm, dest, tag,
+                                    convertor, mode, blocking, mtl_request,
+                                    ompi_mtl_ofi.fi_cq_data);
+}
+
+__opal_attribute_always_inline__ static inline int
+ompi_mtl_ofi_irecv(struct mca_mtl_base_module_t *mtl,
+               struct ompi_communicator_t *comm,
+               int src,
+               int tag,
+               struct opal_convertor_t *convertor,
+               mca_mtl_request_t *mtl_request)
+{
+    return ompi_mtl_ofi_irecv_generic(mtl, comm, src, tag,
+                                    convertor, mtl_request,
+                                    ompi_mtl_ofi.fi_cq_data);
+}
+
+__opal_attribute_always_inline__ static inline int
+ompi_mtl_ofi_iprobe(struct mca_mtl_base_module_t *mtl,
+                struct ompi_communicator_t *comm,
+                int src,
+                int tag,
+                int *flag,
+                struct ompi_status_public_t *status)
+{
+    return ompi_mtl_ofi_iprobe_generic(mtl, comm, src, tag,
+                                    flag, status,
+                                    ompi_mtl_ofi.fi_cq_data);
+}
+
+__opal_attribute_always_inline__ static inline int
+ompi_mtl_ofi_improbe(struct mca_mtl_base_module_t *mtl,
+                 struct ompi_communicator_t *comm,
+                 int src,
+                 int tag,
+                 int *matched,
+                 struct ompi_message_t **message,
+                 struct ompi_status_public_t *status)
+{
+    return ompi_mtl_ofi_improbe_generic(mtl, comm, src, tag,
+                                    matched, message, status,
+                                    ompi_mtl_ofi.fi_cq_data);
+}
+#endif
 
 END_C_DECLS
 

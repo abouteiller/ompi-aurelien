@@ -13,9 +13,9 @@
  *                         All rights reserved.
  * Copyright (c) 2009-2012 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2011      Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2013-2018 Intel, Inc. All rights reserved.
- * Copyright (c) 2015      Research Organization for Information Science
- *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2013-2019 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Research Organization for Information Science
+ *                         and Technology (RIST).  All rights reserved.
  * Copyright (c) 2016      IBM Corporation.  All rights reserved.
  * $COPYRIGHT$
  *
@@ -926,6 +926,7 @@ static void lkcbfn(int sd, short args, void *cbdata)
 
     lk->cbfunc(PMIX_SUCCESS, lk->pd, lk->n, lk->cbdata);
     PMIX_PDATA_FREE(lk->pd, lk->n);
+    free(lk);
 }
 
 static pmix_status_t lookup_fn(const pmix_proc_t *proc, char **keys,
@@ -937,7 +938,7 @@ static pmix_status_t lookup_fn(const pmix_proc_t *proc, char **keys,
     size_t i, n;
     pmix_pdata_t *pd = NULL;
     pmix_status_t ret = PMIX_ERR_NOT_FOUND;
-    lkobj_t lk;
+    lkobj_t *lk;
 
     pmix_output(0, "SERVER: LOOKUP");
 
@@ -971,11 +972,12 @@ static pmix_status_t lookup_fn(const pmix_proc_t *proc, char **keys,
     }
     PMIX_LIST_DESTRUCT(&results);
     if (PMIX_SUCCESS == ret) {
-        lk.pd = pd;
-        lk.n = n;
-        lk.cbfunc = cbfunc;
-        lk.cbdata = cbdata;
-        PMIX_THREADSHIFT(&lk, lkcbfn);
+        lk = (lkobj_t*)malloc(sizeof(lkobj_t));
+        lk->pd = pd;
+        lk->n = n;
+        lk->cbfunc = cbfunc;
+        lk->cbdata = cbdata;
+        PMIX_THREADSHIFT(lk, lkcbfn);
     }
 
     return ret;
@@ -1181,13 +1183,13 @@ static void log_fn(const pmix_proc_t *client,
                    const pmix_info_t directives[], size_t ndirs,
                    pmix_op_cbfunc_t cbfunc, void *cbdata)
 {
-    mylog_t lg;
+    mylog_t *lg = (mylog_t *)malloc(sizeof(mylog_t));
 
     pmix_output(0, "SERVER: LOG");
 
-    lg.cbfunc = cbfunc;
-    lg.cbdata = cbdata;
-    PMIX_THREADSHIFT(&lg, foobar);
+    lg->cbfunc = cbfunc;
+    lg->cbdata = cbdata;
+    PMIX_THREADSHIFT(lg, foobar);
 }
 
 static pmix_status_t alloc_fn(const pmix_proc_t *client,
