@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2005 The University of Tennessee and The University
+ * Copyright (c) 2004-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -297,7 +297,12 @@ int btl_openib_register_mca_params(void)
      * Provide way for using to override policy of ignoring IB HCAs
      */
 
+#if OPAL_ENABLE_FT_MPI
+    /* Fault Tolerance does not support UCX yet */
+    mca_btl_openib_component.allow_ib = true;
+#else
     mca_btl_openib_component.allow_ib = false;
+#endif /* OPAL_ENABLE_FT_MPI */
     tmp = mca_base_component_var_register(&mca_btl_openib_component.super.btl_version,
                                           "allow_ib",
                                           "Override policy since Open MPI 4.0 of ignoring IB HCAs for openib BTL",

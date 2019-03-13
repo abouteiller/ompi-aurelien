@@ -3696,6 +3696,7 @@ error:
     }
 #endif
 
+#if !OPAL_ENABLE_FT_MPI || OPAL_ENABLE_DEBUG
     if(IBV_WC_WR_FLUSH_ERR != wc->status || !flush_err_printed[cq]++) {
         BTL_PEER_ERROR(remote_proc, ("error polling %s with status %s"
                     "status number %d for wr_id %" PRIx64 " opcode %d  vendor error %d qp_idx %d",
@@ -3703,6 +3704,7 @@ error:
                     wc->status, wc->wr_id,
                     wc->opcode, wc->vendor_err, qp));
     }
+#endif /* !OPAL_ENABLE_FT_MPI */
 
     if (IBV_WC_RNR_RETRY_EXC_ERR == wc->status ||
         IBV_WC_RETRY_EXC_ERR == wc->status) {
@@ -3711,6 +3713,7 @@ error:
         const char *device_name =
             ibv_get_device_name(endpoint->qps[qp].qp->lcl_qp->context->device);
 
+#if !OPAL_ENABLE_FT_MPI || OPAL_ENABLE_DEBUG
         if (IBV_WC_RNR_RETRY_EXC_ERR == wc->status) {
             // The show_help checker script gets confused if the topic
             // is an inline logic check, so separate it into two calls
@@ -3736,6 +3739,7 @@ error:
                            opal_process_info.nodename,
                            device_name, peer_hostname);
         }
+#endif /* !OPAL_ENABLE_FT_MPI */
     }
 
     if(openib_btl) {
