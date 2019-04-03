@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -133,9 +133,11 @@ int MPI_Comm_spawn(const char *command, char *argv[], int maxprocs, MPI_Info inf
             rc = OMPI_ERR_NOT_SUPPORTED;
             goto error;
         }
+        opal_output(0, "DPM: Before %s", port_name);
         if (OMPI_SUCCESS != (rc = ompi_dpm_spawn (1, &command, &argv, &maxprocs,
                                                   &info, port_name))) {
-            goto error;
+            snprintf(port_name, MPI_MAX_PORT_NAME, "OMPI_SPAWN_ERROR=%d", rc);
+            opal_output(0, "DPM: %s", port_name);
         }
     }
 
