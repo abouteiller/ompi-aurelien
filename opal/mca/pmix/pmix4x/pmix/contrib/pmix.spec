@@ -192,7 +192,7 @@
 
 Summary: An extended/exascale implementation of PMI
 Name: %{?_name:%{_name}}%{!?_name:pmix}
-Version: 4.0.0
+Version: 4.0.0a1
 Release: 1%{?dist}
 License: BSD
 Group: Development/Libraries
@@ -204,6 +204,7 @@ Prefix: %{_prefix}
 Provides: pmix
 Provides: pmix = %{version}
 BuildRoot: /var/tmp/%{name}-%{version}-%{release}-root
+BuildRequires: libevent-devel
 %if %{disable_auto_requires}
 AutoReq: no
 %endif

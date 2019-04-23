@@ -1,12 +1,13 @@
 /* -*- Mode: C; c-basic-offset:4 ; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2014-2018 Intel, Inc.  All rights reserved.
- * Copyright (c) 2014-2017 Research Organization for Information Science
- * Copyright (c) 2014-2018 Intel, Inc.  All rights reserved.
- *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2014-2019 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Research Organization for Information Science
+ *                         and Technology (RIST).  All rights reserved.
  * Copyright (c) 2014-2015 Artem Y. Polyakov <artpol84@gmail.com>.
  *                         All rights reserved.
  * Copyright (c) 2016      IBM Corporation.  All rights reserved.
+ * Copyright (c) 2019      Mellanox Technologies, Inc.
+ *                         All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -18,6 +19,7 @@
 
 #include <src/include/pmix_config.h>
 
+#include <pmix_common.h>
 #include <src/include/types.h>
 #include <src/include/pmix_stdint.h>
 #include <src/include/pmix_socket_errno.h>
@@ -326,6 +328,18 @@ PMIX_EXPORT PMIX_CLASS_INSTANCE(pmix_info_caddy_t,
                                 pmix_list_item_t,
                                 NULL, NULL);
 
+static void ifcon(pmix_infolist_t *p)
+{
+    PMIX_INFO_CONSTRUCT(&p->info);
+}
+static void ifdes(pmix_infolist_t *p)
+{
+    PMIX_INFO_DESTRUCT(&p->info);
+}
+PMIX_EXPORT PMIX_CLASS_INSTANCE(pmix_infolist_t,
+                                pmix_list_item_t,
+                                ifcon, ifdes);
+
 static void qcon(pmix_query_caddy_t *p)
 {
     PMIX_CONSTRUCT_LOCK(&p->lock);
@@ -336,6 +350,7 @@ static void qcon(pmix_query_caddy_t *p)
     p->info = NULL;
     p->ninfo = 0;
     PMIX_BYTE_OBJECT_CONSTRUCT(&p->bo);
+    PMIX_CONSTRUCT(&p->results, pmix_list_t);
     p->cbfunc = NULL;
     p->valcbfunc = NULL;
     p->cbdata = NULL;
@@ -349,6 +364,7 @@ static void qdes(pmix_query_caddy_t *p)
     PMIX_BYTE_OBJECT_DESTRUCT(&p->bo);
     PMIX_PROC_FREE(p->targets, p->ntargets);
     PMIX_INFO_FREE(p->info, p->ninfo);
+    PMIX_LIST_DESTRUCT(&p->results);
 }
 PMIX_EXPORT PMIX_CLASS_INSTANCE(pmix_query_caddy_t,
                                 pmix_object_t,
@@ -360,32 +376,38 @@ void pmix_execute_epilog(pmix_epilog_t *epi)
     pmix_cleanup_dir_t *cd, *cdnext;
     struct stat statbuf;
     int rc;
+    char **tmp;
+    size_t n;
 
     /* start with any specified files */
     PMIX_LIST_FOREACH_SAFE(cf, cfnext, &epi->cleanup_files, pmix_cleanup_file_t) {
         /* check the effective uid/gid of the file and ensure it
          * matches that of the peer - we do this to provide at least
          * some minimum level of protection */
-        rc = stat(cf->path, &statbuf);
-        if (0 != rc) {
-            pmix_output_verbose(10, pmix_globals.debug_output,
-                                "File %s failed to stat: %d", cf->path, rc);
-            continue;
+        tmp = pmix_argv_split(cf->path, ',');
+        for (n=0; NULL != tmp[n]; n++) {
+            rc = stat(tmp[n], &statbuf);
+            if (0 != rc) {
+                pmix_output_verbose(10, pmix_globals.debug_output,
+                                    "File %s failed to stat: %d", tmp[n], rc);
+                continue;
+            }
+            if (statbuf.st_uid != epi->uid ||
+                statbuf.st_gid != epi->gid) {
+                pmix_output_verbose(10, pmix_globals.debug_output,
+                                    "File %s uid/gid doesn't match: uid %lu(%lu) gid %lu(%lu)",
+                                    cf->path,
+                                    (unsigned long)statbuf.st_uid, (unsigned long)epi->uid,
+                                    (unsigned long)statbuf.st_gid, (unsigned long)epi->gid);
+                continue;
+            }
+            rc = unlink(tmp[n]);
+            if (0 != rc) {
+                pmix_output_verbose(10, pmix_globals.debug_output,
+                                    "File %s failed to unlink: %d", tmp[n], rc);
+            }
         }
-        if (statbuf.st_uid != epi->uid ||
-            statbuf.st_gid != epi->gid) {
-            pmix_output_verbose(10, pmix_globals.debug_output,
-                                "File %s uid/gid doesn't match: uid %lu(%lu) gid %lu(%lu)",
-                                cf->path,
-                                (unsigned long)statbuf.st_uid, (unsigned long)epi->uid,
-                                (unsigned long)statbuf.st_gid, (unsigned long)epi->gid);
-            continue;
-        }
-        rc = unlink(cf->path);
-        if (0 != rc) {
-            pmix_output_verbose(10, pmix_globals.debug_output,
-                                "File %s failed to unlink: %d", cf->path, rc);
-        }
+        pmix_argv_free(tmp);
         pmix_list_remove_item(&epi->cleanup_files, &cf->super);
         PMIX_RELEASE(cf);
     }
@@ -395,27 +417,31 @@ void pmix_execute_epilog(pmix_epilog_t *epi)
         /* check the effective uid/gid of the file and ensure it
          * matches that of the peer - we do this to provide at least
          * some minimum level of protection */
-        rc = stat(cd->path, &statbuf);
-        if (0 != rc) {
-            pmix_output_verbose(10, pmix_globals.debug_output,
-                                "Directory %s failed to stat: %d", cd->path, rc);
-            continue;
+        tmp = pmix_argv_split(cd->path, ',');
+        for (n=0; NULL != tmp[n]; n++) {
+            rc = stat(tmp[n], &statbuf);
+            if (0 != rc) {
+                pmix_output_verbose(10, pmix_globals.debug_output,
+                                    "Directory %s failed to stat: %d", tmp[n], rc);
+                continue;
+            }
+            if (statbuf.st_uid != epi->uid ||
+                statbuf.st_gid != epi->gid) {
+                pmix_output_verbose(10, pmix_globals.debug_output,
+                                    "Directory %s uid/gid doesn't match: uid %lu(%lu) gid %lu(%lu)",
+                                    cd->path,
+                                    (unsigned long)statbuf.st_uid, (unsigned long)epi->uid,
+                                    (unsigned long)statbuf.st_gid, (unsigned long)epi->gid);
+                continue;
+            }
+            if ((statbuf.st_mode & S_IRWXU) == S_IRWXU) {
+                dirpath_destroy(tmp[n], cd, epi);
+            } else {
+                pmix_output_verbose(10, pmix_globals.debug_output,
+                                    "Directory %s lacks permissions", tmp[n]);
+            }
         }
-        if (statbuf.st_uid != epi->uid ||
-            statbuf.st_gid != epi->gid) {
-            pmix_output_verbose(10, pmix_globals.debug_output,
-                                "Directory %s uid/gid doesn't match: uid %lu(%lu) gid %lu(%lu)",
-                                cd->path,
-                                (unsigned long)statbuf.st_uid, (unsigned long)epi->uid,
-                                (unsigned long)statbuf.st_gid, (unsigned long)epi->gid);
-            continue;
-        }
-        if ((statbuf.st_mode & S_IRWXU) == S_IRWXU) {
-            dirpath_destroy(cd->path, cd, epi);
-        } else {
-            pmix_output_verbose(10, pmix_globals.debug_output,
-                                "Directory %s lacks permissions", cd->path);
-        }
+        pmix_argv_free(tmp);
         pmix_list_remove_item(&epi->cleanup_dirs, &cd->super);
         PMIX_RELEASE(cd);
     }
@@ -555,4 +581,31 @@ static bool dirpath_is_empty(const char *path )
     }
 
     return true;
+}
+
+int pmix_event_assign(struct event *ev, pmix_event_base_t *evbase,
+                      int fd, short arg, event_callback_fn cbfn, void *cbd)
+{
+#if PMIX_HAVE_LIBEV
+    event_set(ev, fd, arg, cbfn, cbd);
+    event_base_set(evbase, ev);
+#else
+    event_assign(ev, evbase, fd, arg, cbfn, cbd);
+#endif
+    return 0;
+}
+
+pmix_event_t* pmix_event_new(pmix_event_base_t *b, int fd,
+                             short fg, event_callback_fn cbfn, void *cbd)
+{
+    pmix_event_t *ev = NULL;
+
+#if PMIX_HAVE_LIBEV
+    ev = (pmix_event_t*)calloc(1, sizeof(pmix_event_t));
+    ev->ev_base = b;
+#else
+    ev = event_new(b, fd, fg, (event_callback_fn) cbfn, cbd);
+#endif
+
+    return ev;
 }

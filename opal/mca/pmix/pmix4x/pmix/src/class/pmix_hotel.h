@@ -2,7 +2,9 @@
 /*
  * Copyright (c) 2012-2016 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2012      Los Alamos National Security, LLC. All rights reserved
- * Copyright (c) 2015-2018 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2015-2019 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2019      Research Organization for Information Science
+ *                         and Technology (RIST).  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -53,9 +55,9 @@
 #define PMIX_HOTEL_H
 
 #include <src/include/pmix_config.h>
-#include "src/include/types.h"
 #include "src/include/prefetch.h"
 #include "pmix_common.h"
+#include "src/include/types.h"
 #include "src/class/pmix_object.h"
 #include PMIX_EVENT_HEADER
 
@@ -190,6 +192,7 @@ static inline pmix_status_t pmix_hotel_checkin(pmix_hotel_t *hotel,
 
     /* Do we have any rooms available? */
     if (PMIX_UNLIKELY(hotel->last_unoccupied_room < 0)) {
+        *room_num = -1;
         return PMIX_ERR_OUT_OF_RESOURCE;
     }
 
@@ -247,6 +250,10 @@ static inline void pmix_hotel_checkout(pmix_hotel_t *hotel, int room_num)
 
     /* Bozo check */
     assert(room_num < hotel->num_rooms);
+    if (0 > room_num) {
+        /* occupant wasn't checked in */
+        return;
+    }
 
     /* If there's an occupant in the room, check them out */
     room = &(hotel->rooms[room_num]);
@@ -285,6 +292,11 @@ static inline void pmix_hotel_checkout_and_return_occupant(pmix_hotel_t *hotel, 
 
     /* Bozo check */
     assert(room_num < hotel->num_rooms);
+    if (0 > room_num) {
+        /* occupant wasn't checked in */
+        *occupant = NULL;
+        return;
+    }
 
     /* If there's an occupant in the room, check them out */
     room = &(hotel->rooms[room_num]);
@@ -296,7 +308,7 @@ static inline void pmix_hotel_checkout_and_return_occupant(pmix_hotel_t *hotel, 
         *occupant = room->occupant;
         room->occupant = NULL;
         if (NULL != hotel->evbase) {
-            event_del(&(room->eviction_timer_event));
+            pmix_event_del(&(room->eviction_timer_event));
         }
         hotel->last_unoccupied_room++;
         assert(hotel->last_unoccupied_room < hotel->num_rooms);
@@ -339,6 +351,10 @@ static inline void pmix_hotel_knock(pmix_hotel_t *hotel, int room_num, void **oc
     assert(room_num < hotel->num_rooms);
 
     *occupant = NULL;
+    if (0 > room_num) {
+        /* occupant wasn't checked in */
+        return;
+    }
 
     /* If there's an occupant in the room, have them come to the door */
     room = &(hotel->rooms[room_num]);

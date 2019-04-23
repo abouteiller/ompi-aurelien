@@ -96,7 +96,7 @@ int ompi_dpm_connect_accept(ompi_communicator_t *comm, int root,
 {
     int k, size, rsize, rank, rc, rportlen=0;
     char **members = NULL, *nstring, *rport=NULL;
-    bool dense, isnew;
+    bool dense, isnew, spawn_error=false;
     opal_process_name_t pname;
     opal_list_t ilist, mlist, rlist;
     opal_value_t info;
@@ -112,6 +112,9 @@ int ompi_dpm_connect_accept(ompi_communicator_t *comm, int root,
     ompi_group_t *new_group_pointer;
     ompi_dpm_proct_caddy_t *cd;
 
+    /* set default error return */
+    *newcomm = MPI_COMM_NULL;
+
     if (NULL == opal_pmix.publish || NULL == opal_pmix.connect ||
         NULL == opal_pmix.unpublish ||
        (NULL == opal_pmix.lookup && NULL == opal_pmix.lookup_nb)) {
@@ -119,13 +122,19 @@ int ompi_dpm_connect_accept(ompi_communicator_t *comm, int root,
         opal_show_help("help-mpi-runtime.txt", "noconxcpt", true);
         return OMPI_ERR_NOT_SUPPORTED;
     }
-    if (!ompi_rte_connect_accept_support(port_string)) {
+    if (NULL != port_string && strstr(port_string, "OMPI_SPAWN_ERROR=")) {
+        /* we will set the rportlen to a negative value corresponding to the
+         * error code produced by pmix spawn */
+        char *value = strchr(port_string, '=');
+        assert(NULL != value);
+        rportlen = atoi(++value);
+        if (rportlen > 0) rportlen *= -1;
+        spawn_error = true;
+    }
+    if (!spawn_error && !ompi_rte_connect_accept_support(port_string)) {
         /* they will have printed the help message */
         return OMPI_ERR_NOT_SUPPORTED;
     }
-
-    /* set default error return */
-    *newcomm = MPI_COMM_NULL;
 
     size = ompi_comm_size ( comm );
     rank = ompi_comm_rank ( comm );
@@ -137,6 +146,7 @@ int ompi_dpm_connect_accept(ompi_communicator_t *comm, int root,
      * to complete on the other's key. Once that completes, the list of remote
      * procs is used to complete construction of the intercommunicator. */
 
+  if (!spawn_error) {
     /* everyone constructs the list of members from their communicator */
     if (MPI_COMM_WORLD == comm) {
         pname.jobid = OMPI_PROC_MY_NAME->jobid;
@@ -232,7 +242,7 @@ int ompi_dpm_connect_accept(ompi_communicator_t *comm, int root,
         rportlen = strlen(rport) + 1;  // retain the NULL terminator
         OBJ_DESTRUCT(&pdat);
     }
-
+  }
     /* if we aren't in a comm_spawn, the non-root members won't have
      * the port_string - so let's make sure everyone knows the other
      * side's participants */
@@ -242,6 +252,14 @@ int ompi_dpm_connect_accept(ompi_communicator_t *comm, int root,
                                  comm->c_coll->coll_bcast_module);
     if (OMPI_SUCCESS != rc) {
         free(rport);
+        goto exit;
+    }
+
+    /* This is the comm_spawn error case: the root couldn't do the pmix spawn
+     * and is now propagating to the local group that this operation has to 
+     * fail. */
+    if (0 >= rportlen) {
+        rc = rportlen;
         goto exit;
     }
 

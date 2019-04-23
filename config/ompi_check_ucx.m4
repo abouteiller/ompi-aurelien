@@ -112,6 +112,9 @@ AC_DEFUN([OMPI_CHECK_UCX],[
                                   ucp_request_check_status, ucp_put_nb, ucp_get_nb],
                                  [], [],
                                  [#include <ucp/api/ucp.h>])
+                  AC_CHECK_DECLS([ucm_test_events],
+                                 [], [],
+                                 [#include <ucm/api/ucm.h>])
                   AC_CHECK_DECLS([UCP_ATOMIC_POST_OP_AND,
                                   UCP_ATOMIC_POST_OP_OR,
                                   UCP_ATOMIC_POST_OP_XOR,
@@ -119,6 +122,10 @@ AC_DEFUN([OMPI_CHECK_UCX],[
                                   UCP_ATOMIC_FETCH_OP_FOR,
                                   UCP_ATOMIC_FETCH_OP_FXOR],
                                  [], [],
+                                 [#include <ucp/api/ucp.h>])
+                  AC_CHECK_DECLS([UCP_WORKER_ATTR_FIELD_ADDRESS_FLAGS],
+                                 [AC_DEFINE([HAVE_UCP_WORKER_ADDRESS_FLAGS], [1],
+                                            [have worker address attribute])], [],
                                  [#include <ucp/api/ucp.h>])
                   CPPFLAGS=$old_CPPFLAGS
 

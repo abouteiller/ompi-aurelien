@@ -17,11 +17,11 @@
  * Copyright (c) 2010-2014 Los Alamos National Security, LLC.
  *                         All rights reserved.
  * Copyright (c) 2014      Hochschule Esslingen.  All rights reserved.
- * Copyright (c) 2015      Research Organization for Information Science
- *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2015-2019 Research Organization for Information Science
+ *                         and Technology (RIST).  All rights reserved.
  * Copyright (c) 2015-2018 Mellanox Technologies, Inc.
  *                         All rights reserved.
- * Copyright (c) 2016-2018 Intel, Inc. All rights reserved.
+ * Copyright (c) 2016-2019 Intel, Inc.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -31,7 +31,6 @@
 
 #include "pmix_config.h"
 
-#include "src/include/types.h"
 #include "src/mca/base/pmix_mca_base_var.h"
 #include "src/runtime/pmix_rte.h"
 #include "src/util/timings.h"
@@ -257,6 +256,14 @@ pmix_status_t pmix_register_params(void)
                                        PMIX_MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
                                        PMIX_INFO_LVL_1, PMIX_MCA_BASE_VAR_SCOPE_ALL,
                                        &pmix_globals.event_eviction_time);
+
+    /* max number of IOF messages to cache */
+    pmix_server_globals.max_iof_cache = 1024 * 1024;
+    (void) pmix_mca_base_var_register ("pmix", "pmix", "max", "iof_cache",
+                                       "Maximum number of IOF messages to cache",
+                                       PMIX_MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
+                                       PMIX_INFO_LVL_1, PMIX_MCA_BASE_VAR_SCOPE_ALL,
+                                       &pmix_server_globals.max_iof_cache);
 
     return PMIX_SUCCESS;
 }

@@ -13,8 +13,8 @@
  * Copyright (c) 2009      Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2013-2017 Los Alamos National Security, LLC.  All rights
  *                         reserved.
- * Copyright (c) 2015-2017 Research Organization for Information Science
- *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2015-2019 Research Organization for Information Science
+ *                         and Technology (RIST).  All rights reserved.
  * Copyright (c) 2017      IBM Corporation. All rights reserved.
  * $COPYRIGHT$
  *
@@ -237,6 +237,8 @@ int32_t ompi_datatype_set_args( ompi_datatype_t* pData,
              */
             OBJ_RETAIN( d[pos] );
             pArgs->total_pack_size += ((ompi_datatype_args_t*)d[pos]->args)->total_pack_size;
+        } else {
+            pArgs->total_pack_size += sizeof(int); /* _NAMED */
         }
         pArgs->total_pack_size += sizeof(int);  /* each data has an ID */
     }
@@ -839,25 +841,19 @@ ompi_datatype_t* ompi_datatype_get_single_predefined_type_from_args( ompi_dataty
                 return NULL;
             }
         }
-#if OMPI_ENABLE_MPI1_COMPAT
-        if (current_predef != MPI_LB && current_predef != MPI_UB) {
-#endif
-            if( NULL == predef ) {  /* This is the first iteration */
-                predef = current_predef;
-            } else {
-                /**
-                 *  What exactly should we consider as identical types?
-                 *  If they are the same MPI level type, or if they map
-                 *  to the same OPAL datatype? In other words, MPI_FLOAT
-                 *  and MPI_REAL4 are they identical?
-                 */
-                if( predef != current_predef ) {
-                    return NULL;
-                }
+        if( NULL == predef ) {  /* This is the first iteration */
+            predef = current_predef;
+        } else {
+            /**
+             *  What exactly should we consider as identical types?
+             *  If they are the same MPI level type, or if they map
+             *  to the same OPAL datatype? In other words, MPI_FLOAT
+             *  and MPI_REAL4 are they identical?
+             */
+            if( predef != current_predef ) {
+                return NULL;
             }
-#if OMPI_ENABLE_MPI1_COMPAT
         }
-#endif
     }
     return predef;
 }

@@ -10,7 +10,9 @@
 # Copyright (c) 2015-2018 Research Organization for Information Science
 #                         and Technology (RIST). All rights reserved.
 # Copyright (c) 2016      IBM Corporation.  All rights reserved.
-# Copyright (c) 2017      FUJITSU LIMITED.  All rights reserved.
+# Copyright (c) 2017-2018 FUJITSU LIMITED.  All rights reserved.
+# Copyright (c) 2019      Triad National Security, LLC. All rights
+#                         reserved.
 #
 # $COPYRIGHT$
 #
@@ -39,7 +41,8 @@ CLEANFILES += *.i90
 lib_LTLIBRARIES = lib@OMPI_LIBMPI_NAME@_usempif08.la
 
 module_sentinel_file = \
-        mod/libforce_usempif08_internal_modules_to_be_built.la
+        mod/libforce_usempif08_internal_modules_to_be_built.la \
+        bindings/libforce_usempif08_internal_bindings_to_be_built.la
 
 mpi-f08.lo: $(module_sentinel_file)
 mpi-f08.lo: mpi-f08.F90
@@ -59,7 +62,9 @@ sizeof_f08.h:
 	    --header=$@ --ierror=optional \
 	    --maxrank=$(OMPI_FORTRAN_MAX_ARRAY_RANK) \
 	    --generate=$(OMPI_FORTRAN_BUILD_SIZEOF) \
+	    --real2=$(OMPI_HAVE_FORTRAN_REAL2) \
 	    --real16=$(OMPI_HAVE_FORTRAN_REAL16) \
+	    --complex4=$(OMPI_HAVE_FORTRAN_COMPLEX4) \
 	    --complex32=$(OMPI_HAVE_FORTRAN_COMPLEX32)
 
 sizeof_f08.f90: $(top_builddir)/config.status
@@ -69,7 +74,9 @@ sizeof_f08.f90:
 	    --impl=$@ --ierror=optional --mpi \
 	    --maxrank=$(OMPI_FORTRAN_MAX_ARRAY_RANK) \
 	    --generate=$(OMPI_FORTRAN_BUILD_SIZEOF) \
+	    --real2=$(OMPI_HAVE_FORTRAN_REAL2) \
 	    --real16=$(OMPI_HAVE_FORTRAN_REAL16) \
+	    --complex4=$(OMPI_HAVE_FORTRAN_COMPLEX4) \
 	    --complex32=$(OMPI_HAVE_FORTRAN_COMPLEX32)
 
 profile/psizeof_f08.f90: $(top_builddir)/config.status
@@ -79,7 +86,9 @@ profile/psizeof_f08.f90:
 	    --impl=$@ --ierror=optional --pmpi \
 	    --maxrank=$(OMPI_FORTRAN_MAX_ARRAY_RANK) \
 	    --generate=$(OMPI_FORTRAN_BUILD_SIZEOF) \
+	    --real2=$(OMPI_HAVE_FORTRAN_REAL2) \
 	    --real16=$(OMPI_HAVE_FORTRAN_REAL16) \
+	    --complex4=$(OMPI_HAVE_FORTRAN_COMPLEX4) \
 	    --complex32=$(OMPI_HAVE_FORTRAN_COMPLEX32)
 
 CLEANFILES += sizeof_f08.h sizeof_f08.f90 profile/psizeof_f08.f90

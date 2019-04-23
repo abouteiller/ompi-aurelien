@@ -15,7 +15,7 @@
  * Copyright (c) 2009      Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2010-2015 Los Alamos National Security, LLC.
  *                         All rights reserved.
- * Copyright (c) 2013-2018 Intel, Inc. All rights reserved.
+ * Copyright (c) 2013-2019 Intel, Inc.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * $COPYRIGHT$
@@ -32,16 +32,16 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#include PMIX_EVENT_HEADER
-#include "event2/thread.h"
 
 #include <pmix_rename.h>
 
+#include "src/include/pmix_globals.h"
 #include "src/util/output.h"
 #include "src/util/show_help.h"
 #include "src/mca/base/base.h"
 #include "src/mca/base/pmix_mca_base_var.h"
 #include "src/mca/bfrops/base/base.h"
+#include "src/mca/pcompress/base/base.h"
 #include "src/mca/gds/base/base.h"
 #include "src/mca/pif/base/base.h"
 #include "src/mca/pinstalldirs/base/base.h"
@@ -52,6 +52,7 @@
 #include "src/mca/ptl/base/base.h"
 
 #include "src/client/pmix_client_ops.h"
+#include "src/common/pmix_attributes.h"
 #include "src/event/pmix_event.h"
 #include "src/include/types.h"
 #include "src/util/error.h"
@@ -66,17 +67,23 @@ PMIX_EXPORT int pmix_initialized = 0;
 PMIX_EXPORT bool pmix_init_called = false;
 /* we have to export the pmix_globals object so
  * all plugins can access it. However, it is included
- * in the pmix_rename.h file for external protection */
+ * in the pmix_rename.h file for external protection.
+ * Initialize only those entries that are not covered
+ * by MCA params or are complex structures initialized
+ * below */
 PMIX_EXPORT pmix_globals_t pmix_globals = {
     .init_cntr = 0,
     .mypeer = NULL,
+    .hostname = NULL,
+    .nodeid = UINT32_MAX,
     .pindex = 0,
     .evbase = NULL,
     .external_evbase = false,
     .debug_output = -1,
     .connected = false,
     .commits_pending = false,
-    .mygds = NULL
+    .mygds = NULL,
+    .pushstdin = false
 };
 
 
@@ -96,6 +103,7 @@ int pmix_rte_init(pmix_proc_type_t type,
     int ret, debug_level;
     char *error = NULL, *evar;
     size_t n;
+    char hostname[PMIX_MAXHOSTNAMELEN];
 
     if( ++pmix_initialized != 1 ) {
         if( pmix_initialized < 1 ) {
@@ -156,6 +164,8 @@ int pmix_rte_init(pmix_proc_type_t type,
     }
 
     /* setup the globals structure */
+    gethostname(hostname, PMIX_MAXHOSTNAMELEN);
+    pmix_globals.hostname = strdup(hostname);
     memset(&pmix_globals.myid.nspace, 0, PMIX_MAX_NSLEN+1);
     pmix_globals.myid.rank = PMIX_RANK_INVALID;
     PMIX_CONSTRUCT(&pmix_globals.events, pmix_events_t);
@@ -171,9 +181,10 @@ int pmix_rte_init(pmix_proc_type_t type,
         error = "notification hotel init";
         goto return_error;
     }
-
     /* and setup the iof request tracking list */
     PMIX_CONSTRUCT(&pmix_globals.iof_requests, pmix_list_t);
+    /* setup the stdin forwarding target list */
+    PMIX_CONSTRUCT(&pmix_globals.stdin_targets, pmix_list_t);
 
     /* Setup client verbosities as all procs are allowed to
      * access client APIs */
@@ -249,9 +260,19 @@ int pmix_rte_init(pmix_proc_type_t type,
     /* scan incoming info for directives */
     if (NULL != info) {
         for (n=0; n < ninfo; n++) {
-            if (0 == strcmp(PMIX_EVENT_BASE, info[n].key)) {
+            if (PMIX_CHECK_KEY(&info[n], PMIX_EVENT_BASE)) {
                 pmix_globals.evbase = (pmix_event_base_t*)info[n].value.data.ptr;
                 pmix_globals.external_evbase = true;
+            } else if (PMIX_CHECK_KEY(&info[n], PMIX_HOSTNAME)) {
+                if (NULL != pmix_globals.hostname) {
+                    free(pmix_globals.hostname);
+                }
+                pmix_globals.hostname = strdup(info[n].value.data.string);
+            } else if (PMIX_CHECK_KEY(&info[n], PMIX_NODEID)) {
+                PMIX_VALUE_GET_NUMBER(ret, &info[n].value, pmix_globals.nodeid, uint32_t);
+                if (PMIX_SUCCESS != ret) {
+                    goto return_error;
+                }
             }
         }
     }
@@ -267,6 +288,16 @@ int pmix_rte_init(pmix_proc_type_t type,
     }
     if (PMIX_SUCCESS != (ret = pmix_bfrop_base_select()) ) {
         error = "pmix_bfrops_base_select";
+        goto return_error;
+    }
+
+    /* open and select the compress framework */
+    if (PMIX_SUCCESS != (ret = pmix_mca_base_framework_open(&pmix_pcompress_base_framework, 0)) ) {
+        error = "pmix_pcompress_base_open";
+        goto return_error;
+    }
+    if (PMIX_SUCCESS != (ret = pmix_compress_base_select()) ) {
+        error = "pmix_pcompress_base_select";
         goto return_error;
     }
 
@@ -330,6 +361,9 @@ int pmix_rte_init(pmix_proc_type_t type,
         error = "pmix_plog_base_select";
         goto return_error;
     }
+
+    /* initialize the attribute support system */
+    pmix_init_registered_attrs();
 
     /* if an external event base wasn't provide, create one */
     if (!pmix_globals.external_evbase) {

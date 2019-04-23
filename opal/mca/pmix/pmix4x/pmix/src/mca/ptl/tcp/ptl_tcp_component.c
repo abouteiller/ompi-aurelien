@@ -12,10 +12,10 @@
  *                         All rights reserved.
  * Copyright (c) 2015      Los Alamos National Security, LLC. All rights
  *                         reserved.
- * Copyright (c) 2016-2018 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2016-2019 Intel, Inc.  All rights reserved.
  * Copyright (c) 2017-2018 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
- * Copyright (c) 2018      IBM Corporation.  All rights reserved.
+ * Copyright (c) 2018-2019 IBM Corporation.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -357,6 +357,7 @@ static pmix_status_t setup_listener(pmix_info_t info[], size_t ninfo,
     char *prefix, myhost[PMIX_MAXHOSTNAMELEN];
     char myconnhost[PMIX_MAXHOSTNAMELEN];
     int myport;
+    pmix_kval_t *urikv;
 
     pmix_output_verbose(2, pmix_ptl_base_framework.framework_output,
                         "ptl:tcp setup_listener");
@@ -554,7 +555,7 @@ static pmix_status_t setup_listener(pmix_info_t info[], size_t ninfo,
     }
 
     lt = PMIX_NEW(pmix_listener_t);
-    lt->varname = strdup("PMIX_SERVER_URI3:PMIX_SERVER_URI2:PMIX_SERVER_URI21");
+    lt->varname = strdup("PMIX_SERVER_URI4:PMIX_SERVER_URI3:PMIX_SERVER_URI2:PMIX_SERVER_URI21");
     lt->protocol = PMIX_PROTOCOL_V2;
     lt->ptl = (struct pmix_ptl_module_t*)&pmix_ptl_tcp_module;
     lt->cbfunc = connection_handler;
@@ -640,6 +641,16 @@ static pmix_status_t setup_listener(pmix_info_t info[], size_t ninfo,
     pmix_output_verbose(2, pmix_ptl_base_framework.framework_output,
                         "ptl:tcp URI %s", lt->uri);
 
+    /* save the URI internally so we can report it */
+    urikv = PMIX_NEW(pmix_kval_t);
+    urikv->key = strdup(PMIX_SERVER_URI);
+    PMIX_VALUE_CREATE(urikv->value, 1);
+    PMIX_VALUE_LOAD(urikv->value, lt->uri, PMIX_STRING);
+    PMIX_GDS_STORE_KV(rc, pmix_globals.mypeer,
+                      &pmix_globals.myid, PMIX_INTERNAL,
+                      urikv);
+    PMIX_RELEASE(urikv);  // maintain accounting
+
     if (NULL != mca_ptl_tcp_component.report_uri) {
         /* if the string is a "-", then output to stdout */
         if (0 == strcmp(mca_ptl_tcp_component.report_uri, "-")) {
@@ -690,7 +701,7 @@ static pmix_status_t setup_listener(pmix_info_t info[], size_t ninfo,
         fprintf(fp, "v%s\n", PMIX_VERSION);
         fclose(fp);
         /* set the file mode */
-        if (0 != chmod(mca_ptl_tcp_component.rendezvous_filename, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) {
+        if (0 != chmod(mca_ptl_tcp_component.rendezvous_filename, S_IRUSR | S_IWUSR | S_IRGRP)) {
             PMIX_ERROR_LOG(PMIX_ERR_FILE_OPEN_FAILURE);
             CLOSE_THE_SOCKET(lt->socket);
             free(mca_ptl_tcp_component.rendezvous_filename);
@@ -1454,7 +1465,7 @@ static void connection_handler(int sd, short args, void *cbdata)
         /* and the group id */
         PMIX_INFO_LOAD(&pnd->info[n], PMIX_GRPID, &pnd->gid, PMIX_UINT32);
         ++n;
-        /* if we have it, pass along our ID */
+        /* if we have it, pass along their ID */
         if (!pnd->need_id) {
             PMIX_INFO_LOAD(&pnd->info[n], PMIX_NSPACE, nspace, PMIX_STRING);
             ++n;
@@ -1869,7 +1880,7 @@ static void process_cbfunc(int sd, short args, void *cbdata)
         /* probably cannot send an error reply if we are out of memory */
         return;
     }
-    info->peerid = peer->index;
+    peer->info->peerid = peer->index;
 
     /* start the events for this tool */
     pmix_event_assign(&peer->recv_event, pmix_globals.evbase, peer->sd,

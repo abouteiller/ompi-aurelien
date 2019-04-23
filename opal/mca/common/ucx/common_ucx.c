@@ -132,6 +132,32 @@ static void opal_common_ucx_mca_fence_complete_cb(int status, void *fenced)
     *(int*)fenced = 1;
 }
 
+void opal_common_ucx_mca_proc_added(void)
+{
+#if HAVE_DECL_UCM_TEST_EVENTS
+    static int warned = 0;
+    static char *mem_hooks_suggestion = "Pls try adding --mca opal_common_ucx_opal_mem_hooks 1 "
+                                        "to mpirun/oshrun command line to resolve this issue.";
+    ucs_status_t status;
+
+    if (!warned) {
+        status = ucm_test_events(UCM_EVENT_VM_UNMAPPED);
+        if (status != UCS_OK) {
+            MCA_COMMON_UCX_WARN("UCX is unable to handle VM_UNMAP event. "
+                                "This may cause performance degradation or data "
+                                "corruption. %s",
+                                opal_common_ucx.opal_mem_hooks ? "" : mem_hooks_suggestion);
+            warned = 1;
+        }
+    }
+#endif
+}
+
+OPAL_DECLSPEC int opal_common_ucx_mca_pmix_fence_nb(int *fenced)
+{
+    return opal_pmix.fence_nb(NULL, 0, opal_common_ucx_mca_fence_complete_cb, (void *)fenced);
+}
+
 OPAL_DECLSPEC int opal_common_ucx_mca_pmix_fence(ucp_worker_h worker)
 {
     volatile int fenced = 0;
@@ -161,9 +187,8 @@ static void opal_common_ucx_wait_all_requests(void **reqs, int count, ucp_worker
     }
 }
 
-OPAL_DECLSPEC int opal_common_ucx_del_procs(opal_common_ucx_del_proc_t *procs, size_t count,
-                                            size_t my_rank, size_t max_disconnect, ucp_worker_h worker)
-{
+OPAL_DECLSPEC int opal_common_ucx_del_procs_nofence(opal_common_ucx_del_proc_t *procs, size_t count,
+                                            size_t my_rank, size_t max_disconnect, ucp_worker_h worker) {
     size_t num_reqs;
     size_t max_reqs;
     void *dreq, **dreqs;
@@ -211,10 +236,14 @@ OPAL_DECLSPEC int opal_common_ucx_del_procs(opal_common_ucx_del_proc_t *procs, s
     opal_common_ucx_wait_all_requests(dreqs, num_reqs, worker);
     free(dreqs);
 
-    if (OPAL_SUCCESS != (ret = opal_common_ucx_mca_pmix_fence(worker))) {
-        return ret;
-    }
-
     return OPAL_SUCCESS;
+}
+
+OPAL_DECLSPEC int opal_common_ucx_del_procs(opal_common_ucx_del_proc_t *procs, size_t count,
+                                            size_t my_rank, size_t max_disconnect, ucp_worker_h worker)
+{
+    opal_common_ucx_del_procs_nofence(procs, count, my_rank, max_disconnect, worker);
+
+    return opal_common_ucx_mca_pmix_fence(worker);
 }
 

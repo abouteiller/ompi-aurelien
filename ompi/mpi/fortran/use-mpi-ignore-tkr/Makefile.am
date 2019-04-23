@@ -5,6 +5,7 @@
 #                         and Technology (RIST). All rights reserved.
 # Copyright (c) 2016      IBM Corporation.  All rights reserved.
 #
+# Copyright (c) 2018      FUJITSU LIMITED.  All rights reserved.
 # $COPYRIGHT$
 #
 # Additional copyrights may follow
@@ -27,13 +28,11 @@ lib_LTLIBRARIES = lib@OMPI_LIBMPI_NAME@_usempi_ignore_tkr.la
 
 mpi-ignore-tkr-interfaces.h: mpi-ignore-tkr-interfaces.h.in
 mpi-ignore-tkr-file-interfaces.h: mpi-ignore-tkr-file-interfaces.h.in
-mpi-ignore-tkr-removed-interfaces.h: mpi-ignore-tkr-removed-interfaces.h.in
 
 mpi-ignore-tkr.lo: $(top_srcdir)/ompi/mpi/fortran/base/attr-fn-int-callback-interfaces.h
 mpi-ignore-tkr.lo: $(top_srcdir)/ompi/mpi/fortran/base/conversion-fn-null-int-interface.h
 mpi-ignore-tkr.lo: mpi-ignore-tkr-interfaces.h
 mpi-ignore-tkr.lo: mpi-ignore-tkr-file-interfaces.h
-mpi-ignore-tkr.lo: mpi-ignore-tkr-removed-interfaces.h
 mpi-ignore-tkr.lo: mpi-ignore-tkr-sizeof.h
 mpi-ignore-tkr.lo: mpi-ignore-tkr-sizeof.f90
 mpi-ignore-tkr.lo: mpi-ignore-tkr.F90
@@ -42,8 +41,7 @@ lib@OMPI_LIBMPI_NAME@_usempi_ignore_tkr_la_SOURCES = \
         mpi-ignore-tkr.F90
 nodist_lib@OMPI_LIBMPI_NAME@_usempi_ignore_tkr_la_SOURCES = \
         mpi-ignore-tkr-interfaces.h \
-        mpi-ignore-tkr-file-interfaces.h \
-        mpi-ignore-tkr-removed-interfaces.h
+        mpi-ignore-tkr-file-interfaces.h
 
 if BUILD_FORTRAN_SIZEOF
 # These files are generated; do not distribute them
@@ -76,7 +74,9 @@ mpi-ignore-tkr-sizeof.h:
 	    --header=$@ --ierror=mandatory \
 	    --maxrank=$(OMPI_FORTRAN_MAX_ARRAY_RANK) \
 	    --generate=$(OMPI_FORTRAN_BUILD_SIZEOF) \
+	    --real2=$(OMPI_HAVE_FORTRAN_REAL2) \
 	    --real16=$(OMPI_HAVE_FORTRAN_REAL16) \
+	    --complex4=$(OMPI_HAVE_FORTRAN_COMPLEX4) \
 	    --complex32=$(OMPI_HAVE_FORTRAN_COMPLEX32)
 
 mpi-ignore-tkr-sizeof.f90: $(top_builddir)/config.status
@@ -86,7 +86,9 @@ mpi-ignore-tkr-sizeof.f90:
 	    --impl=$@ --ierror=mandatory --mpi --pmpi \
 	    --maxrank=$(OMPI_FORTRAN_MAX_ARRAY_RANK) \
 	    --generate=$(OMPI_FORTRAN_BUILD_SIZEOF) \
+	    --real2=$(OMPI_HAVE_FORTRAN_REAL2) \
 	    --real16=$(OMPI_HAVE_FORTRAN_REAL16) \
+	    --complex4=$(OMPI_HAVE_FORTRAN_COMPLEX4) \
 	    --complex32=$(OMPI_HAVE_FORTRAN_COMPLEX32)
 
 #

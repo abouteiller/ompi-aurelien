@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018 Intel, Inc. All rights reserved.
+ * Copyright (c) 2015-2019 Intel, Inc.  All rights reserved.
  * Copyright (c) 2016      IBM Corporation.  All rights reserved.
  *
  * $COPYRIGHT$
@@ -47,7 +47,7 @@
 static pmix_status_t test_init(void);
 static void test_finalize(void);
 static pmix_status_t allocate(pmix_namespace_t *nptr,
-                              pmix_info_t *info,
+                              pmix_info_t info[], size_t ninfo,
                               pmix_list_t *ilist);
 static pmix_status_t setup_local_network(pmix_namespace_t *nptr,
                                          pmix_info_t info[],
@@ -95,11 +95,11 @@ static void test_finalize(void)
  * this function MUST pack it for transport as the host will
  * not know how to do so */
 static pmix_status_t allocate(pmix_namespace_t *nptr,
-                              pmix_info_t *info,
+                              pmix_info_t info[], size_t ninfo,
                               pmix_list_t *ilist)
 {
     pmix_kval_t *kv;
-    bool seckey = false;
+    bool seckey = false, envars = false;
     pmix_list_t mylist;
     size_t n, nreqs=0;
     pmix_info_t *requests = NULL;
@@ -126,9 +126,27 @@ static pmix_status_t allocate(pmix_namespace_t *nptr,
     }
     /* check directives to see if a crypto key and/or
      * network resource allocations requested */
-    PMIX_CONSTRUCT(&mylist, pmix_list_t);
-    if (0 == strncmp(info->key, PMIX_SETUP_APP_ENVARS, PMIX_MAX_KEYLEN) ||
-        0 == strncmp(info->key, PMIX_SETUP_APP_ALL, PMIX_MAX_KEYLEN)) {
+    for (n=0; n < ninfo; n++) {
+        if (PMIX_CHECK_KEY(&info[n], PMIX_SETUP_APP_ENVARS) ||
+            PMIX_CHECK_KEY(&info[n], PMIX_SETUP_APP_ALL)) {
+            envars = PMIX_INFO_TRUE(&info[n]);
+        } else if (PMIX_CHECK_KEY(&info[n], PMIX_ALLOC_NETWORK_ID)) {
+            /* this info key includes an array of pmix_info_t, each providing
+             * a key (that is to be used as the key for the allocated ports) and
+             * a number of ports to allocate for that key */
+            if (PMIX_DATA_ARRAY != info->value.type ||
+                NULL == info->value.data.darray ||
+                PMIX_INFO != info->value.data.darray->type ||
+                NULL == info->value.data.darray->array) {
+                /* just process something for test */
+                goto process;
+            }
+            requests = (pmix_info_t*)info->value.data.darray->array;
+            nreqs = info->value.data.darray->size;
+        }
+    }
+
+    if (envars) {
         kv = PMIX_NEW(pmix_kval_t);
         if (NULL == kv) {
             return PMIX_ERR_NOMEM;
@@ -142,27 +160,16 @@ static pmix_status_t allocate(pmix_namespace_t *nptr,
         kv->value->type = PMIX_ENVAR;
         PMIX_ENVAR_LOAD(&kv->value->data.envar, "PMIX_TEST_ENVAR", "1", ':');
         pmix_list_append(ilist, &kv->super);
-        return PMIX_SUCCESS;
-    } else if (0 != strncmp(info->key, PMIX_ALLOC_NETWORK_ID, PMIX_MAX_KEYLEN)) {
-        return PMIX_SUCCESS;
+    }
+
+    if (NULL == requests) {
+        return PMIX_ERR_TAKE_NEXT_OPTION;
     }
 
     pmix_output_verbose(2, pmix_pnet_base_framework.framework_output,
                         "pnet:test:allocate alloc_network for nspace %s",
                         nptr->nspace);
 
-    /* this info key includes an array of pmix_info_t, each providing
-     * a key (that is to be used as the key for the allocated ports) and
-     * a number of ports to allocate for that key */
-    if (PMIX_DATA_ARRAY != info->value.type ||
-        NULL == info->value.data.darray ||
-        PMIX_INFO != info->value.data.darray->type ||
-        NULL == info->value.data.darray->array) {
-        /* just process something for test */
-        goto process;
-    }
-    requests = (pmix_info_t*)info->value.data.darray->array;
-    nreqs = info->value.data.darray->size;
     /* cycle thru the provided array and get the ID key */
     for (n=0; n < nreqs; n++) {
         if (0 == strncmp(requests[n].key, PMIX_ALLOC_NETWORK_ID, PMIX_MAX_KEYLEN)) {
@@ -183,6 +190,7 @@ static pmix_status_t allocate(pmix_namespace_t *nptr,
     if (NULL == idkey) {
         idkey = "TESTKEY";
     }
+    PMIX_CONSTRUCT(&mylist, pmix_list_t);
 
     /* must include the idkey */
     kv = PMIX_NEW(pmix_kval_t);
@@ -345,8 +353,13 @@ static pmix_status_t setup_local_network(pmix_namespace_t *nptr,
                cnt = 1;
                PMIX_BFROPS_UNPACK(rc, pmix_globals.mypeer,
                                   &bkt, &nkvals, &cnt, PMIX_SIZE);
-                   /* setup the info array */
-               PMIX_INFO_CREATE(jinfo, nkvals);
+                   /* the data gets stored as a pmix_data_array_t on the provided key */
+               PMIX_INFO_CONSTRUCT(&stinfo);
+               pmix_strncpy(stinfo.key, idkey, PMIX_MAX_KEYLEN);
+               stinfo.value.type = PMIX_DATA_ARRAY;
+               PMIX_DATA_ARRAY_CREATE(stinfo.value.data.darray, nkvals, PMIX_INFO);
+               jinfo = (pmix_info_t*)stinfo.value.data.darray->array;
+
                    /* cycle thru the blob and extract the kvals */
                kv = PMIX_NEW(pmix_kval_t);
                cnt = 1;
@@ -384,14 +397,7 @@ static pmix_status_t setup_local_network(pmix_namespace_t *nptr,
                    PMIX_INFO_FREE(jinfo, nkvals);
                    return PMIX_ERR_BAD_PARAM;
                }
-                   /* the data gets stored as a pmix_data_array_t on the provided key */
-               PMIX_INFO_CONSTRUCT(&stinfo);
-               pmix_strncpy(stinfo.key, idkey, PMIX_MAX_KEYLEN);
-               stinfo.value.type = PMIX_DATA_ARRAY;
-               PMIX_DATA_ARRAY_CREATE(stinfo.value.data.darray, nkvals, PMIX_INFO);
-               stinfo.value.data.darray->array = jinfo;
-
-                   /* cache the info on the job */
+               /* cache the info on the job */
                PMIX_GDS_CACHE_JOB_INFO(rc, pmix_globals.mypeer, nptr,
                                        &stinfo, 1);
                PMIX_INFO_DESTRUCT(&stinfo);

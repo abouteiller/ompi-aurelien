@@ -36,15 +36,19 @@ BEGIN_C_DECLS
 #  define MCA_COMMON_UCX_ASSERT(_x)
 #endif
 
+#define MCA_COMMON_UCX_PER_TARGET_OPS_THRESHOLD 1000
+#define MCA_COMMON_UCX_GLOBAL_OPS_THRESHOLD 1000
+
 #define _MCA_COMMON_UCX_QUOTE(_x) \
     # _x
 #define MCA_COMMON_UCX_QUOTE(_x) \
     _MCA_COMMON_UCX_QUOTE(_x)
 
-#define MCA_COMMON_UCX_ERROR(...)                                   \
-    opal_output_verbose(0, opal_common_ucx.output,                  \
-                        __FILE__ ":" MCA_COMMON_UCX_QUOTE(__LINE__) \
-                        " Error: " __VA_ARGS__)
+#define MCA_COMMON_UCX_ERROR(...) \
+    MCA_COMMON_UCX_VERBOSE(0, " Error: " __VA_ARGS__)
+
+#define MCA_COMMON_UCX_WARN(...) \
+    MCA_COMMON_UCX_VERBOSE(0, " Warning: " __VA_ARGS__)
 
 #define MCA_COMMON_UCX_VERBOSE(_level, ... )                                \
     if (((_level) <= MCA_COMMON_UCX_MAX_VERBOSE) &&                         \
@@ -98,10 +102,14 @@ extern opal_common_ucx_module_t opal_common_ucx;
 
 OPAL_DECLSPEC void opal_common_ucx_mca_register(void);
 OPAL_DECLSPEC void opal_common_ucx_mca_deregister(void);
+OPAL_DECLSPEC void opal_common_ucx_mca_proc_added(void);
 OPAL_DECLSPEC void opal_common_ucx_empty_complete_cb(void *request, ucs_status_t status);
 OPAL_DECLSPEC int opal_common_ucx_mca_pmix_fence(ucp_worker_h worker);
+OPAL_DECLSPEC int opal_common_ucx_mca_pmix_fence_nb(int *fenced);
 OPAL_DECLSPEC int opal_common_ucx_del_procs(opal_common_ucx_del_proc_t *procs, size_t count,
                                             size_t my_rank, size_t max_disconnect, ucp_worker_h worker);
+OPAL_DECLSPEC int opal_common_ucx_del_procs_nofence(opal_common_ucx_del_proc_t *procs, size_t count,
+                                               size_t my_rank, size_t max_disconnect, ucp_worker_h worker);
 OPAL_DECLSPEC void opal_common_ucx_mca_var_register(const mca_base_component_t *component);
 
 static inline
@@ -176,6 +184,17 @@ int opal_common_ucx_atomic_fetch(ucp_ep_h ep, ucp_atomic_fetch_op_t opcode,
     request = ucp_atomic_fetch_nb(ep, opcode, value, result, op_size,
                                   remote_addr, rkey, opal_common_ucx_empty_complete_cb);
     return opal_common_ucx_wait_request(request, worker, "ucp_atomic_fetch_nb");
+}
+
+static inline
+ucs_status_ptr_t opal_common_ucx_atomic_fetch_nb(ucp_ep_h ep, ucp_atomic_fetch_op_t opcode,
+                                                 uint64_t value, void *result, size_t op_size,
+                                                 uint64_t remote_addr, ucp_rkey_h rkey,
+                                                 ucp_send_callback_t req_handler,
+                                                 ucp_worker_h worker)
+{
+    return ucp_atomic_fetch_nb(ep, opcode, value, result, op_size,
+                               remote_addr, rkey, req_handler);
 }
 
 static inline

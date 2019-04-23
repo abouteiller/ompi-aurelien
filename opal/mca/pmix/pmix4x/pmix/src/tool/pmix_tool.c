@@ -1,8 +1,8 @@
 /* -*- Mode: C; c-basic-offset:4 ; indent-tabs-mode:nil -*- */
 /*
- * Copyright (c) 2014-2018 Intel, Inc. All rights reserved.
- * Copyright (c) 2014-2016 Research Organization for Information Science
- *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2014-2019 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2014-2019 Research Organization for Information Science
+ *                         and Technology (RIST).  All rights reserved.
  * Copyright (c) 2014      Artem Y. Polyakov <artpol84@gmail.com>.
  *                         All rights reserved.
  * Copyright (c) 2016      Mellanox Technologies, Inc.
@@ -17,7 +17,6 @@
 
 #include <src/include/pmix_config.h>
 
-#include <src/include/types.h>
 #include <src/include/pmix_socket_errno.h>
 
 #include "src/client/pmix_client_ops.h"
@@ -49,9 +48,6 @@
 #include <dirent.h>
 #endif  /* HAVE_DIRENT_H */
 
-#include PMIX_EVENT_HEADER
-#include PMIX_EVENT2_THREAD_HEADER
-
 #include "src/class/pmix_list.h"
 #include "src/util/argv.h"
 #include "src/util/error.h"
@@ -63,9 +59,11 @@
 #include "src/runtime/pmix_rte.h"
 #include "src/mca/bfrops/base/base.h"
 #include "src/mca/gds/base/base.h"
+#include "src/mca/pnet/base/base.h"
 #include "src/mca/ptl/base/base.h"
 #include "src/mca/psec/psec.h"
 #include "src/include/pmix_globals.h"
+#include "src/common/pmix_attributes.h"
 #include "src/common/pmix_iof.h"
 #include "src/server/pmix_server_ops.h"
 
@@ -619,6 +617,13 @@ PMIX_EXPORT int PMIx_tool_init(pmix_proc_t *proc,
         rcv->cbfunc = pmix_server_message_handler;
         /* add it to the end of the list of recvs */
         pmix_list_append(&pmix_ptl_globals.posted_recvs, &rcv->super);
+        /* open the pnet framework so we can harvest envars */
+        rc = pmix_mca_base_framework_open(&pmix_pnet_base_framework, 0);
+        if (PMIX_SUCCESS != rc){
+            PMIX_RELEASE_THREAD(&pmix_global_lock);
+            return rc;
+        }
+        /* note that we do not select active plugins as we don't need them */
     }
 
     /* setup IOF */
@@ -985,7 +990,11 @@ PMIX_EXPORT int PMIx_tool_init(pmix_proc_t *proc,
          * and load it from there */
 
         /* hostname */
-        gethostname(hostname, PMIX_MAX_NSLEN);
+        if (NULL != pmix_globals.hostname) {
+            pmix_strncpy(hostname, pmix_globals.hostname, PMIX_MAX_NSLEN);
+        } else {
+            gethostname(hostname, PMIX_MAX_NSLEN);
+        }
         kptr = PMIX_NEW(pmix_kval_t);
         kptr->key = strdup(PMIX_HOSTNAME);
         PMIX_VALUE_CREATE(kptr->value, 1);
@@ -1050,6 +1059,8 @@ PMIX_EXPORT int PMIx_tool_init(pmix_proc_t *proc,
         }
     }
 
+    /* register the tool supported attrs */
+    rc = pmix_register_tool_attrs();
     return rc;
 }
 
@@ -1098,7 +1109,6 @@ PMIX_EXPORT pmix_status_t PMIx_tool_finalize(void)
     struct timeval tv = {5, 0};
     int n;
     pmix_peer_t *peer;
-    pmix_setup_caddy_t *cd;
 
     PMIX_ACQUIRE_THREAD(&pmix_global_lock);
     if (1 != pmix_globals.init_cntr) {
@@ -1183,20 +1193,13 @@ PMIX_EXPORT pmix_status_t PMIx_tool_finalize(void)
     if (PMIX_PROC_IS_LAUNCHER(pmix_globals.mypeer)) {
         pmix_ptl_base_stop_listening();
 
-        /* cleanout any IOF */
-        for (n=0; n < PMIX_IOF_HOTEL_SIZE; n++) {
-            pmix_hotel_checkout_and_return_occupant(&pmix_server_globals.iof, n, (void**)&cd);
-            if (NULL != cd) {
-                PMIX_RELEASE(cd);
-            }
-        }
-        PMIX_DESTRUCT(&pmix_server_globals.iof);
         for (n=0; n < pmix_server_globals.clients.size; n++) {
             if (NULL != (peer = (pmix_peer_t*)pmix_pointer_array_get_item(&pmix_server_globals.clients, n))) {
                 PMIX_RELEASE(peer);
             }
         }
 
+        (void)pmix_mca_base_framework_close(&pmix_pnet_base_framework);
         PMIX_DESTRUCT(&pmix_server_globals.clients);
         PMIX_LIST_DESTRUCT(&pmix_server_globals.collectives);
         PMIX_LIST_DESTRUCT(&pmix_server_globals.remote_pnd);
@@ -1204,6 +1207,7 @@ PMIX_EXPORT pmix_status_t PMIx_tool_finalize(void)
         PMIX_LIST_DESTRUCT(&pmix_server_globals.gdata);
         PMIX_LIST_DESTRUCT(&pmix_server_globals.events);
         PMIX_LIST_DESTRUCT(&pmix_server_globals.nspaces);
+        PMIX_LIST_DESTRUCT(&pmix_server_globals.iof);
     }
 
     /* shutdown services */
