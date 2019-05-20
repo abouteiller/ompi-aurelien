@@ -1024,6 +1024,7 @@ void *mca_btl_openib_endpoint_invoke_error(void *context)
 {
     mca_btl_openib_endpoint_t *endpoint = (mca_btl_openib_endpoint_t*) context;
     mca_btl_openib_module_t *btl = NULL;
+    opal_proc_t *remote_proc = NULL;
 
     if (NULL == endpoint) {
         int i;
@@ -1037,6 +1038,7 @@ void *mca_btl_openib_endpoint_invoke_error(void *context)
     } else {
         btl = endpoint->endpoint_btl;
         endpoint->endpoint_state = MCA_BTL_IB_FAILED;
+        remote_proc = endpoint->endpoint_proc->proc_opal;
     }
 
     /* If we didn't find a BTL, then just bail :-( */
@@ -1049,7 +1051,7 @@ void *mca_btl_openib_endpoint_invoke_error(void *context)
     }
 
     /* Invoke the callback to the upper layer */
-    btl->error_cb(&(btl->super), MCA_BTL_ERROR_FLAGS_FATAL, NULL, NULL);
+    btl->error_cb(&(btl->super), MCA_BTL_ERROR_FLAGS_FATAL, remote_proc, NULL);
 
     /* Will likely never get here */
     return NULL;
