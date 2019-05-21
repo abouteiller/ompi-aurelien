@@ -240,7 +240,7 @@ static inline int start_atomicity(ompi_osc_ucx_module_t *module, int target) {
     uint64_t remote_addr = (module->state_addrs)[target] + OSC_UCX_STATE_ACC_LOCK_OFFSET;
     int ret = OMPI_SUCCESS;
 
-    while (result_value != TARGET_LOCK_UNLOCKED) {
+    for (;;) {
         ret = opal_common_ucx_wpmem_cmpswp(module->state_mem,
                                          TARGET_LOCK_UNLOCKED, TARGET_LOCK_EXCLUSIVE,
                                          target, &result_value, sizeof(result_value),
@@ -249,9 +249,12 @@ static inline int start_atomicity(ompi_osc_ucx_module_t *module, int target) {
             OSC_UCX_VERBOSE(1, "opal_common_ucx_mem_cmpswp failed: %d", ret);
             return OMPI_ERROR;
         }
-    }
+        if (result_value == TARGET_LOCK_UNLOCKED) {
+            return OMPI_SUCCESS;
+        }
 
-    return ret;
+        ucp_worker_progress(mca_osc_ucx_component.wpool->dflt_worker);
+    }
 }
 
 static inline int end_atomicity(ompi_osc_ucx_module_t *module, int target) {
@@ -603,7 +606,7 @@ int ompi_osc_ucx_fetch_and_op(const void *origin_addr, void *result_addr,
     if (op == &ompi_mpi_op_no_op.op || op == &ompi_mpi_op_replace.op ||
         op == &ompi_mpi_op_sum.op) {
         uint64_t remote_addr = (module->addrs[target]) + target_disp * OSC_UCX_GET_DISP(module, target);
-        uint64_t value = *(uint64_t *)origin_addr;
+        uint64_t value = origin_addr ? *(uint64_t *)origin_addr : 0;
         ucp_atomic_fetch_op_t opcode;
         size_t dt_bytes;
 
@@ -631,7 +634,7 @@ int ompi_osc_ucx_fetch_and_op(const void *origin_addr, void *result_addr,
         }
 
         ret = opal_common_ucx_wpmem_fetch(module->mem, opcode, value, target,
-                                        (void *)origin_addr, dt_bytes, remote_addr);
+                                        (void *)result_addr, dt_bytes, remote_addr);
         if (ret != OMPI_SUCCESS) {
             return ret;
         }

@@ -18,10 +18,28 @@
 extern "C" {
 #endif
 
+enum {
+    SHMEM_HINT_NONE           = 0,
+    SHMEM_HINT_LOW_LAT_MEM    = 1 << 0,
+    SHMEM_HINT_HIGH_BW_MEM    = 1 << 1,
+    SHMEM_HINT_NEAR_NIC_MEM   = 1 << 2,
+    SHMEM_HINT_DEVICE_GPU_MEM = 1 << 3,
+    SHMEM_HINT_DEVICE_NIC_MEM = 1 << 4,
+
+    SHMEM_HINT_PSYNC          = 1 << 16,
+    SHMEM_HINT_PWORK          = 1 << 17,
+    SHMEM_HINT_ATOMICS        = 1 << 18
+};
+
 /*
  * All OpenSHMEM extension APIs that are not part of this specification must be defined in the shmemx.h include
  * file. These extensions shall use the shmemx_ prefix for all routine, variable, and constant names.
  */
+
+/*
+ * Symmetric heap routines
+ */
+OSHMEM_DECLSPEC  void* shmemx_malloc_with_hint(size_t size, long hint);
 
 /*
  * Elemental put routines
@@ -167,6 +185,21 @@ OSHMEM_DECLSPEC void shmemx_int64_sum_to_all(int64_t *target, const int64_t *sou
 OSHMEM_DECLSPEC void shmemx_int16_prod_to_all(int16_t *target, const int16_t *source, int nreduce, int PE_start, int logPE_stride, int PE_size, int16_t *pWrk, long *pSync);
 OSHMEM_DECLSPEC void shmemx_int32_prod_to_all(int32_t *target, const int32_t *source, int nreduce, int PE_start, int logPE_stride, int PE_size, int32_t *pWrk, long *pSync);
 OSHMEM_DECLSPEC void shmemx_int64_prod_to_all(int64_t *target, const int64_t *source, int nreduce, int PE_start, int logPE_stride, int PE_size, int64_t *pWrk, long *pSync);
+
+/* shmemx_alltoall_global_nb is a nonblocking collective routine, where each PE
+ * exchanges “size” bytes of data with all other PEs in the OpenSHMEM job.
+
+ *  @param dest        A symmetric data object that is large enough to receive
+ *                     “size” bytes of data from each PE in the OpenSHMEM job.
+ *  @param source      A symmetric data object that contains “size” bytes of data
+ *                     for each PE in the OpenSHMEM job.
+ *  @param size        The number of bytes to be sent to each PE in the job.
+ *  @param counter     A symmetric data object to be atomically incremented after
+ *                     the target buffer is updated.
+ *
+ *  @return            OSHMEM_SUCCESS or failure status.
+ */
+OSHMEM_DECLSPEC void shmemx_alltoall_global_nb(void *dest, const void *source, size_t size, long *counter);
 
 /*
  * Backward compatibility section
