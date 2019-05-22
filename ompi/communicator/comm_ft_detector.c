@@ -499,18 +499,19 @@ static void fd_event_cb(int fd, short flags, void* pdetector)
             return;
         }
         if( 0 <= flag ) {
-            /* it's alright, we have received stamps since last time we checked */
+            /* We have received stamps since last time we checked */
+            detector->hb_rdma_flag = -1;
+            if( flag != detector->hb_observing ) {
+                opal_output_verbose(1, ompi_ftmpi_output_handle,
+                                    "%s %s: evtimer triggered at stamp %g, this is a rdma heartbeat from %d, but I am now observing %d, ignoring the heartbeat",
+                                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
+                                    stamp-startdate, flag, detector->hb_observing);
+                return;
+            }
             OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                                  "%s %s: evtimer triggered at stamp %g, RDMA recv grace %.1e is OK from %d :)",
                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
                                  stamp-startdate, stamp - detector->hb_rstamp, flag));
-            if( flag != detector->hb_observing ) {
-                opal_output_verbose(1, ompi_ftmpi_output_handle,
-                                    "%s %s: evtimer triggered at stamp %g, this is a rdma heartbeat from %d, but I am now observing %d, acting as-if this was a valid heartbeat",
-                                    OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
-                                    stamp-startdate, flag, detector->hb_observing);
-            }
-            detector->hb_rdma_flag = -1;
             detector->hb_rstamp = stamp;
             return;
         }
