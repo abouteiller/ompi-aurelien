@@ -223,6 +223,12 @@ int ompi_comm_rbcast_send_msg(ompi_proc_t* proc, ompi_comm_rbcast_message_t* msg
     mca_btl_base_descriptor_t *des;
     int ret;
 
+    if(!ompi_proc_is_active(proc)) {
+        opal_output_verbose(5, ompi_ftmpi_output_handle,
+            "%s %s: %s is dead, dropping rbcast for comm %3d:%d",
+            OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&proc->super.proc_name), msg->cid, msg->epoch);
+        return OMPI_ERR_UNREACH;
+    }
     OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle,
         "%s %s: preparing a fragment to %s to rbcast %3d:%d",
         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&proc->super.proc_name), msg->cid, msg->epoch));
