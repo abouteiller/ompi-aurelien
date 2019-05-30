@@ -1547,6 +1547,10 @@ static int create_app(int argc, char* argv[],
         app->cwd = strdup(cwd);
     }
 
+    if (NULL != orte_cmd_options.errh) {
+        opal_setenv("OMPI_INITIAL_ERRHANDLER", orte_cmd_options.errh, true, &app->env);
+    }
+
     /* if this is the first app_context, check for prefix directions.
      * We only do this for the first app_context because the launchers
      * only look at the first one when setting the prefix - we do NOT

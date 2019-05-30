@@ -393,6 +393,18 @@ static opal_cmd_line_init_t cmd_line_init[] = {
       &orte_cmd_options.path, OPAL_CMD_LINE_TYPE_STRING,
       "PATH to be used to look for executables to start processes",
       OPAL_CMD_LINE_OTYPE_LAUNCH },
+    { NULL, '\0', "initial_errhandler", "initial_errhandler", 1,
+      &orte_cmd_options.errh, OPAL_CMD_LINE_TYPE_STRING,
+      "Set the initial MPI Errhandler",
+      OPAL_CMD_LINE_OTYPE_LAUNCH },
+    { NULL, '\0', "initial-errhandler", "initial-errhandler", 1,
+      &orte_cmd_options.errh, OPAL_CMD_LINE_TYPE_STRING,
+      "Synonym for --initial_errhandler", 1,
+      OPAL_CMD_LINE_OTYPE_LAUNCH },
+    { NULL, '\0', "errh", "errh", 1,
+      &orte_cmd_options.errh, OPAL_CMD_LINE_TYPE_STRING,
+      "Synonym for --initial_errhandler", 1,
+      OPAL_CMD_LINE_OTYPE_LAUNCH },
 
     /* User-level debugger arguments */
     { NULL, '\0', "tv", "tv", 0,

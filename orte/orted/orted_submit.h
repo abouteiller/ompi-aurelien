@@ -58,6 +58,7 @@ struct orte_cmd_options_t {
     char *appfile;
     char *wdir;
     bool set_cwd_to_session_dir;
+    char *errh;
     char *path;
     char *preload_files;
     bool sleep;

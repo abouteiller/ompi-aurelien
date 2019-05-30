@@ -657,6 +657,7 @@ int ompi_dpm_spawn(int count, const char *array_of_commands[],
        - "map_by": specify object by which the procs should be mapped
        - "rank_by": specify object by which the procs should be ranked
        - "bind_to": specify object to which the procs should be bound
+       - "initial_errhandler": specify the initial error handler for the spawned MPI job
        - "ompi_preload_binary": move binaries to nodes prior to execution
        - "ompi_preload_files": move specified files to nodes prior to execution
        - "ompi_non_mpi": spawned job will not call MPI_Init
@@ -766,6 +767,11 @@ int ompi_dpm_spawn(int count, const char *array_of_commands[],
             }
 
             /* 'path', 'arch', 'file', 'soft'  -- to be implemented */
+
+            ompi_info_get (array_of_info[i], "mpix_initial_errhandler", sizeof(params)-1, params, &flag);
+            if ( flag ) {
+                opal_setenv("OMPI_INITIAL_ERRHANDLER", params, true, &app->env);
+            }
 
             /* check for 'ompi_prefix' (OMPI-specific -- to effect the same
              * behavior as --prefix option to orterun)

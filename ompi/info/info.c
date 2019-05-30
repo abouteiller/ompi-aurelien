@@ -166,6 +166,10 @@ int ompi_mpiinfo_init(void)
         break;
     }
 
+    if (NULL != (cptr = getenv("OMPI_INITIAL_ERRHANDLER"))) {
+        opal_info_set(&ompi_mpi_info_env.info.super, "mpix_initial_errhandler", cptr);
+    }
+
     /**** now some OMPI-specific values that other MPIs may not provide ****/
 
     /* the number of app_contexts in this job */
