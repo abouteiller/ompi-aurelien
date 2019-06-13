@@ -187,6 +187,8 @@ int ompi_comm_failure_detector_start(void) {
     return ompi_comm_start_detector(&ompi_mpi_comm_world.comm);
 }
 
+#define FD_LOCAL_PROCS 1
+
 int ompi_comm_failure_detector_finalize(void) {
     int observing;
     comm_detector_t* detector = &comm_world_detector;
@@ -204,9 +206,11 @@ int ompi_comm_failure_detector_finalize(void) {
     while( MPI_PROC_NULL != (observing = detector->hb_observing) ) {
         ompi_proc_t* proc = ompi_comm_peer_lookup(detector->comm, observing);
         assert( NULL != proc );
+#if !FD_LOCAL_PROCS
         if( OPAL_PROC_ON_LOCAL_NODE(proc->super.proc_flags) ) {
             break;
         }
+#endif
         while( observing == detector->hb_observing ) {
             /* If observed process changed, recheck if local*/
             if( !(0 < fd_thread_active) )
@@ -336,12 +340,13 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
             opal_atomic_mb();
             return OMPI_SUCCESS;
         }
-
+#if !FD_LOCAL_PROCS
         /* do not heartbeat on sm domain, PMIx will detect for us */
         if( OPAL_PROC_ON_LOCAL_NODE(proc->super.proc_flags) ) {
             detector->hb_observing = rank;
             return OMPI_SUCCESS;
         }
+#endif
 
         OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                              "%s %s: Sending observe request to %d on communicator %3d:%d stamp %g",
@@ -519,7 +524,7 @@ static void fd_event_cb(int fd, short flags, void* pdetector)
 
     if( (stamp - detector->hb_rstamp) > detector->hb_timeout ) {
         ompi_proc_t* proc = ompi_comm_peer_lookup(detector->comm, detector->hb_observing);
-
+#if !FD_LOCAL_PROCS
         /* Special case for procs on local node: we do not send or monitor
          * heartbeats in that case. Check if this proc has been reported dead
          * from PMIx, if so, move on to patch the ring. Otherwise, change the
@@ -546,7 +551,7 @@ static void fd_event_cb(int fd, short flags, void* pdetector)
             detector->hb_rstamp = stamp;
             return;
         }
-
+#endif
         /* this process is now suspected dead. */
         opal_output_verbose(1, ompi_ftmpi_output_handle,
                             "%s %s: evtimer triggered at stamp %g, recv grace MISSED by %.1e, proc %d now suspected dead.",
@@ -641,8 +646,10 @@ static int fd_heartbeat_send(comm_detector_t* detector) {
     ompi_communicator_t* comm = detector->comm;
     if( comm != &ompi_mpi_comm_world.comm ) return OMPI_ERR_NOT_IMPLEMENTED;
 
+#if !FD_LOCAL_PROCS
     /* Do not heartbeat to local procs, PMIx will detect for us */
     if( OPAL_PROC_ON_LOCAL_NODE(ompi_comm_peer_lookup(comm, detector->hb_observer)->super.proc_flags) ) return OMPI_SUCCESS;
+#endif
 
     double now = PMPI_Wtime();
     if( 0. != detector->hb_sstamp
