@@ -54,7 +54,7 @@ void ompix_comm_is_revoked_f(MPI_Fint *comm, ompi_fortran_logical_t *flag, MPI_F
 {
     MPI_Comm c_comm = PMPI_Comm_f2c(*comm);
 
-    OMPI_LOGICAL_NAME_DECL(flag)
+    OMPI_LOGICAL_NAME_DECL(flag);
 
     *ierr = OMPI_INT_2_FINT(PMPIX_Comm_is_revoked(c_comm,
                                                   OMPI_LOGICAL_SINGLE_NAME_CONVERT(flag)));

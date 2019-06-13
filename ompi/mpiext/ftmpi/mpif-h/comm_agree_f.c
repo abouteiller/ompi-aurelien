@@ -51,7 +51,7 @@ OMPI_GENERATE_F77_BINDINGS(MPIX_COMM_AGREE,
 void ompix_comm_agree_f(MPI_Fint *comm, ompi_fortran_logical_t *flag, MPI_Fint *ierr)
 {
     MPI_Comm c_comm = PMPI_Comm_f2c(*comm);
-    OMPI_LOGICAL_NAME_DECL(flag)
+    OMPI_LOGICAL_NAME_DECL(flag);
 
     *ierr = OMPI_INT_2_FINT(PMPIX_Comm_agree(c_comm,
                                              OMPI_LOGICAL_SINGLE_NAME_CONVERT(flag)));

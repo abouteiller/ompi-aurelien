@@ -52,7 +52,7 @@ void ompix_comm_iagree_f(MPI_Fint *comm, ompi_fortran_logical_t *flag, MPI_Fint 
 {
     MPI_Comm c_comm = PMPI_Comm_f2c(*comm);
     MPI_Request c_req;
-    OMPI_LOGICAL_NAME_DECL(flag)
+    OMPI_LOGICAL_NAME_DECL(flag);
 
     *ierr = OMPI_INT_2_FINT(PMPIX_Comm_iagree(c_comm,
                                               OMPI_LOGICAL_SINGLE_NAME_CONVERT(flag),
