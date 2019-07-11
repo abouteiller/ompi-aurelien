@@ -348,7 +348,7 @@ int mca_pml_ob1_revoke_comm( struct ompi_communicator_t* ompi_comm, bool coll_on
     if( OMPI_COMM_IS_INTER(ompi_comm) ) {
         mca_pml_ob1_revoke_comm(ompi_comm->c_local_comm, coll_only);
     }
-    
+
     OBJ_CONSTRUCT(&nack_list, opal_list_t);
 
     OPAL_THREAD_LOCK(&comm->matching_lock);
@@ -698,6 +698,10 @@ void mca_pml_ob1_recv_frag_callback_ack(mca_btl_base_module_t* btl,
     /* if the req_recv is NULL, the comm has been revoked at the receiver */
     if( OPAL_UNLIKELY(NULL == sendreq->req_recv.pval) ) {
         OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle, "Recvfrag: Received a NACK to the RDV/RGET match to %d on comm %d\n", sendreq->req_send.req_base.req_peer, sendreq->req_send.req_base.req_comm->c_contextid));
+        if (NULL != sendreq->rdma_frag) {
+            MCA_PML_OB1_RDMA_FRAG_RETURN(sendreq->rdma_frag);
+            sendreq->rdma_frag = NULL;
+        }
         send_request_pml_complete( sendreq );
         return;
     }
