@@ -472,6 +472,12 @@ orte_session_dir_finalize(orte_process_name_t *proc)
         return ORTE_ERR_NOT_INITIALIZED;
     }
 
+
+    if(ORTE_PROC_MY_NAME != proc){
+        /* only remove proc_session_dir only it is our own */
+        return ORTE_SUCCESS;
+    }
+
     opal_os_dirpath_destroy(orte_process_info.proc_session_dir,
                             false, orte_dir_check_file);
 

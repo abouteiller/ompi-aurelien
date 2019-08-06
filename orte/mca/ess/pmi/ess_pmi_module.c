@@ -501,7 +501,7 @@ static int rte_init(void)
                     goto error;
                 }
             } else {
-                if (OPAL_SUCCESS != (ret = opal_pmix.register_cleanup(orte_process_info.job_session_dir, true, false, false))) {
+                if (OPAL_SUCCESS != (ret = opal_pmix.register_cleanup(orte_process_info.proc_session_dir, true, false, false))) {
                     ORTE_ERROR_LOG(ret);
                     error = "register cleanup";
                     goto error;
