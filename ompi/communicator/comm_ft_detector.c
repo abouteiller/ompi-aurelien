@@ -292,7 +292,7 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
     OPAL_OUTPUT_VERBOSE((20, ompi_ftmpi_output_handle,
                          "%s %s: Installing an event every %g for a detector with period %g",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
-                         detector->hb_period, detector->hb_period / 10.));
+                         detector->hb_period / 10., detector->hb_period));
     opal_event_add(detector->fd_event, &tv);
     if( 10e-6 > detector->hb_period ) {
         /* do not overpoll the event progress loop except if
@@ -469,10 +469,10 @@ static void fd_event_cb(int fd, short flags, void* pdetector)
     OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
                          "%s %s: evtime triggered at stamp %g; observing %d (recv grace %g); observer %d (send grace %g)",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, stamp-startdate,
-                         detector->hb_observing, stamp-detector->hb_rstamp,
-                         detector->hb_observer, stamp-detector->hb_sstamp));
+                         detector->hb_observing, stamp-detector->hb_rstamp-detector->hb_timeout,
+                         detector->hb_observer, stamp-detector->hb_sstamp-detector->hb_period));
 
-    if( (stamp - detector->hb_sstamp) >= detector->hb_period ) {
+    if( (stamp - detector->hb_sstamp) > (detector->hb_period*.9) ) {
         fd_heartbeat_send(detector);
     }
 
@@ -522,8 +522,8 @@ static void fd_event_cb(int fd, short flags, void* pdetector)
         }
     }
 
-    if( (stamp - detector->hb_rstamp) > detector->hb_timeout ) {
-        ompi_proc_t* proc = ompi_comm_peer_lookup(detector->comm, detector->hb_observing);
+    ompi_proc_t* proc = ompi_comm_peer_lookup(detector->comm, detector->hb_observing);
+    if( !ompi_proc_is_active(proc) || (stamp - detector->hb_rstamp) > detector->hb_timeout ) {
 #if !FD_LOCAL_PROCS
         /* Special case for procs on local node: we do not send or monitor
          * heartbeats in that case. Check if this proc has been reported dead
