@@ -6,8 +6,8 @@
 # The following frameworks/components are NOT WORKING. Do not enable these with FT.
 #   mtl, pml-cm, pml-crcpw, pml-yalla, pml-ucx
 
-event=internal
-pmix=internal
+with_libevent=internal
+with_pmix=internal
 
 enable_mca_no_build_ft=\
 mtl,pml-cm,pml-crcpw,pml-yalla,pml-ucx,\
