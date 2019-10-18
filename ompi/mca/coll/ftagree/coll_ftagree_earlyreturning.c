@@ -1351,7 +1351,9 @@ static int era_tree_rank_from_comm_rank(era_agreement_info_t *ci, int r_in_comm)
 
     /** This search is at worst O(nb_dead) */
     while( ci->ags->tree[r_in_tree].rank_in_comm != r_in_comm ) {
+#if OPAL_ENABLE_DEBUG
         assert( ci->ags->tree[r_in_tree].rank_in_comm == -1 || ci->ags->tree[r_in_tree].rank_in_comm > r_in_comm );
+#endif
         assert( r_in_tree > 0 );
         r_in_tree--;
     }
@@ -2478,7 +2480,17 @@ static void msg_down(era_msg_header_t *msg_header, uint8_t *bytes, int *new_dead
          */
         return;
     }
-    /** if I receive a down message on an agreement I know about, I already participated. */
+    /** if I receive a down message on an agreement I know about, I already participated. 
+     * There is a non-erroneous code; erroneous execution that may also trigger this assert:
+     * consider the following case with false detection:
+     *   1. some ancestor A has detected the current process C as failed
+     *   2. C has not failed, obviously, since it is executing this assert (false detection)
+     *   3. Because C is considered failed, A (or its ancestors) decide without C
+     *   4. C's parent P has not detected C as failed (yet)
+     *   5. A DOWN message reaches P (possible because 3.)
+     *   6. P forwards the down message to its children; including C (because 4.)
+     *   7. C asserts; root cause is false detection, not an agreement bug.
+     */
     assert( NULL != ci->comm );
 
     av = OBJ_NEW(era_value_t);
