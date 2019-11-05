@@ -26,6 +26,7 @@ typedef struct {
     opal_event_t* fd_event; /* to trigger timeouts with opal_events */
     int hb_observing; /* the rank of the process we observe */
     int hb_observer; /* the rank of the process that observes us */
+    double hb_lastpeek; /* the date of the last event looking at rstamp */
     double hb_rstamp; /* the date of the last hb reception */
     double hb_timeout; /* the timeout before we start suspecting observed process as dead (delta) */
     double hb_period; /* the time spacing between heartbeat emission (eta) */
@@ -82,7 +83,7 @@ static int fd_heartbeat_send(comm_detector_t* detector);
 static int fd_heartbeat_recv_cb(ompi_communicator_t* comm, ompi_comm_heartbeat_message_t* msg);
 
 static bool comm_detector_enable = true;
-static int comm_detector_use_rdma_hb = true;
+static int comm_detector_use_rdma_hb = false;
 static double comm_heartbeat_period = 3e0;
 static double comm_heartbeat_timeout = 1e1;
 static opal_event_base_t* fd_event_base = NULL;
@@ -269,8 +270,12 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
     detector->hb_observer = (np+rank+1) % np;
     detector->hb_period = comm_heartbeat_period;
     detector->hb_timeout = comm_heartbeat_timeout;
+    if(comm_heartbeat_timeout <= comm_heartbeat_period) {
+        detector->hb_period = comm_heartbeat_timeout / 3.;
+    }
+    detector->hb_lastpeek = startdate;
     detector->hb_sstamp = 0.;
-    detector->hb_rstamp = PMPI_Wtime()+comm_heartbeat_timeout*(1.+log((double)np)); /* give some slack for MPI_Init */
+    detector->hb_rstamp = PMPI_Wtime()+comm_heartbeat_timeout+1.+log((double)np); /* give some slack for MPI_Init */
 
     detector->hb_rdma_bml_btl_observer = NULL;
     detector->hb_rdma_bml_btl_observing = NULL;
@@ -303,8 +308,11 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
     if( comm_detector_use_rdma_hb ) {
         fd_heartbeat_request(detector);
     }
+    else {
+        fd_heartbeat_send(detector);
+    }
 
-   return OMPI_SUCCESS;
+    return OMPI_SUCCESS;
 }
 
 static int fd_heartbeat_request(comm_detector_t* detector) {
@@ -463,14 +471,17 @@ static int fd_heartbeat_request_cb(ompi_communicator_t* comm, ompi_comm_heartbea
 
 static void fd_event_cb(int fd, short flags, void* pdetector)
 {
-    double stamp = PMPI_Wtime();
     comm_detector_t* detector = pdetector;;
+    double stamp = PMPI_Wtime();
+    double lastpeek = detector->hb_lastpeek;
+    detector->hb_lastpeek = stamp;
 
     OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
-                         "%s %s: evtime triggered at stamp %g; observing %d (recv grace %g); observer %d (send grace %g)",
+                         "%s %s: evtime triggered at stamp %g; observing %d (recv grace %g); observer %d (send grace %g); drift %g",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, stamp-startdate,
                          detector->hb_observing, stamp-detector->hb_rstamp-detector->hb_timeout,
-                         detector->hb_observer, stamp-detector->hb_sstamp-detector->hb_period));
+                         detector->hb_observer, stamp-detector->hb_sstamp-detector->hb_period, 
+                         stamp-lastpeek-detector->hb_period*10.));
 
     if( (stamp - detector->hb_sstamp) > (detector->hb_period*.9) ) {
         fd_heartbeat_send(detector);
@@ -480,7 +491,6 @@ static void fd_event_cb(int fd, short flags, void* pdetector)
 
     if( comm_detector_use_rdma_hb ) {
         int flag = detector->hb_rdma_flag;
-        int np = ompi_comm_size(detector->comm);
         int rank = ompi_comm_rank(detector->comm);
 
         OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
@@ -489,6 +499,7 @@ static void fd_event_cb(int fd, short flags, void* pdetector)
 #if 0
         if( -1 > flag ) {
             /* still initializing after MPI_INIT, give extra slack */
+            int np = ompi_comm_size(detector->comm);
             if( (stamp - detector->hb_rstamp) < (detector->hb_timeout + (double)np) )
                 return;
         }
@@ -523,7 +534,8 @@ static void fd_event_cb(int fd, short flags, void* pdetector)
     }
 
     ompi_proc_t* proc = ompi_comm_peer_lookup(detector->comm, detector->hb_observing);
-    if( !ompi_proc_is_active(proc) || (stamp - detector->hb_rstamp) > detector->hb_timeout ) {
+    if( !ompi_proc_is_active(proc) /* found dead inline (btl) or externally (pmix) */
+     || stamp > (detector->hb_rstamp + detector->hb_timeout) /* normal timeout */ ) {
 #if !FD_LOCAL_PROCS
         /* Special case for procs on local node: we do not send or monitor
          * heartbeats in that case. Check if this proc has been reported dead
@@ -552,6 +564,17 @@ static void fd_event_cb(int fd, short flags, void* pdetector)
             return;
         }
 #endif
+        if( ompi_proc_is_active(proc) /* not an external notice */
+         && (stamp - lastpeek) >= detector->hb_period /* and we had event jitter */
+         && lastpeek <= (detector->hb_rstamp + detector->hb_timeout) /* and granting the jitter as slack, we are still fine */ ) {
+            OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
+                                 "%s %s: evtimer triggered at stamp %g, recv grace IGNORED by %.1e because of drift %.1e, proc %d is still seen as active (I am observed by %d w/ period %g).",
+                                 OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
+                                 stamp-startdate,
+                                 detector->hb_timeout - (stamp - detector->hb_rstamp), stamp - lastpeek, detector->hb_observing, detector->hb_observer, detector->hb_period));
+            return;
+        }
+
         /* this process is now suspected dead. */
         opal_output_verbose(1, ompi_ftmpi_output_handle,
                             "%s %s: evtimer triggered at stamp %g, recv grace MISSED by %.1e, proc %d now suspected dead.",
@@ -705,7 +728,7 @@ static int fd_heartbeat_recv_cb(ompi_communicator_t* comm, ompi_comm_heartbeat_m
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, msg->from, comm->c_contextid, comm->c_epoch, stamp-startdate, grace, detector->hb_timeout ));
         detector->hb_rstamp = stamp;
         if( grace < 0.0 ) {
-            opal_output(ompi_ftmpi_output_handle,
+            opal_output_verbose(1, ompi_ftmpi_output_handle,
                         "%s %s: MISSED ( %.1e )",
                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, grace );
             // complain? This is indicative of wrong assumptions on the
