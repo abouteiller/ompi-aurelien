@@ -2,7 +2,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -389,6 +389,8 @@ mca_btl_tcp_endpoint_send_blocking(mca_btl_base_endpoint_t* btl_endpoint,
 {
     int ret = mca_btl_tcp_send_blocking(btl_endpoint->endpoint_sd, data, size);
     if (ret < 0) {
+        /* send-lock not needed because never called when the socket is in the
+         * event set. */
         btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
         mca_btl_tcp_endpoint_close(btl_endpoint);
     }
@@ -1067,6 +1069,7 @@ static void mca_btl_tcp_endpoint_send_handler(int sd, short flags, void* user)
             mca_btl_tcp_frag_t* frag = btl_endpoint->endpoint_send_frag;
             int btl_ownership = (frag->base.des_flags & MCA_BTL_DES_FLAGS_BTL_OWNERSHIP);
 
+            assert(btl_endpoint->endpoint_state == MCA_BTL_TCP_CONNECTED);
             if(mca_btl_tcp_frag_send(frag, btl_endpoint->endpoint_sd) == false) {
                 break;
             }
