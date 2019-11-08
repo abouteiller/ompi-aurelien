@@ -70,7 +70,7 @@ int ompi_comm_failure_propagate(ompi_communicator_t* comm, ompi_proc_t* proc, in
 
     if( -1 == comm_failure_propagator_cb_type ) return OMPI_SUCCESS;
 
-    OPAL_OUTPUT_VERBOSE((1, ompi_ftmpi_output_handle,
+    OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
                          "%s %s: Initiate a propagation for failure of %s (state %d) on communicator %3d:%d",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, OMPI_NAME_PRINT(&proc->super.proc_name), state, comm->c_contextid, comm->c_epoch ));
 
