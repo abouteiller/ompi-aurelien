@@ -1310,6 +1310,27 @@ void mca_pml_ob1_recv_req_start(mca_pml_ob1_recv_request_t *req)
     /* assign sequence number */
     req->req_recv.req_base.req_sequence = ob1_comm->recv_sequence++;
 
+#if OPAL_ENABLE_FT_MPI
+    /* if the communicator is not in a good state (revoked or coll_revoked), do not
+     * add new requests to the matching queue, and instead mark completed in error
+     * The non-matched fragments will be/have been cleaned by revoke_comm in recvfrag. */
+    if(OPAL_UNLIKELY( ompi_ftmpi_enabled )) {
+        ompi_communicator_t* comm_ptr = req->req_recv.req_base.req_comm;
+        if( ((ompi_comm_is_revoked(comm_ptr) && !ompi_request_tag_is_ft(req->req_recv.req_base.req_tag) )
+         || (ompi_comm_coll_revoked(comm_ptr) && ompi_request_tag_is_collective(req->req_recv.req_base.req_tag)))) {
+            OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle, "Recvreq: Posting a new recv req peer %d, tag %d on a revoked/coll_revoked communicator %d, discarding it.\n",
+                req->req_recv.req_base.req_peer, req->req_recv.req_base.req_tag, comm_ptr->c_contextid));
+            req->req_recv.req_base.req_ompi.req_status.MPI_ERROR = MPI_ERR_REVOKED;
+            recv_request_pml_complete( req );
+            PERUSE_TRACE_COMM_EVENT(PERSUSE_COMM_SEARCH_UNEX_Q_END,
+                                    &(req->req_recv.req_base), PERUSE_RECV);
+            OB1_MATCHING_UNLOCK(&ob1_comm->matching_lock);
+            return;
+        }
+    }
+#endif /*OPAL_ENABLE_FT_MPI*/
+
+
     /* attempt to match posted recv */
     if(req->req_recv.req_base.req_peer == OMPI_ANY_SOURCE) {
 #if MCA_PML_OB1_CUSTOM_MATCH
