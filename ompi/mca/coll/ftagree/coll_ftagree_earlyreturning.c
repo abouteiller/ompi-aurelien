@@ -386,6 +386,11 @@ static char *era_status_to_string(era_proc_status_t s) {
             return "BROADCASTING | OP_NOT_DEFINED";
         else
             return "BROADCASTING";
+    case COMPLETED:
+        if( s & OP_NOT_DEFINED )
+            return "COMPLETED | OP_NOT_DEFINED";
+        else
+            return "COMPLETED";
     }
     return "UNDEFINED STATUS";
 }
@@ -1613,7 +1618,6 @@ static void era_decide(era_value_t *decided_value, era_agreement_info_t *ci)
                          ci->agreement_id.ERAID_FIELDS.epoch,
                          ci->agreement_id.ERAID_FIELDS.agreementid));
 
-    ci->status = COMPLETED;
     opal_hash_table_set_value_uint64(&era_passed_agreements,
                                      ci->agreement_id.ERAID_KEY,
                                      decided_value);
@@ -1723,7 +1727,16 @@ static void era_decide(era_value_t *decided_value, era_agreement_info_t *ci)
 
     era_collect_passed_agreements(ci->agreement_id, decided_value->header.min_aid, decided_value->header.max_aid);
 
+    opal_atomic_wmb();
+    ci->status = COMPLETED;
     if( ci->req ) {
+        OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle,
+                         "%s ftagree:agreement (ERA) calling complete for Agreement ID = (%d.%d).%d, current status = %s\n",
+                         OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
+                         ci->agreement_id.ERAID_FIELDS.contextid,
+                         ci->agreement_id.ERAID_FIELDS.epoch,
+                         ci->agreement_id.ERAID_FIELDS.agreementid,
+                         era_status_to_string(ci->status)));
         ompi_request_complete(&ci->req->super, true);
     }
 }
@@ -3048,18 +3061,16 @@ int mca_coll_ftagree_era_intra(void *contrib,
                                          ompi_communicator_t* comm,
                                          mca_coll_base_module_t *module)
 {
-    era_identifier_t agreement_id;
-    era_agreement_info_t *ci;
+    int rc;
+    ompi_request_t* req;
 
-    mca_coll_ftagree_era_prepare_agreement(comm, *group, op, dt, dt_count, contrib, module,
-                                                     &agreement_id, &ci);
-
-    /* Wait for the agreement to be resolved */
-    while(ci->status != COMPLETED) {
-        opal_progress();
-    }
-
-    return mca_coll_ftagree_era_complete_agreement(agreement_id, contrib, grp_update? group: NULL);
+    rc = mca_coll_ftagree_iera_intra(contrib, dt_count, dt, op, group, grp_update, comm, &req, module);
+    if(OPAL_UNLIKELY( OMPI_SUCCESS != rc ))
+        return rc;
+    ompi_request_wait_completion(req);
+    rc = req->req_status.MPI_ERROR;
+    ompi_request_free(&req);
+    return rc;
 }
 
 /*
@@ -3195,7 +3206,7 @@ int mca_coll_ftagree_iera_intra(void *contrib,
     if( ci->status == COMPLETED ) {
         /**< must call this now, since it won't have been called in prepare
          *   as the request was not saved in ci at this time */
-        ompi_request_complete(&req->super, true);
+        ompi_request_complete(&req->super, false);
     }
 
     *request = &req->super;
