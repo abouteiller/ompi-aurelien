@@ -294,10 +294,11 @@ int ompi_comm_start_detector(ompi_communicator_t* comm) {
      * would cause drifts in emissions). */
     tv.tv_sec = (int)(detector->hb_period / 10.);
     tv.tv_usec = (-tv.tv_sec + (detector->hb_period / 10.)) * 1e6;
-    OPAL_OUTPUT_VERBOSE((20, ompi_ftmpi_output_handle,
-                         "%s %s: Installing an event every %g for a detector with period %g",
+    OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle,
+                         "%s %s: Installing an event every %g for a detector with period %g %s",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__,
-                         detector->hb_period / 10., detector->hb_period));
+                         detector->hb_period / 10., detector->hb_period,
+                         comm_detector_use_thread?"(in a thread)":""));
     opal_event_add(detector->fd_event, &tv);
     if( 10e-6 > detector->hb_period ) {
         /* do not overpoll the event progress loop except if
