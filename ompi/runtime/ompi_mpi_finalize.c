@@ -150,6 +150,43 @@ int ompi_mpi_finalize(void)
         ompi_mpi_comm_self.comm.c_keyhash = NULL;
     }
 
+#if OPAL_ENABLE_FT_MPI
+    if( ompi_ftmpi_enabled ) {
+        ompi_communicator_t* comm = &ompi_mpi_comm_world.comm;
+        OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle, "FT: Rank %d entering finalize", ompi_comm_rank(comm)));
+#if 1
+        /* grpcomm barrier does not tolerate /new/ failures. Let's make sure
+         * we drain all preexisting failures before we proceed;
+         * TODO: when we have better failure support in the runtime, we can
+         * remove that agreement */
+        ompi_communicator_t* ncomm;
+        ret = ompi_comm_shrink_internal(comm, &ncomm);
+        if( MPI_SUCCESS != ret ) {
+            OMPI_ERROR_LOG(ret);
+            goto done;
+        }
+        /* do a barrier with closest neighbors in the ring, using doublering as
+         * it is synchronous and will help flush all past communications */
+        ret = ompi_coll_base_barrier_intra_doublering(ncomm, ncomm->c_coll->coll_barrier_module);
+        if( MPI_SUCCESS != ret ) {
+            OMPI_ERROR_LOG(ret);
+            goto done;
+        }
+        OBJ_RELEASE(ncomm);
+#endif
+        /* finalize the fault tolerant infrastructure (revoke,
+         * failure propagator, etc). From now-on we do not tolerate failures. */
+        OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle, "FT: Rank %05d turning off the failure detector", ompi_comm_rank(comm)));
+        ompi_comm_failure_detector_finalize();
+        ompi_comm_failure_propagator_finalize();
+        ompi_comm_revoke_finalize();
+        ompi_comm_rbcast_finalize();
+        opal_output_verbose(40, ompi_ftmpi_output_handle, "Rank %05d: DONE WITH FINALIZE", ompi_comm_rank(comm));
+        ompi_ftmpi_enabled = false;
+        //ompi_async_mpi_finalize = true; //TODO: when pmix fence_nb can tolerate failures, reenable it to flush UDP transports */
+    }
+#endif /* OPAL_ENABLE_FT_MPI */
+
     /* Mark that we are past COMM_SELF destruction so that
        MPI_FINALIZED can return an accurate value (per MPI-3.1,
        FINALIZED needs to return FALSE to MPI_FINALIZED until after
@@ -247,42 +284,6 @@ int ompi_mpi_finalize(void)
        del_procs behavior around May of 2014 (see
        https://svn.open-mpi.org/trac/ompi/ticket/4669#comment:4 for
        more details). */
-#if OPAL_ENABLE_FT_MPI
-    if( ompi_ftmpi_enabled ) {
-        ompi_communicator_t* comm = &ompi_mpi_comm_world.comm;
-        OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle, "FT: Rank %d entering finalize", ompi_comm_rank(comm)));
-#if 1
-        /* grpcomm barrier does not tolerate /new/ failures. Let's make sure
-         * we drain all preexisting failures before we proceed;
-         * TODO: when we have better failure support in the runtime, we can
-         * remove that agreement */
-        ompi_communicator_t* ncomm;
-        ret = ompi_comm_shrink_internal(comm, &ncomm);
-        if( MPI_SUCCESS != ret ) {
-            OMPI_ERROR_LOG(ret);
-            goto done;
-        }
-        /* do a barrier with closest neighbors in the ring, using doublering as
-         * it is synchronous and will help flush all past communications */
-        ret = ompi_coll_base_barrier_intra_doublering(ncomm, ncomm->c_coll->coll_barrier_module);
-        if( MPI_SUCCESS != ret ) {
-            OMPI_ERROR_LOG(ret);
-            goto done;
-        }
-        OBJ_RELEASE(ncomm);
-#endif
-        /* finalize the fault tolerant infrastructure (revoke,
-         * failure propagator, etc). From now-on we do not tolerate failures. */
-        OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle, "FT: Rank %05d turning off the failure detector", ompi_comm_rank(comm)));
-        ompi_comm_failure_detector_finalize();
-        ompi_comm_failure_propagator_finalize();
-        ompi_comm_revoke_finalize();
-        ompi_comm_rbcast_finalize();
-        opal_output_verbose(40, ompi_ftmpi_output_handle, "Rank %05d: DONE WITH FINALIZE", ompi_comm_rank(comm));
-        ompi_ftmpi_enabled = false;
-        //ompi_async_mpi_finalize = true; //TODO: when pmix fence_nb can tolerate failures, reenable it to flush UDP transports */
-    }
-#endif /* OPAL_ENABLE_FT_MPI */
     if (!ompi_async_mpi_finalize) {
         if (NULL != opal_pmix.fence_nb) {
             active = true;
