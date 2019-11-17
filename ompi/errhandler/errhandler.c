@@ -249,8 +249,6 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
     ompi_group_t *group = NULL;
     bool remote = false;
 
-    assert( OPAL_EQUAL != ompi_rte_compare_name_fields(OMPI_RTE_CMP_ALL, OMPI_PROC_MY_NAME, &ompi_proc->super.proc_name) );
-
     /* mutual exclusion (we are going to manipulate global group objects etc). This function
      * may be invoked from the RTE thread. */
     opal_mutex_lock(&errhandler_ftmpi_lock);

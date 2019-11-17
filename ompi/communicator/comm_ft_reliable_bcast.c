@@ -272,6 +272,10 @@ static void ompi_rbcast_bml_send_complete_cb(
         opal_output_verbose(2, ompi_ftmpi_output_handle,
             "%s %s: status %d", OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, status);
     }
+    else {
+        OPAL_OUTPUT_VERBOSE((91, ompi_ftmpi_output_handle,
+            "%s %s: status %d", OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, status));
+    }
     return;
 }
 
