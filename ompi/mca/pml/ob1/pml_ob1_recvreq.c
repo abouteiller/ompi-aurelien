@@ -1320,7 +1320,7 @@ void mca_pml_ob1_recv_req_start(mca_pml_ob1_recv_request_t *req)
          || (ompi_comm_coll_revoked(comm_ptr) && ompi_request_tag_is_collective(req->req_recv.req_base.req_tag)))) {
             OPAL_OUTPUT_VERBOSE((2, ompi_ftmpi_output_handle, "Recvreq: Posting a new recv req peer %d, tag %d on a revoked/coll_revoked communicator %d, discarding it.\n",
                 req->req_recv.req_base.req_peer, req->req_recv.req_base.req_tag, comm_ptr->c_contextid));
-            req->req_recv.req_base.req_ompi.req_status.MPI_ERROR = MPI_ERR_REVOKED;
+            req->req_recv.req_base.req_ompi.req_status.MPI_ERROR = ompi_comm_is_revoked(comm_ptr)? MPI_ERR_REVOKED: MPI_ERR_PROC_FAILED;
             recv_request_pml_complete( req );
             PERUSE_TRACE_COMM_EVENT(PERSUSE_COMM_SEARCH_UNEX_Q_END,
                                     &(req->req_recv.req_base), PERUSE_RECV);
