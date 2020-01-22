@@ -155,10 +155,6 @@ recheck:
     }
 
     rc = SYNC_WAIT(&sync);
-    if(OPAL_UNLIKELY( OMPI_SUCCESS != rc )) {
-        rc = OMPI_SUCCESS;
-        goto recheck;
-    }
 
   after_sync_wait:
     /* recheck the complete status and clean up the sync primitives.
@@ -183,6 +179,15 @@ recheck:
         }
     }
 
+    /* Error path: SYNC_WAIT was interrupted by an error
+     * We do this after the cleanup loop to make sure nobody is updating the
+     * sync again while we are rearming it */
+    if(OPAL_UNLIKELY( OMPI_SUCCESS != rc )) {
+        rc = OMPI_SUCCESS;
+        WAIT_SYNC_RELEASE(&sync);
+        goto recheck;
+    }
+
     if( *index == (int)completed ) {
         /* Only one request has triggered. There was no in-flight
          * completions. Drop the signalled flag so we won't block
@@ -195,6 +200,7 @@ recheck:
 #if OPAL_ENABLE_FT_MPI
     /* Special case for MPI_ANY_SOURCE */
     if( request->req_any_source_pending ) {
+        WAIT_SYNC_RELEASE(&sync);
         return MPI_ERR_PROC_FAILED_PENDING;
     }
 #endif  /* OPAL_ENABLE_FT_MPI */
@@ -277,6 +283,9 @@ recheck:
 #endif /* OPAL_ENABLE_FT_MPI */
     }
     if( failed > 0 ) {
+        /* We are completing only one here, lets prevent blocking in the
+         * SYNC_RELEASE by marking the sync as SIGNALED */
+        WAIT_SYNC_SIGNALLED(&sync);
         goto finish;
     }
 
@@ -290,7 +299,25 @@ recheck:
         /* The sync triggered because of an error. The error may be for us, but
          * it may be for some other pending wait, so we have to recheck
          * our request status.
+         *
+         * We are going to rearm the sync, but first make sure it is not
+         * updated by any progress thread meanwhile by removing it from all
+         * requests it has been attached to.
          */
+        rptr = requests;
+        for (i = 0; i < count; i++) {
+            void *_tmp_ptr = &sync;
+
+            request = *rptr++;
+
+            if( request->req_state == OMPI_REQUEST_INACTIVE ) {
+                continue;
+            }
+
+            OPAL_ATOMIC_COMPARE_EXCHANGE_STRONG_PTR(&request->req_complete, &_tmp_ptr, REQUEST_PENDING);
+        }
+        /* The sync is now ready for rearming */
+        WAIT_SYNC_RELEASE(&sync);
         failed = completed = 0;
         goto recheck;
     }
@@ -514,11 +541,7 @@ int ompi_request_default_wait_some(size_t count,
     sync_sets = num_active_reqs - num_requests_done;
     if( 0 == num_requests_done ) {
         /* One completed request is enough to satisfy the some condition */
-        rc = SYNC_WAIT(&sync);
-        if(OPAL_UNLIKELY( OMPI_SUCCESS != rc )) {
-            rc = OMPI_SUCCESS;
-            goto recheck;
-        }
+        SYNC_WAIT(&sync);
     }
 
     /* Do the final counting and */
@@ -572,6 +595,14 @@ int ompi_request_default_wait_some(size_t count,
     }
 
     WAIT_SYNC_RELEASE(&sync);
+
+    /* error path: no requests are done because the sync got triggered
+     * We have nothing more to do here besides rearming the sync and trying
+     * again */
+    if(OPAL_UNLIKELY( 0 == num_requests_done )) {
+        assert(OMPI_SUCCESS != sync.status);
+        goto recheck;
+    }
 
     *outcount = num_requests_done;
 
