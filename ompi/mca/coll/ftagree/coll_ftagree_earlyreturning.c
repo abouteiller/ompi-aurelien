@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; -*- */
 /*
- * Copyright (c) 2014-2019 The University of Tennessee and The University
+ * Copyright (c) 2014-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -263,6 +263,18 @@ OBJ_CLASS_INSTANCE(era_comm_agreement_specific_t,
                    era_agreement_comm_specific_destructor);
 
 #define AGS(comm)  ( (era_comm_agreement_specific_t*)(comm)->agreement_specific )
+
+/* This mutex is used for both thread safety and to prevent recursive
+ * invocation of ERA callbacks; ERA callbacks are not reentrant. Hence,
+ * all accesses to the mutex shall be using the lower-case variants
+ * (always compiled-in) of the mutex ops.
+ *
+ * The mutex is not recursive, everytime a recursive take of the mutex is
+ * possible, it should be using a trylock and bounce the event if the mutex is
+ * taken. The only place where it is safe to block in mutex_lock is from the
+ * upper level (i.e., the interface with MPI_Comm_agree in prepare_agreement).
+ */
+static opal_mutex_t era_mutex;
 
 typedef struct era_iagree_request_s era_iagree_request_t;
 
@@ -1522,6 +1534,8 @@ static int era_next_child(era_agreement_info_t *ci, int prev_child_in_comm)
         }
     } else {
         r_in_tree = era_tree_rank_from_comm_rank(ci, prev_child_in_comm);
+        assert(r_in_tree != ci->ags->tree_size);
+        assert(ci->ags->tree[r_in_tree].rank_in_comm != -1);
         while(1) {
             /* We search / fix the tree for the next alive sibling of r */
             s_in_tree = ci->ags->tree[r_in_tree].next_sibling;
@@ -1870,12 +1884,41 @@ static void restart_agreement_from_me(era_agreement_info_t *ci)
     era_check_status(ci);
 }
 
+/* helper to bounce recursive errors back from to the main thread opal_progress */
+typedef struct era_error_event_s {
+    opal_event_t ev;
+    era_agreement_info_t* ci;
+    int rank;
+} era_error_event_t;
+
+static void era_mark_process_failed(era_agreement_info_t *ci, int rank);
+
+static void *era_error_event_cb(int fd, int flags, void *context) {
+    era_error_event_t *event = (era_error_event_t*) context;
+    int r = event->rank;
+    era_agreement_info_t* ci = event->ci;
+    free(event);
+    era_mark_process_failed(ci, r);
+    return NULL;
+}
+
 static void era_mark_process_failed(era_agreement_info_t *ci, int rank)
 {
     int r;
     era_rank_item_t *rl;
 
     assert( ci->comm == NULL || (ci->comm->c_local_group->grp_my_rank != rank) );
+
+    if(opal_mutex_trylock(&era_mutex)) {
+        /*  Don't do recursive notifications */
+        struct timeval now = {0, 0};
+        era_error_event_t* event = malloc(sizeof(*event));
+        event->ci = ci;
+        event->rank = rank;
+        opal_event_evtimer_set(opal_sync_event_base, &event->ev, era_error_event_cb, event);
+        opal_event_add(&event->ev, &now);
+        return;
+    }
 
     if( ci->status > NOT_CONTRIBUTED ) {
         /* I may not have sent up yet (or I'm going to re-send up because of failures),
@@ -2004,6 +2047,7 @@ static void era_mark_process_failed(era_agreement_info_t *ci, int rank)
 
         OBJ_RELEASE(ci);
     }
+    opal_mutex_unlock(&era_mutex);
 }
 
 static void fragment_sent(struct mca_btl_base_module_t* module,
@@ -2277,62 +2321,61 @@ static void result_request(era_msg_header_t *msg_header)
                                          &value) == OPAL_SUCCESS ) {
         old_agreement_value = (era_value_t*)value;
         send_msg(NULL, msg_header->src_comm_rank, &msg_header->src_proc_name, msg_header->agreement_id, MSG_DOWN, old_agreement_value, 0, NULL);
+        return;
+    }
+    /** I should be a descendent of msg_header->src (since RESULT_REQUEST messages are sent to
+     *  people below the caller.
+     *  So, the caller is the current root (or it is dead now and a new root was selected)
+     *  Two cases: */
+
+    ci = era_lookup_agreement_info(msg_header->agreement_id);
+    if( NULL != ci &&
+        ci->status == BROADCASTING ) {
+        /** if I am in this agreement, in the BROADCASTING state, then I need
+         *  to start working with my parent again, so that the info reaches the root, eventually.
+         *  There is in fact a good chance that this guy is my parent, but not in all cases,
+         *  so I send UP again to my parent, and we'll see what happens.
+         */
+        assert(ci->comm != NULL);
+        r = era_parent(ci);
+        if(r == ci->comm->c_my_rank) {
+            /** OK, weird case: a guy sent me that request, but died before I answered, and I receive it now... */
+            /** I will deal with that when I deal with the failure notification, and start again */
+            return;
+        }
+
+        ci->waiting_down_from = r;
+        send_msg(ci->comm, r, NULL, ci->agreement_id, MSG_UP, ci->current_value,
+                 ci->nb_acked, ci->acked);
     } else {
-        /** I should be a descendent of msg_header->src (since RESULT_REQUEST messages are sent to
-         *  people below the caller.
-         *  So, the caller is the current root (or it is dead now and a new root was selected)
-         *  Two cases: */
+        era_value_t success_value;
+        OBJ_CONSTRUCT(&success_value, era_value_t);
+        success_value.header.ret = MPI_SUCCESS;
+        success_value.header.dt_count = 0;
+        success_value.header.operand  = ompi_mpi_op_band.op.o_f_to_c_index;
+        success_value.header.datatype = ompi_mpi_int.dt.d_f_to_c_index;
+        success_value.header.nb_new_dead = 0;
+        success_value.bytes = NULL;
+        success_value.new_dead_array = NULL;
+        /** Could be an old agreement that I collected already.
+         *  If that is the case, the epoch requested should be <= the current epoch for
+         *  that contextid (modulo rotation on the epoch numbering), and then the
+         *  number of requested data must be 0, by convention on the last "flushing"
+         *  agreement that was posted during the free.
+         */
+        if( msg_header->agreement_value_header.dt_count == 0 ) {
+            /** Then, the answer is "success" */
+            send_msg(NULL, msg_header->src_comm_rank, &msg_header->src_proc_name, msg_header->agreement_id,
+                     MSG_DOWN, &success_value, 0, NULL);
 
-        ci = era_lookup_agreement_info(msg_header->agreement_id);
-        if( NULL != ci &&
-            ci->status == BROADCASTING ) {
-            /** if I am in this agreement, in the BROADCASTING state, then I need
-             *  to start working with my parent again, so that the info reaches the root, eventually.
-             *  There is in fact a good chance that this guy is my parent, but not in all cases,
-             *  so I send UP again to my parent, and we'll see what happens.
-             */
-            assert(ci->comm != NULL);
-            r = era_parent(ci);
-            if(r == ci->comm->c_my_rank) {
-                /** OK, weird case: a guy sent me that request, but died before I answered, and I receive it now... */
-                /** I will deal with that when I deal with the failure notification, and start again */
-                return;
-            }
-
-            ci->waiting_down_from = r;
-            send_msg(ci->comm, r, NULL, ci->agreement_id, MSG_UP, ci->current_value,
-                     ci->nb_acked, ci->acked);
+            OBJ_DESTRUCT(&success_value);
         } else {
-            era_value_t success_value;
-            OBJ_CONSTRUCT(&success_value, era_value_t);
-            success_value.header.ret = MPI_SUCCESS;
-            success_value.header.dt_count = 0;
-            success_value.header.operand  = ompi_mpi_op_band.op.o_f_to_c_index;
-            success_value.header.datatype = ompi_mpi_int.dt.d_f_to_c_index;
-            success_value.header.nb_new_dead = 0;
-            success_value.bytes = NULL;
-            success_value.new_dead_array = NULL;
-
-            /** Could be an old agreement that I collected already.
-             *  If that is the case, the epoch requested should be <= the current epoch for
-             *  that contextid (modulo rotation on the epoch numbering), and then the
-             *  number of requested data must be 0, by convention on the last "flushing"
-             *  agreement that was posted during the free.
+            /** Or, I have not started this agreement, or I have started this agreement, but a child
+             *  has not given me its contribution. So, I need to wait for it to send it to me, and
+             *  then I will send my UP message to the parent, so it can wait the normal step in
+             *  the protocol
              */
-            if( msg_header->agreement_value_header.dt_count == 0 ) {
-                /** Then, the answer is "success" */
-                send_msg(NULL, msg_header->src_comm_rank, &msg_header->src_proc_name, msg_header->agreement_id,
-                         MSG_DOWN, &success_value, 0, NULL);
-
-                OBJ_DESTRUCT(&success_value);
-            } else {
-                /** Or, I have not started this agreement, or I have started this agreement, but a child
-                 *  has not given me its contribution. So, I need to wait for it to send it to me, and
-                 *  then I will send my UP message to the parent, so it can wait the normal step in
-                 *  the protocol
-                 */
-                return;
-            }
+            return;
         }
     }
 }
@@ -2409,8 +2452,9 @@ static void msg_up(era_msg_header_t *msg_header, uint8_t *bytes, int *new_dead, 
         for(rank_item = (era_rank_item_t*)opal_list_get_first(&ci->early_requesters);
             rank_item != (era_rank_item_t*)opal_list_get_end(&ci->early_requesters);
             rank_item = (era_rank_item_t*)opal_list_get_next(&rank_item->super)) {
-            if( rank_item->rank == msg_header->src_comm_rank )
+            if( rank_item->rank == msg_header->src_comm_rank ) {
                 return;
+            }
         }
 
         /** If not, add it */
@@ -2525,6 +2569,42 @@ static void msg_down(era_msg_header_t *msg_header, uint8_t *bytes, int *new_dead
     OBJ_RELEASE(av);
 }
 
+
+typedef struct era_bounce_event_s {
+    opal_event_t ev;
+    era_msg_header_t msg;
+    uint8_t *value_bytes;
+    int *new_dead;
+    int *ack_failed;
+} era_bounce_event_t;
+
+static void era_bounce_event_cb(int fd, int flags, void* context) {
+    era_bounce_event_t *event = (typeof(event))context;
+    era_msg_header_t *msg_header = &event->msg;
+    uint8_t *value_bytes = event->value_bytes;
+    int *new_dead = event->new_dead;
+    int *ack_failed = event->ack_failed;
+
+    if(opal_mutex_trylock(&era_mutex)) {
+        struct timeval now = {0, 0};
+        opal_event_add(&event->ev, &now);
+        return;
+    }
+    switch( msg_header->msg_type ) {
+    case MSG_RESULT_REQUEST:
+        result_request(msg_header);
+        break;
+    case MSG_UP:
+        msg_up(msg_header, value_bytes, new_dead, ack_failed);
+        break;
+    case MSG_DOWN:
+        msg_down(msg_header, value_bytes, new_dead);
+        break;
+    }
+    opal_mutex_unlock(&era_mutex);
+    free(event);
+}
+
 static void era_cb_fn(struct mca_btl_base_module_t* btl,
                       mca_btl_base_tag_t tag,
                       mca_btl_base_descriptor_t* descriptor,
@@ -2626,16 +2706,29 @@ static void era_cb_fn(struct mca_btl_base_module_t* btl,
     }
 #endif
 
-    switch( msg_header->msg_type ) {
-    case MSG_RESULT_REQUEST:
-        result_request(msg_header);
-        return;
-    case MSG_UP:
-        msg_up(msg_header, value_bytes, new_dead, ack_failed);
-        return;
-    case MSG_DOWN:
-        msg_down(msg_header, value_bytes, new_dead);
-        return;
+    if(opal_mutex_trylock(&era_mutex)) {
+        struct timeval now = {0, 0};
+        era_bounce_event_t *event = malloc(sizeof(*event) + frag->msg_len);
+        memcpy(&event->msg, msg_header, frag->msg_len);
+        event->value_bytes = (void*)((intptr_t)&event->msg + (intptr_t)value_bytes - (intptr_t)msg_header);
+        event->new_dead = (void*)((intptr_t)&event->msg + (intptr_t)new_dead - (intptr_t)msg_header);
+        event->ack_failed = (void*)((intptr_t)&event->msg + (intptr_t)ack_failed - (intptr_t)msg_header);
+        opal_event_evtimer_set(opal_sync_event_base, &event->ev, era_bounce_event_cb, event);
+        opal_event_add(&event->ev, &now);
+    }
+    else {
+        switch( msg_header->msg_type ) {
+        case MSG_RESULT_REQUEST:
+            result_request(msg_header);
+            break;
+        case MSG_UP:
+            msg_up(msg_header, value_bytes, new_dead, ack_failed);
+            break;
+        case MSG_DOWN:
+            msg_down(msg_header, value_bytes, new_dead);
+            break;
+        }
+        opal_mutex_unlock(&era_mutex);
     }
 
     if( NULL != incomplete_msg ) {
@@ -2744,6 +2837,8 @@ int mca_coll_ftagree_era_init(void)
     default:
         era_tree_fn = era_tree_fn_binary;
     }
+
+    OBJ_CONSTRUCT(&era_mutex, opal_mutex_t);
 
     mca_bml.bml_register(MCA_BTL_TAG_FT_AGREE, era_cb_fn, NULL);
 
@@ -2878,6 +2973,8 @@ int mca_coll_ftagree_era_finalize(void)
     }
     OBJ_DESTRUCT( &era_incomplete_messages );
 
+    OBJ_DESTRUCT( &era_mutex );
+
     era_inited = 0;
 
     return OMPI_SUCCESS;
@@ -2902,6 +2999,8 @@ static int mca_coll_ftagree_era_prepare_agreement(ompi_communicator_t* comm,
 
     ag_info = ( (mca_coll_ftagree_module_t *)module )->agreement_info;
     assert( NULL != ag_info );
+
+    opal_mutex_lock(&era_mutex);
 
     /** Avoid cycling silently */
     if( ag_info->agreement_seq_num == UINT16_MAX ) {
@@ -2981,6 +3080,8 @@ static int mca_coll_ftagree_era_prepare_agreement(ompi_communicator_t* comm,
 
     /* And follow its logic */
     era_check_status(ci);
+
+    opal_mutex_unlock(&era_mutex);
 
     *paid = agreement_id;
     *pci = ci;
