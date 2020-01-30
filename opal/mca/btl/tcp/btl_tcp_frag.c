@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2016 The University of Tennessee and The University
+ * Copyright (c) 2004-2019 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -132,6 +132,7 @@ bool mca_btl_tcp_frag_send(mca_btl_tcp_frag_t* frag, int sd)
                     frag->iov_ptr[0].iov_base, (unsigned long) frag->iov_ptr[0].iov_len,
                     strerror(opal_socket_errno), (unsigned long) frag->iov_cnt));
 #endif /* OPAL_ENABLE_FT_MPI */
+                /* send_lock held by caller */
                 frag->endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
                 mca_btl_tcp_endpoint_close(frag->endpoint);
                 return false;
@@ -141,6 +142,7 @@ bool mca_btl_tcp_frag_send(mca_btl_tcp_frag_t* frag, int sd)
                            strerror(opal_socket_errno),
                            opal_socket_errno));
 #endif /* OPAL_ENABLE_FT_MPI */
+                /* send_lock held by caller */
                 frag->endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
                 mca_btl_tcp_endpoint_close(frag->endpoint);
                 return false;
@@ -218,9 +220,11 @@ bool mca_btl_tcp_frag_recv(mca_btl_tcp_frag_t* frag, int sd)
         cnt = readv(sd, frag->iov_ptr, num_vecs);
         if( 0 < cnt ) goto advance_iov_position;
         if( cnt == 0 ) {
+            OPAL_THREAD_LOCK(&btl_endpoint->endpoint_send_lock);
             if(MCA_BTL_TCP_CONNECTED == btl_endpoint->endpoint_state)
                 btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
             mca_btl_tcp_endpoint_close(btl_endpoint);
+            OPAL_THREAD_UNLOCK(&btl_endpoint->endpoint_send_lock);
             return false;
         }
         switch(opal_socket_errno) {
@@ -234,10 +238,7 @@ bool mca_btl_tcp_frag_recv(mca_btl_tcp_frag_t* frag, int sd)
                        frag->iov_ptr[0].iov_base, (unsigned long) frag->iov_ptr[0].iov_len,
                        strerror(opal_socket_errno), (unsigned long) frag->iov_cnt));
 #endif /* OPAL_ENABLE_FT_MPI */
-            btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
-            mca_btl_tcp_endpoint_close(btl_endpoint);
-            return false;
-
+            break;
         case ECONNRESET:
 #if OPAL_ENABLE_FT_MPI == 0
             opal_show_help("help-mpi-btl-tcp.txt", "peer hung up",
@@ -245,20 +246,20 @@ bool mca_btl_tcp_frag_recv(mca_btl_tcp_frag_t* frag, int sd)
                            getpid(),
                            btl_endpoint->endpoint_proc->proc_opal->proc_hostname);
 #endif /* OPAL_ENABLE_FT_MPI */
-            btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
-            mca_btl_tcp_endpoint_close(btl_endpoint);
-            return false;
-
+            break;
         default:
 #if OPAL_ENABLE_FT_MPI == 0
             BTL_ERROR(("mca_btl_tcp_frag_recv: readv failed: %s (%d)",
                        strerror(opal_socket_errno),
                        opal_socket_errno));
 #endif /* OPAL_ENABLE_FT_MPI */
-            btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
-            mca_btl_tcp_endpoint_close(btl_endpoint);
-            return false;
+            break;
         }
+        OPAL_THREAD_LOCK(&btl_endpoint->endpoint_send_lock);
+        btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
+        mca_btl_tcp_endpoint_close(btl_endpoint);
+        OPAL_THREAD_UNLOCK(&btl_endpoint->endpoint_send_lock);
+        return false;
     } while( cnt < 0 );
 
  advance_iov_position:
