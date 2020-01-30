@@ -3398,7 +3398,7 @@ static void btl_openib_handle_incoming_completion(mca_btl_base_module_t* btl,
             /* This is a fatal issue so call into PML and let it know. */
             mca_btl_openib_module_t* openib_btl = (mca_btl_openib_module_t*) btl;
             openib_btl->error_cb(&openib_btl->super, MCA_BTL_ERROR_FLAGS_FATAL,
-                                 NULL, NULL);
+                                 ep->endpoint_proc->proc_opal, __func__);
             return;
         }
     }
@@ -3652,7 +3652,7 @@ static void handle_wc(mca_btl_openib_device_t* device, const uint32_t cq,
             if(btl_openib_handle_incoming(openib_btl, endpoint, to_recv_frag(frag),
                         wc->byte_len) != OPAL_SUCCESS) {
                 openib_btl->error_cb(&openib_btl->super, MCA_BTL_ERROR_FLAGS_FATAL,
-                                     NULL, NULL);
+                                     endpoint->endpoint_proc->proc_opal, "IBV_WC_RECV");
                 break;
             }
 
@@ -3670,7 +3670,7 @@ static void handle_wc(mca_btl_openib_device_t* device, const uint32_t cq,
             BTL_ERROR(("Unhandled work completion opcode is %d", wc->opcode));
             if(openib_btl)
                 openib_btl->error_cb(&openib_btl->super, MCA_BTL_ERROR_FLAGS_FATAL,
-                                     NULL, NULL);
+                                     endpoint->endpoint_proc->proc_opal, "IBV_WC_UNKNOWN");
             break;
     }
 
@@ -3770,7 +3770,7 @@ error:
             mca_btl_openib_free(&openib_btl->super, des);
         }
         openib_btl->error_cb(&openib_btl->super, MCA_BTL_ERROR_FLAGS_FATAL,
-                             (struct opal_proc_t*)remote_proc, NULL);
+                             (struct opal_proc_t*)remote_proc, __func__);
     }
 }
 
@@ -3905,7 +3905,7 @@ static int progress_one_device(mca_btl_openib_device_t *device)
             ret = btl_openib_handle_incoming(btl, to_com_frag(frag)->endpoint,
                     frag, size - sizeof(mca_btl_openib_footer_t));
             if (ret != OPAL_SUCCESS) {
-                btl->error_cb(&btl->super, MCA_BTL_ERROR_FLAGS_FATAL, NULL, NULL);
+                btl->error_cb(&btl->super, MCA_BTL_ERROR_FLAGS_FATAL, endpoint->endpoint_proc->proc_opal, __func__);
                 return 0;
             }
 
@@ -3977,7 +3977,7 @@ error:
             mca_btl_openib_component.openib_btls[i];
         if(openib_btl->device->got_fatal_event) {
             openib_btl->error_cb(&openib_btl->super, MCA_BTL_ERROR_FLAGS_FATAL,
-                                 NULL, NULL);
+                                 NULL, __func__);
         }
         if(openib_btl->device->got_port_event) {
             /* These are non-fatal so just ignore it. */
