@@ -812,14 +812,24 @@ int ompi_osc_rdma_compare_and_swap (const void *origin_addr, const void *compare
         lock_acquired = true;
     }
 
-    /* either we have and exclusive lock (via MPI_Win_lock() or the accumulate lock) or the
-     * user has indicated that they will only use the same op (or same op and no op) for
-     * operations on overlapping memory ranges. that indicates it is safe to go ahead and
-     * use network atomic operations. */
-    ret = ompi_osc_rdma_cas_atomic (sync, origin_addr, compare_addr, result_addr, dt,
-                                    peer, target_address, target_handle, lock_acquired);
-    if (OMPI_SUCCESS == ret) {
-        return OMPI_SUCCESS;
+    /* operate in (shared) memory if there is only a single node
+     * OR if we have an exclusive lock
+     * OR if other processes won't try to use the network either */
+    bool use_shared_mem = module->single_node ||
+                          (ompi_osc_rdma_peer_local_base (peer) &&
+                              (ompi_osc_rdma_peer_is_exclusive (peer) ||
+                                  !module->acc_single_intrinsic));
+
+    if (!use_shared_mem) {
+        /* either we have an exclusive lock (via MPI_Win_lock() or the accumulate lock) or the
+         * user has indicated that they will only use the same op (or same op and no op) for
+         * operations on overlapping memory ranges. that indicates it is safe to go ahead and
+         * use network atomic operations. */
+        ret = ompi_osc_rdma_cas_atomic (sync, origin_addr, compare_addr, result_addr, dt,
+                                        peer, target_address, target_handle, lock_acquired);
+        if (OMPI_SUCCESS == ret) {
+            return OMPI_SUCCESS;
+        }
     }
 
     if (!(lock_acquired || ompi_osc_rdma_peer_is_exclusive (peer))) {
@@ -893,10 +903,19 @@ int ompi_osc_rdma_rget_accumulate_internal (ompi_osc_rdma_sync_t *sync, const vo
         (void) ompi_osc_rdma_lock_acquire_exclusive (module, peer, offsetof (ompi_osc_rdma_state_t, accumulate_lock));
     }
 
+    /* accumulate in (shared) memory if there is only a single node
+     * OR if we have an exclusive lock
+     * OR if other processes won't try to use the network either */
+    bool use_shared_mem = module->single_node ||
+                          (ompi_osc_rdma_peer_local_base (peer) &&
+                              (ompi_osc_rdma_peer_is_exclusive (peer) ||
+                                  !module->acc_single_intrinsic));
+
     /* if the datatype is small enough (and the count is 1) then try to directly use the hardware to execute
      * the atomic operation. this should be safe in all cases as either 1) the user has assured us they will
-     * never use atomics with count > 1, 2) we have the accumulate lock, or 3) we have an exclusive lock */
-    if (origin_extent <= 8 && 1 == origin_count && !ompi_osc_rdma_peer_local_base (peer)) {
+     * never use atomics with count > 1, 2) we have the accumulate lock, or 3) we have an exclusive lock.
+     * avoid using the NIC if the operation can be done directly in shared memory. */
+    if (origin_extent <= 8 && 1 == origin_count && !use_shared_mem) {
         if (module->acc_use_amo && ompi_datatype_is_predefined (origin_datatype)) {
             if (NULL == result_addr) {
                 ret = ompi_osc_rdma_acc_single_atomic (sync, origin_addr, origin_datatype, origin_extent, peer, target_address,

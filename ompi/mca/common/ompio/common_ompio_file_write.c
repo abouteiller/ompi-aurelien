@@ -115,6 +115,10 @@ int mca_common_ompio_file_write (ompio_file_t *fh,
         if ( MPI_STATUS_IGNORE != status ) {
             status->_ucount = 0;
         }
+        if (NULL != decoded_iov) {
+            free (decoded_iov);
+            decoded_iov = NULL;
+        }
         return OMPI_SUCCESS;
     }
 
@@ -288,6 +292,11 @@ int mca_common_ompio_file_iwrite (ompio_file_t *fh,
             ompio_req->req_ompi.req_status._ucount = 0;
             ompi_request_complete (&ompio_req->req_ompi, false);
             *request = (ompi_request_t *) ompio_req;
+            if (NULL != decoded_iov) {
+                free (decoded_iov);
+                decoded_iov = NULL;
+            }
+
             return OMPI_SUCCESS;
         }
 
@@ -502,7 +511,7 @@ int mca_common_ompio_file_iwrite_at_all (ompio_file_t *fp,
 /**************************************************************/
 
 int mca_common_ompio_build_io_array ( ompio_file_t *fh, int index, int cycles,
-                                      size_t bytes_per_cycle, int  max_data, uint32_t iov_count,
+                                      size_t bytes_per_cycle, size_t  max_data, uint32_t iov_count,
                                       struct iovec *decoded_iov, int *ii, int *jj, size_t *tbw, 
                                       size_t *spc, mca_common_ompio_io_array_t **io_array,
                                       int *num_io_entries)

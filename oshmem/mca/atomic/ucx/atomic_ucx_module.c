@@ -51,6 +51,11 @@ int mca_atomic_ucx_op(shmem_ctx_t ctx,
     status = ucp_atomic_post(ucx_ctx->ucp_peers[pe].ucp_conn,
                              op, value, size, rva,
                              ucx_mkey->rkey);
+
+    if (OPAL_LIKELY(UCS_OK == status)) {
+        mca_spml_ucx_remote_op_posted(ucx_ctx, pe);
+    }
+
     return ucx_status_to_oshmem(status);
 }
 
@@ -75,7 +80,7 @@ int mca_atomic_ucx_fop(shmem_ctx_t ctx,
                                      op, value, prev, size,
                                      rva, ucx_mkey->rkey,
                                      opal_common_ucx_empty_complete_cb);
-    return opal_common_ucx_wait_request(status_ptr, ucx_ctx->ucp_worker,
+    return opal_common_ucx_wait_request(status_ptr, ucx_ctx->ucp_worker[0],
                                         "ucp_atomic_fetch_nb");
 }
 

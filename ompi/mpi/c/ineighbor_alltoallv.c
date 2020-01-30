@@ -13,8 +13,8 @@
  * Copyright (c) 2007      Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2012-2017 Los Alamos National Security, LLC.  All rights
  *                         reserved.
- * Copyright (c) 2014-2018 Research Organization for Information Science
- *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2014-2019 Research Organization for Information Science
+ *                         and Technology (RIST).  All rights reserved.
  * Copyright (c) 2017      IBM Corporation.  All rights reserved.
  * $COPYRIGHT$
  *
@@ -31,6 +31,7 @@
 #include "ompi/communicator/communicator.h"
 #include "ompi/errhandler/errhandler.h"
 #include "ompi/datatype/ompi_datatype.h"
+#include "ompi/mca/coll/base/coll_base_util.h"
 #include "ompi/memchecker.h"
 #include "ompi/mca/topo/topo.h"
 #include "ompi/mca/topo/base/base.h"
@@ -101,14 +102,15 @@ int MPI_Ineighbor_alltoallv(const void *sendbuf, const int sendcounts[], const i
         } else if (! OMPI_COMM_IS_TOPO(comm)) {
             return OMPI_ERRHANDLER_INVOKE(MPI_COMM_WORLD, MPI_ERR_TOPOLOGY,
                                           FUNC_NAME);
-        } else if ((NULL == sendcounts) || (NULL == sdispls) ||
-            (NULL == recvcounts) || (NULL == rdispls) ||
-            MPI_IN_PLACE == sendbuf || MPI_IN_PLACE == recvbuf) {
-            return OMPI_ERRHANDLER_INVOKE(comm, MPI_ERR_ARG, FUNC_NAME);
         }
 
         err = mca_topo_base_neighbor_count (comm, &indegree, &outdegree);
         OMPI_ERRHANDLER_CHECK(err, comm, err, FUNC_NAME);
+        if (((0 < outdegree) && ((NULL == sendcounts) || (NULL == sdispls))) ||
+            ((0 < indegree) && ((NULL == recvcounts) || (NULL == rdispls))) ||
+            MPI_IN_PLACE == sendbuf || MPI_IN_PLACE == recvbuf) {
+            return OMPI_ERRHANDLER_INVOKE(comm, MPI_ERR_ARG, FUNC_NAME);
+        }
         for (i = 0; i < outdegree; ++i) {
             OMPI_CHECK_DATATYPE_FOR_SEND(err, sendtype, sendcounts[i]);
             OMPI_ERRHANDLER_CHECK(err, comm, err, FUNC_NAME);
@@ -147,6 +149,9 @@ int MPI_Ineighbor_alltoallv(const void *sendbuf, const int sendcounts[], const i
     err = comm->c_coll->coll_ineighbor_alltoallv(sendbuf, sendcounts, sdispls,
                                                 sendtype, recvbuf, recvcounts, rdispls,
                                                 recvtype, comm, request, comm->c_coll->coll_ineighbor_alltoallv_module);
+    if (OPAL_LIKELY(OMPI_SUCCESS == err)) {
+        ompi_coll_base_retain_datatypes(*request, sendtype, recvtype);
+    }
     OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
 }
 

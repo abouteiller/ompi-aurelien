@@ -97,15 +97,6 @@ do {                                                                           \
 
 typedef uint8_t opal_shmem_ds_flag_t;
 
-/* shared memory segment header */
-struct opal_shmem_seg_hdr_t {
-    /* segment lock */
-    opal_atomic_lock_t lock;
-    /* pid of the segment creator */
-    pid_t cpid;
-};
-typedef struct opal_shmem_seg_hdr_t opal_shmem_seg_hdr_t;
-
 struct opal_shmem_ds_t {
     /* pid of the shared memory segment creator */
     pid_t seg_cpid;
@@ -116,7 +107,7 @@ struct opal_shmem_ds_t {
     /* size of shared memory segment */
     size_t seg_size;
     /* base address of shared memory segment */
-    unsigned char *seg_base_addr;
+    void *seg_base_addr;
     /* path to backing store -- last element so we can easily calculate the
      * "real" size of opal_shmem_ds_t. that is, the amount of the struct that
      * is actually being used. for example: if seg_name is something like:

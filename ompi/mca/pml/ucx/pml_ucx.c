@@ -5,6 +5,7 @@
  *                         reserved.
  * Copyright (c) 2018      Research Organization for Information Science
  *                         and Technology (RIST).  All rights reserved.
+ * Copyright (c) 2018 IBM Corporation. All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -72,8 +73,9 @@ mca_pml_ucx_module_t ompi_pml_ucx = {
         .pml_mrecv         = mca_pml_ucx_mrecv,
         .pml_dump          = mca_pml_ucx_dump,
         .pml_ft_event      = NULL,
-        .pml_max_contextid = 1ul << (PML_UCX_CONTEXT_BITS),
-        .pml_max_tag       = 1ul << (PML_UCX_TAG_BITS - 1)
+        .pml_max_contextid = (1ul << (PML_UCX_CONTEXT_BITS)) - 1,
+        .pml_max_tag       = (1ul << (PML_UCX_TAG_BITS - 1)) - 1,
+        0 /* flags */
     },
     .ucp_context           = NULL,
     .ucp_worker            = NULL
@@ -197,21 +199,26 @@ int mca_pml_ucx_open(void)
     }
 
     /* Initialize UCX context */
-    params.field_mask      = UCP_PARAM_FIELD_FEATURES |
-                             UCP_PARAM_FIELD_REQUEST_SIZE |
-                             UCP_PARAM_FIELD_REQUEST_INIT |
-                             UCP_PARAM_FIELD_REQUEST_CLEANUP |
-                             UCP_PARAM_FIELD_TAG_SENDER_MASK |
-                             UCP_PARAM_FIELD_MT_WORKERS_SHARED |
-                             UCP_PARAM_FIELD_ESTIMATED_NUM_EPS;
-    params.features        = UCP_FEATURE_TAG;
-    params.request_size    = sizeof(ompi_request_t);
-    params.request_init    = mca_pml_ucx_request_init;
-    params.request_cleanup = mca_pml_ucx_request_cleanup;
-    params.tag_sender_mask = PML_UCX_SPECIFIC_SOURCE_MASK;
+    params.field_mask        = UCP_PARAM_FIELD_FEATURES |
+                               UCP_PARAM_FIELD_REQUEST_SIZE |
+                               UCP_PARAM_FIELD_REQUEST_INIT |
+                               UCP_PARAM_FIELD_REQUEST_CLEANUP |
+                               UCP_PARAM_FIELD_TAG_SENDER_MASK |
+                               UCP_PARAM_FIELD_MT_WORKERS_SHARED |
+                               UCP_PARAM_FIELD_ESTIMATED_NUM_EPS;
+    params.features          = UCP_FEATURE_TAG;
+    params.request_size      = sizeof(ompi_request_t);
+    params.request_init      = mca_pml_ucx_request_init;
+    params.request_cleanup   = mca_pml_ucx_request_cleanup;
+    params.tag_sender_mask   = PML_UCX_SPECIFIC_SOURCE_MASK;
     params.mt_workers_shared = 0; /* we do not need mt support for context
                                      since it will be protected by worker */
     params.estimated_num_eps = ompi_proc_world_size();
+
+#if HAVE_DECL_UCP_PARAM_FIELD_ESTIMATED_NUM_PPN
+    params.estimated_num_ppn = opal_process_info.num_local_peers + 1;
+    params.field_mask       |= UCP_PARAM_FIELD_ESTIMATED_NUM_PPN;
+#endif
 
     status = ucp_init(&params, config, &ompi_pml_ucx.ucp_context);
     ucp_config_release(config);
@@ -314,8 +321,8 @@ int mca_pml_ucx_init(int enable_mpi_threads)
 
 err_destroy_worker:
     ucp_worker_destroy(ompi_pml_ucx.ucp_worker);
-    ompi_pml_ucx.ucp_worker = NULL;
 err:
+    ompi_pml_ucx.ucp_worker = NULL;
     return rc;
 }
 
@@ -345,7 +352,7 @@ int mca_pml_ucx_cleanup(void)
     OBJ_DESTRUCT(&ompi_pml_ucx.convs);
     OBJ_DESTRUCT(&ompi_pml_ucx.persistent_reqs);
 
-    if (ompi_pml_ucx.ucp_worker) {
+    if (ompi_pml_ucx.ucp_worker != NULL) {
         ucp_worker_destroy(ompi_pml_ucx.ucp_worker);
         ompi_pml_ucx.ucp_worker = NULL;
     }

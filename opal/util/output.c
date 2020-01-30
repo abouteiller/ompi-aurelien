@@ -13,12 +13,14 @@
  * Copyright (c) 2007-2008 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2015      Los Alamos National Security, LLC. All rights
  *                         reserved.
- * Copyright (c) 2015      Research Organization for Information Science
+ * Copyright (c) 2015-2019 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2017      IBM Corporation.  All rights reserved.
  * Copyright (c) 2017-2018 Intel, Inc. All rights reserved.
  * Copyright (c) 2018      Amazon.com, Inc. or its affiliates.  All Rights reserved.
  * Copyright (c) 2018      Triad National Security, LLC. All rights
+ *                         reserved.
+ * Copyright (c) 2019      Triad National Security, LLC. All rights
  *                         reserved.
  * $COPYRIGHT$
  *
@@ -44,6 +46,7 @@
 #include <sys/param.h>
 #endif
 
+#include "opal/runtime/opal.h"
 #include "opal/util/opal_environ.h"
 #include "opal/util/output.h"
 #include "opal/util/string_copy.h"
@@ -137,7 +140,7 @@ OBJ_CLASS_INSTANCE(opal_output_stream_t, opal_object_t, construct, destruct);
 bool opal_output_init(void)
 {
     int i;
-    char hostname[OPAL_MAXHOSTNAMELEN];
+    const char *hostname;
     char *str;
 
     if (initialized) {
@@ -193,7 +196,7 @@ bool opal_output_init(void)
             verbose.lds_want_stderr = true;
         }
     }
-    gethostname(hostname, sizeof(hostname));
+    hostname = opal_gethostname();
     opal_asprintf(&verbose.lds_prefix, "[%s:%05d] ", hostname, getpid());
 
     for (i = 0; i < OPAL_OUTPUT_MAX_STREAMS; ++i) {
@@ -274,7 +277,7 @@ bool opal_output_switch(int output_id, bool enable)
 void opal_output_reopen_all(void)
 {
     char *str;
-    char hostname[OPAL_MAXHOSTNAMELEN];
+    const char *hostname;
 
     str = getenv("OPAL_OUTPUT_STDERR_FD");
     if (NULL != str) {
@@ -283,7 +286,7 @@ void opal_output_reopen_all(void)
         default_stderr_fd = -1;
     }
 
-    gethostname(hostname, sizeof(hostname));
+    hostname = opal_gethostname();
     if( NULL != verbose.lds_prefix ) {
         free(verbose.lds_prefix);
         verbose.lds_prefix = NULL;
@@ -388,17 +391,12 @@ void opal_output(int output_id, const char *format, ...)
 
 
 /*
- * Send a message to a stream if the verbose level is high enough
+ * Check whether the verbose level is high enough for the given stream
  */
-void opal_output_verbose(int level, int output_id, const char *format, ...)
+bool opal_output_check_verbosity(int level, int output_id)
 {
-    if (output_id >= 0 && output_id < OPAL_OUTPUT_MAX_STREAMS &&
-        info[output_id].ldi_verbose_level >= level) {
-        va_list arglist;
-        va_start(arglist, format);
-        output(output_id, format, arglist);
-        va_end(arglist);
-    }
+    return (output_id >= 0 && output_id < OPAL_OUTPUT_MAX_STREAMS &&
+        info[output_id].ldi_verbose_level >= level);
 }
 
 

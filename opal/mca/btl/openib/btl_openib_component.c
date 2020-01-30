@@ -44,6 +44,12 @@
 #include <stdlib.h>
 #include <stddef.h>
 
+/* Define this before including hwloc.h so that we also get the hwloc
+   verbs helper header file, too.  We have to do this level of
+   indirection because the hwloc subsystem is a component -- we don't
+   know its exact path.  We have to rely on the framework header files
+   to find the right hwloc verbs helper file for us. */
+#define OPAL_HWLOC_WANT_VERBS_HELPER 1
 #include "opal/mca/memory/memory.h"
 #include "opal/mca/event/event.h"
 #include "opal/align.h"
@@ -54,12 +60,6 @@
 #include "opal/util/sys_limits.h"
 #include "opal/util/argv.h"
 #include "opal/memoryhooks/memory.h"
-/* Define this before including hwloc.h so that we also get the hwloc
-   verbs helper header file, too.  We have to do this level of
-   indirection because the hwloc subsystem is a component -- we don't
-   know its exact path.  We have to rely on the framework header files
-   to find the right hwloc verbs helper file for us. */
-#define OPAL_HWLOC_WANT_VERBS_HELPER 1
 #include "opal/mca/hwloc/hwloc-internal.h"
 #include "opal/mca/hwloc/base/base.h"
 #include "opal/mca/installdirs/installdirs.h"

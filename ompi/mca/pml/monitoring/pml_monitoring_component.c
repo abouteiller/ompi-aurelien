@@ -6,6 +6,7 @@
  * Copyright (c) 2015      Bull SAS.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2018 IBM Corporation. All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -48,7 +49,8 @@ mca_pml_monitoring_module_t mca_pml_monitoring_module = {
     mca_pml_monitoring_dump,
     NULL,
     65535,
-    INT_MAX
+    INT_MAX,
+    0 /* flags */
 };
 
 /**
@@ -124,7 +126,7 @@ static int mca_pml_monitoring_component_finish(void)
         mca_base_component_list_item_t *cli = NULL;
         OPAL_LIST_FOREACH(cli, &ompi_pml_base_framework.framework_components, mca_base_component_list_item_t) {
             component = (mca_pml_base_component_t *) cli->cli_component;
-            
+
             if( component == &mca_pml_monitoring_component ) {
                 opal_list_remove_item(&ompi_pml_base_framework.framework_components, (opal_list_item_t*)cli);
                 OBJ_RELEASE(cli);
@@ -180,12 +182,6 @@ static int mca_pml_monitoring_component_finish(void)
     return OMPI_SUCCESS;
 }
 
-static int mca_pml_monitoring_component_register(void)
-{
-    mca_common_monitoring_register(&mca_pml_monitoring_component);
-    return OMPI_SUCCESS;
-}
-
 mca_pml_base_component_2_0_0_t mca_pml_monitoring_component = {
 
     /* First, the mca_base_component_t struct containing meta
@@ -198,7 +194,7 @@ mca_pml_base_component_2_0_0_t mca_pml_monitoring_component = {
         MCA_MONITORING_MAKE_VERSION,
         .mca_open_component = mca_pml_monitoring_component_open,  /* component open */
         .mca_close_component = NULL, /* component close */
-        .mca_register_component_params = mca_pml_monitoring_component_register
+        .mca_register_component_params = mca_common_monitoring_register
     },
     .pmlm_data = {
         /* The component is checkpoint ready */

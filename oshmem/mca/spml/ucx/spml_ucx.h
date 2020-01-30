@@ -33,6 +33,7 @@
 
 #include "opal/class/opal_free_list.h"
 #include "opal/class/opal_list.h"
+#include "opal/class/opal_bitmap.h"
 
 #include "opal/mca/common/ucx/common_ucx.h"
 
@@ -66,9 +67,14 @@ struct ucp_peer {
 typedef struct ucp_peer ucp_peer_t;
  
 struct mca_spml_ucx_ctx {
-    ucp_worker_h             ucp_worker;
+    ucp_worker_h            *ucp_worker;
     ucp_peer_t              *ucp_peers;
     long                     options;
+    opal_bitmap_t            put_op_bitmap;
+    unsigned long            nb_progress_cnt;
+    unsigned int             ucp_workers;
+    int                     *put_proc_indexes;
+    unsigned                 put_proc_count;
 };
 typedef struct mca_spml_ucx_ctx mca_spml_ucx_ctx_t;
 
@@ -89,7 +95,7 @@ struct mca_spml_ucx {
     int                      heap_reg_nb;
     bool                     enabled;
     mca_spml_ucx_get_mkey_slow_fn_t get_mkey_slow;
-    char                     **remote_addrs_tbl;
+    char                     ***remote_addrs_tbl;
     mca_spml_ucx_ctx_array_t active_array;
     mca_spml_ucx_ctx_array_t idle_array;
     int                      priority; /* component priority */
@@ -103,7 +109,13 @@ struct mca_spml_ucx {
     mca_spml_ucx_ctx_t       *aux_ctx;
     pthread_spinlock_t       async_lock;
     int                      aux_refcnt;
-
+    bool                     synchronized_quiet;
+    unsigned long            nb_progress_thresh_global;
+    unsigned long            nb_put_progress_thresh;
+    unsigned long            nb_get_progress_thresh;
+    unsigned long            nb_ucp_worker_progress;
+    unsigned int             ucp_workers;
+    unsigned int             ucp_worker_cnt;
 };
 typedef struct mca_spml_ucx mca_spml_ucx_t;
 
@@ -118,7 +130,15 @@ extern int mca_spml_ucx_get(shmem_ctx_t ctx,
                               size_t size,
                               void* src_addr,
                               int src);
+
 extern int mca_spml_ucx_get_nb(shmem_ctx_t ctx,
+                              void* dst_addr,
+                              size_t size,
+                              void* src_addr,
+                              int src,
+                              void **handle);
+
+extern int mca_spml_ucx_get_nb_wprogress(shmem_ctx_t ctx,
                               void* dst_addr,
                               size_t size,
                               void* src_addr,
@@ -132,6 +152,13 @@ extern int mca_spml_ucx_put(shmem_ctx_t ctx,
                             int dst);
 
 extern int mca_spml_ucx_put_nb(shmem_ctx_t ctx,
+                               void* dst_addr,
+                               size_t size,
+                               void* src_addr,
+                               int dst,
+                               void **handle);
+
+extern int mca_spml_ucx_put_nb_wprogress(shmem_ctx_t ctx,
                                void* dst_addr,
                                size_t size,
                                void* src_addr,
@@ -169,6 +196,9 @@ extern int spml_ucx_default_progress(void);
 extern int spml_ucx_ctx_progress(void);
 extern int spml_ucx_progress_aux_ctx(void);
 void mca_spml_ucx_async_cb(int fd, short event, void *cbdata);
+
+int mca_spml_ucx_init_put_op_mask(mca_spml_ucx_ctx_t *ctx, size_t nprocs);
+int mca_spml_ucx_clear_put_op_mask(mca_spml_ucx_ctx_t *ctx);
 
 static inline void mca_spml_ucx_aux_lock(void)
 {
@@ -222,6 +252,16 @@ static inline int ucx_status_to_oshmem_nb(ucs_status_t status)
 #else
     return OSHMEM_SUCCESS;
 #endif
+}
+
+static inline void mca_spml_ucx_remote_op_posted(mca_spml_ucx_ctx_t *ctx, int dst)
+{
+    if (OPAL_UNLIKELY(mca_spml_ucx.synchronized_quiet)) {
+        if (!opal_bitmap_is_set_bit(&ctx->put_op_bitmap, dst)) {
+            ctx->put_proc_indexes[ctx->put_proc_count++] = dst;
+            opal_bitmap_set_bit(&ctx->put_op_bitmap, dst);
+        }
+    }
 }
 
 #define MCA_SPML_UCX_CTXS_ARRAY_SIZE 64

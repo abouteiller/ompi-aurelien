@@ -2,7 +2,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2019 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -401,19 +401,19 @@ mca_btl_tcp_endpoint_send_blocking(mca_btl_base_endpoint_t* btl_endpoint,
  * Send the globally unique identifier for this process to a endpoint on
  * a newly connected socket.
  */
-static int 
+static int
 mca_btl_tcp_endpoint_send_connect_ack(mca_btl_base_endpoint_t* btl_endpoint)
 {
     opal_process_name_t guid = opal_proc_local_get()->proc_name;
     OPAL_PROCESS_NAME_HTON(guid);
-    
+
     mca_btl_tcp_endpoint_hs_msg_t hs_msg;
     opal_string_copy(hs_msg.magic_id, mca_btl_tcp_magic_id_string,
                      sizeof(hs_msg.magic_id));
     hs_msg.guid = guid;
-    
-    if(sizeof(hs_msg) != 
-       mca_btl_tcp_endpoint_send_blocking(btl_endpoint, 
+
+    if(sizeof(hs_msg) !=
+       mca_btl_tcp_endpoint_send_blocking(btl_endpoint,
                                           &hs_msg, sizeof(hs_msg))) {
          opal_show_help("help-mpi-btl-tcp.txt", "client handshake fail",
                        true, opal_process_info.nodename,
@@ -537,6 +537,19 @@ void mca_btl_tcp_endpoint_close(mca_btl_base_endpoint_t* btl_endpoint)
     btl_endpoint->endpoint_cache_pos    = NULL;
     btl_endpoint->endpoint_cache_length = 0;
 #endif  /* MCA_BTL_TCP_ENDPOINT_CACHE */
+
+    /* send a message before closing to differentiate between failures and
+     * clean disconnect during finalize */
+    if( MCA_BTL_TCP_CONNECTED == btl_endpoint->endpoint_state ) {
+        mca_btl_tcp_hdr_t fin_msg = {
+            .base.tag = 0,
+            .type = MCA_BTL_TCP_HDR_TYPE_FIN,
+            .count = 0,
+            .size = 0,
+        };
+        mca_btl_tcp_endpoint_send_blocking(btl_endpoint,
+                                           &fin_msg, sizeof(fin_msg));
+    }
 
     CLOSE_THE_SOCKET(btl_endpoint->endpoint_sd);
     btl_endpoint->endpoint_sd = -1;
@@ -875,7 +888,7 @@ static int mca_btl_tcp_endpoint_complete_connect(mca_btl_base_endpoint_t* btl_en
         opal_show_help("help-mpi-btl-tcp.txt", "client connect fail",
                        true, opal_process_info.nodename,
                        getpid(), msg,
-                       strerror(opal_socket_errno), opal_socket_errno);
+                       strerror(so_error), so_error);
         free(msg);
 #endif /* OPAL_ENABLE_FT_MPI == 0 */
         btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;

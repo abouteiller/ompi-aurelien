@@ -4,6 +4,9 @@
  *                         reserved.
  * Copyright (c) 2018      Research Organization for Information Science
  *                         and Technology (RIST).  All rights reserved.
+ * Copyright (c) 2019      Google, LLC. All rights reserved.
+ * Copyright (c) 2019      Triad National Security, LLC. All rights
+ *                         reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -73,7 +76,14 @@ static inline void opal_atomic_wmb (void)
 
 static inline void opal_atomic_rmb (void)
 {
+#if OPAL_ASSEMBLY_ARCH == OPAL_X86_64
+    /* work around a bug in older gcc versions (observed in gcc 6.x)
+     * where acquire seems to get treated as a no-op instead of being
+     * equivalent to __asm__ __volatile__("": : :"memory") on x86_64 */
+    opal_atomic_mb ();
+#else
     atomic_thread_fence (memory_order_acquire);
+#endif
 }
 
 #define opal_atomic_compare_exchange_strong_32(addr, compare, value) atomic_compare_exchange_strong_explicit (addr, compare, value, memory_order_relaxed, memory_order_relaxed)
@@ -91,9 +101,9 @@ static inline void opal_atomic_rmb (void)
 #define opal_atomic_compare_exchange_strong_acq(addr, oldval, newval)  atomic_compare_exchange_strong_explicit (addr, oldval, newval, memory_order_acquire, memory_order_relaxed)
 #define opal_atomic_compare_exchange_strong_rel(addr, oldval, newval)  atomic_compare_exchange_strong_explicit (addr, oldval, newval, memory_order_release, memory_order_relaxed)
 
-#define opal_atomic_swap_32(addr, value) atomic_exchange_explicit (addr, value, memory_order_relaxed)
-#define opal_atomic_swap_64(addr, value) atomic_exchange_explicit (addr, value, memory_order_relaxed)
-#define opal_atomic_swap_ptr(addr, value) atomic_exchange_explicit (addr, value, memory_order_relaxed)
+#define opal_atomic_swap_32(addr, value) atomic_exchange_explicit ((_Atomic unsigned int *)addr, value, memory_order_relaxed)
+#define opal_atomic_swap_64(addr, value) atomic_exchange_explicit ((_Atomic unsigned long *)addr, value, memory_order_relaxed)
+#define opal_atomic_swap_ptr(addr, value) atomic_exchange_explicit ((_Atomic unsigned long *)addr, value, memory_order_relaxed)
 
 #define OPAL_ATOMIC_STDC_DEFINE_FETCH_OP(op, bits, type, operator)      \
     static inline type opal_atomic_fetch_ ## op ##_## bits (opal_atomic_ ## type *addr, type value) \

@@ -227,13 +227,41 @@ opal_datatype_is_contiguous_memory_layout( const opal_datatype_t* datatype, int3
 }
 
 
-OPAL_DECLSPEC void opal_datatype_dump( const opal_datatype_t* pData );
+OPAL_DECLSPEC void
+opal_datatype_dump( const opal_datatype_t* pData );
+
 /* data creation functions */
-OPAL_DECLSPEC int32_t opal_datatype_clone( const opal_datatype_t * src_type, opal_datatype_t * dest_type );
-OPAL_DECLSPEC int32_t opal_datatype_create_contiguous( int count, const opal_datatype_t* oldType, opal_datatype_t** newType );
-OPAL_DECLSPEC int32_t opal_datatype_resize( opal_datatype_t* type, ptrdiff_t lb, ptrdiff_t extent );
-OPAL_DECLSPEC int32_t opal_datatype_add( opal_datatype_t* pdtBase, const opal_datatype_t* pdtAdd, size_t count,
-                                         ptrdiff_t disp, ptrdiff_t extent );
+
+/**
+ * Create a duplicate of the source datatype.
+ */
+OPAL_DECLSPEC int32_t
+opal_datatype_clone( const opal_datatype_t* src_type,
+                     opal_datatype_t* dest_type );
+/**
+ * A contiguous array of identical datatypes.
+ */
+OPAL_DECLSPEC int32_t
+opal_datatype_create_contiguous( int count, const opal_datatype_t* oldType,
+                                 opal_datatype_t** newType );
+/**
+ * Add a new datatype to the base type description. The count is the number
+ * repetitions of the same element to be added, and the extent is the extent
+ * of each element. The displacement is the initial displacement of the
+ * first element.
+ */
+OPAL_DECLSPEC int32_t
+opal_datatype_add( opal_datatype_t* pdtBase,
+                   const opal_datatype_t* pdtAdd, size_t count,
+                   ptrdiff_t disp, ptrdiff_t extent );
+
+/**
+ * Alter the lb and extent of an existing datatype in place.
+ */
+OPAL_DECLSPEC int32_t
+opal_datatype_resize( opal_datatype_t* type,
+                      ptrdiff_t lb,
+                      ptrdiff_t extent );
 
 static inline int32_t
 opal_datatype_type_lb( const opal_datatype_t* pData, ptrdiff_t* disp )
@@ -348,7 +376,7 @@ opal_datatype_create_from_packed_description( void** packed_buffer,
  *          argument, the number of bytes of the gap at the beginning.
  */
 static inline ptrdiff_t
-opal_datatype_span( const opal_datatype_t* pData, int64_t count,
+opal_datatype_span( const opal_datatype_t* pData, size_t count,
                     ptrdiff_t* gap)
 {
     if (OPAL_UNLIKELY(0 == pData->size) || (0 == count)) {
@@ -358,7 +386,7 @@ opal_datatype_span( const opal_datatype_t* pData, int64_t count,
     *gap = pData->true_lb;
     ptrdiff_t extent = (pData->ub - pData->lb);
     ptrdiff_t true_extent = (pData->true_ub - pData->true_lb);
-    return true_extent + (count - 1) * extent;
+    return true_extent + extent * (count - 1);
 }
 
 #if OPAL_ENABLE_DEBUG
