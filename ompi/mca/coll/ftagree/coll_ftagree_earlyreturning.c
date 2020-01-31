@@ -275,6 +275,13 @@ OBJ_CLASS_INSTANCE(era_comm_agreement_specific_t,
  * upper level (i.e., the interface with MPI_Comm_agree in prepare_agreement).
  */
 static opal_mutex_t era_mutex;
+/* This second mutex is used for fine-grain thread safety when accessing the
+ * incomplete_msg hash-table. This mutex may be taken from within the era_mutex,
+ * and should thus be released in the same function scope to avoid double mutex
+ * interlock.
+ */
+static opal_mutex_t era_incomplete_msg_mutex;
+
 
 typedef struct era_iagree_request_s era_iagree_request_t;
 
@@ -2631,6 +2638,7 @@ static void era_cb_fn(struct mca_btl_base_module_t* btl,
         msg_bytes = frag->bytes;
     } else {
         src_hash = hash_name(frag->src);
+        opal_mutex_lock(&era_incomplete_msg_mutex);
         if( opal_hash_table_get_value_uint64(&era_incomplete_messages, src_hash, &value) == OMPI_SUCCESS ) {
             msg_table = (opal_hash_table_t*)value;
         } else {
@@ -2646,6 +2654,7 @@ static void era_cb_fn(struct mca_btl_base_module_t* btl,
             incomplete_msg->bytes_received = 0;
             opal_hash_table_set_value_uint64(msg_table, frag->msg_seqnum, (void*)incomplete_msg);
         }
+        opal_mutex_unlock(&era_incomplete_msg_mutex);
 
         memcpy( incomplete_msg->bytes + frag->frag_offset,
                 frag->bytes,
@@ -2655,8 +2664,10 @@ static void era_cb_fn(struct mca_btl_base_module_t* btl,
         /** We receive the messages in order */
         if( incomplete_msg->bytes_received == frag->msg_len ) {
             msg_bytes = incomplete_msg->bytes;
+            opal_mutex_lock(&era_incomplete_msg_mutex);
             opal_hash_table_remove_value_uint64(msg_table, frag->msg_seqnum);
             /** We leave msg_table into the global table, as we will receive more messages */
+            opal_mutex_unlock(&era_incomplete_msg_mutex);
         } else {
             /** This message is incomplete */
             return;
@@ -2839,6 +2850,7 @@ int mca_coll_ftagree_era_init(void)
     }
 
     OBJ_CONSTRUCT(&era_mutex, opal_mutex_t);
+    OBJ_CONSTRUCT(&era_incomplete_msg_mutex, opal_mutex_t);
 
     mca_bml.bml_register(MCA_BTL_TAG_FT_AGREE, era_cb_fn, NULL);
 
@@ -2974,6 +2986,7 @@ int mca_coll_ftagree_era_finalize(void)
     OBJ_DESTRUCT( &era_incomplete_messages );
 
     OBJ_DESTRUCT( &era_mutex );
+    OBJ_DESTRUCT( &era_incomplete_msg_mutex );
 
     era_inited = 0;
 
@@ -3307,7 +3320,9 @@ int mca_coll_ftagree_iera_intra(void *contrib,
     if( ci->status == COMPLETED ) {
         /**< must call this now, since it won't have been called in prepare
          *   as the request was not saved in ci at this time */
+        opal_mutex_lock(&era_mutex);
         ompi_request_complete(&req->super, false);
+        opal_mutex_unlock(&era_mutex);
     }
 
     *request = &req->super;
@@ -3343,8 +3358,10 @@ int mca_coll_ftagree_era_free_comm(ompi_communicator_t* comm,
     aid.ERAID_FIELDS.contextid = comm->c_contextid;
     aid.ERAID_FIELDS.epoch     = comm->c_epoch;
 
+    opal_mutex_lock(&era_mutex);
     /** We don't need to set aid.ERAID_FIELDS.agreementid to collect all of them */
     era_collect_passed_agreements(aid, 0, (uint16_t)-1);
+    opal_mutex_unlock(&era_mutex);
 
     return OMPI_SUCCESS;
 }
