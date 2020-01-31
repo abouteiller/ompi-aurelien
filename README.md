@@ -34,7 +34,7 @@ supplementary interfaces defined in the communicator section of the
 + `MPIX_Comm_shrink(MPI_Comm comm, MPI_Comm* newcomm)` creates a new
   communicator where dead processes in comm were removed.
 + `MPIX_Comm_agree(MPI_Comm comm, int *flag)` performs a consensus (i.e. fault
-  tolerant allreduce operation) on flag (with the operation bitwise or).
+  tolerant allreduce operation) on flag (with the operation bitwise AND).
 + `MPIX_Comm_failure_get_acked(MPI_Comm, MPI_Group*)` obtains the group of
   currently acknowledged failed processes.
 + `MPIX_Comm_failure_ack(MPI_Comm)` acknowledges that the application intends
