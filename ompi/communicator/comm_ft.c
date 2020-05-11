@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2011-2019 The University of Tennessee and The University
+ * Copyright (c) 2011-2020 The University of Tennessee and The University
+ *
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -12,12 +13,6 @@
  */
 
 #include "opal/dss/dss.h"
-
-#include "orte/util/name_fns.h"
-#include "orte/runtime/orte_globals.h"
-#include "orte/mca/errmgr/errmgr.h"
-#include "orte/mca/rml/rml.h"
-#include "orte/mca/grpcomm/grpcomm.h"
 
 #include "ompi/runtime/params.h"
 #include "ompi/group/group.h"

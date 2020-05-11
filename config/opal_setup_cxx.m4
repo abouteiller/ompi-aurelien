@@ -76,6 +76,29 @@ AC_DEFUN([_OPAL_SETUP_CXX_COMPILER],[
     OPAL_VAR_SCOPE_POP
 ])
 
+# OPAL_CHECK_CXX_IQUOTE()
+# ----------------------
+# Check if the compiler supports the -iquote option. This options
+# removes the specified directory from the search path when using
+# #include <>. This check works around an issue caused by C++20
+# which added a <version> header. This conflicts with the
+# VERSION file at the base of our source directory on case-
+# insensitive filesystems.
+AC_DEFUN([OPAL_CHECK_CXX_IQUOTE],[
+    OPAL_VAR_SCOPE_PUSH([opal_check_cxx_iquote_CFLAGS_save])
+    opal_check_cxx_iquote_CFLAGS_save=${CFLAGS}
+    CXXFLAGS="${CFLAGS} -iquote ."
+    AC_MSG_CHECKING([for $CXX option to add a directory only to the search path for the quote form of include])
+    AC_LANG_PUSH(C++)
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[])],
+		      [opal_cxx_iquote="-iquote"],
+		      [opal_cxx_iquote="-I"])
+    CXXFLAGS=${opal_check_cxx_iquote_CFLAGS_save}
+    AC_LANG_POP(C++)
+    OPAL_VAR_SCOPE_POP
+    AC_MSG_RESULT([$opal_cxx_iquote])
+])
+
 # _OPAL_SETUP_CXX_COMPILER_BACKEND()
 # ----------------------------------
 # Back end of _OPAL_SETUP_CXX_COMPILER_BACKEND()
@@ -223,4 +246,6 @@ EOF
     AC_CHECK_SIZEOF(bool)
     OPAL_C_GET_ALIGNMENT(bool, OPAL_ALIGNMENT_CXX_BOOL)
     AC_LANG_POP(C++)
+
+    OPAL_CHECK_CXX_IQUOTE
 ])

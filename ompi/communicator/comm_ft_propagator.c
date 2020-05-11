@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2019 The University of Tennessee and The University
+ * Copyright (c) 2011-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -11,9 +11,6 @@
  * $HEADER$
  */
 #include "opal/mca/base/mca_base_var.h"
-
-#include "orte/util/name_fns.h"
-#include "orte/util/error_strings.h"
 
 #include "ompi/runtime/params.h"
 #include "ompi/communicator/communicator.h"

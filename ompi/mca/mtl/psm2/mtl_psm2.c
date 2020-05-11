@@ -11,7 +11,7 @@
  * Copyright (c) 2004-2006 The Regents of the University of California.
  *                         All rights reserved.
  * Copyright (c) 2006      QLogic Corporation. All rights reserved.
- * Copyright (c) 2013-2017 Intel, Inc. All rights reserved
+ * Copyright (c) 2013-2020 Intel, Inc.  All rights reserved.
  * Copyright (c) 2014      Los Alamos National Security, LLC. All rights
  *                         reserved.
  * Copyright (c) 2016      Research Organization for Information Science
@@ -25,7 +25,7 @@
 
 #include "ompi_config.h"
 
-#include "opal/mca/pmix/pmix.h"
+#include "opal/mca/pmix/pmix-internal.h"
 #include "ompi/mca/mtl/mtl.h"
 #include "ompi/mca/mtl/base/mtl_base_datatype.h"
 #include "opal/util/show_help.h"
@@ -101,7 +101,7 @@ int ompi_mtl_psm2_module_init(int local_rank, int num_local_procs) {
     char env_string[256];
     int rc;
 
-    generated_key = getenv(OPAL_MCA_PREFIX"orte_precondition_transports");
+    generated_key = getenv("OPA_TRANSPORT_KEY");
     memset(uu, 0, sizeof(psm2_uuid_t));
 
     if (!generated_key || (strlen(generated_key) != 33) ||
@@ -159,7 +159,7 @@ int ompi_mtl_psm2_module_init(int local_rank, int num_local_procs) {
     ompi_mtl_psm2.epid = epid;
     ompi_mtl_psm2.mq   = mq;
 
-    OPAL_MODEX_SEND(rc, OPAL_PMIX_GLOBAL,
+    OPAL_MODEX_SEND(rc, PMIX_GLOBAL,
                     &mca_mtl_psm2_component.super.mtl_version,
                     &ompi_mtl_psm2.epid,
                     sizeof(psm2_epid_t));
@@ -324,8 +324,9 @@ ompi_mtl_psm2_add_procs(struct mca_mtl_base_module_t *mtl,
 			    errstr ? errstr : "unknown connect error");
 		for (j = 0; j < (int) nprocs; j++) {
 		  if (errs_out[j] == thiserr) {
-                      opal_output(0, " %s", (NULL == procs[j]->super.proc_hostname) ?
-                                  "unknown" : procs[j]->super.proc_hostname);
+                      char *errhost = opal_get_proc_hostname(&procs[j]->super);
+                      opal_output(0, " %s", errhost);
+                      free(errhost);
 		  }
 		}
 		opal_output(0, "\n");
@@ -403,7 +404,7 @@ int ompi_mtl_psm2_progress( void ) {
     mca_mtl_psm2_request_t* mtl_psm2_request;
     psm2_mq_status2_t psm2_status;
     psm2_mq_req_t req;
-    int completed = 1;
+    int completed = 0;
 
     do {
         OPAL_THREAD_LOCK(&mtl_psm2_mq_mutex);
@@ -469,5 +470,5 @@ int ompi_mtl_psm2_progress( void ) {
     opal_show_help("help-mtl-psm2.txt",
 		   "error polling network", true,
 		   psm2_error_get_string(err));
-    return 1;
+    return OMPI_ERROR;
 }

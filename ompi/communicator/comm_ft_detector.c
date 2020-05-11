@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019 The University of Tennessee and The University
+ * Copyright (c) 2016-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -11,7 +11,7 @@
  */
 #include "opal/mca/base/mca_base_var.h"
 #include "opal/mca/timer/base/base.h"
-#include "opal/threads/threads.h"
+#include "opal/mca/threads/threads.h"
 
 #include "ompi/runtime/params.h"
 #include "ompi/communicator/communicator.h"

@@ -13,7 +13,7 @@
 # Copyright (c) 2011-2013 Los Alamos National Security, LLC.
 #                         All rights reserved.
 # Copyright (c) 2010-2017 Cisco Systems, Inc.  All rights reserved.
-# Copyright (c) 2013-2019 Intel, Inc.  All rights reserved.
+# Copyright (c) 2013-2020 Intel, Inc.  All rights reserved.
 # Copyright (c) 2015-2016 Research Organization for Information Science
 #                         and Technology (RIST). All rights reserved.
 # $COPYRIGHT$
@@ -23,12 +23,54 @@
 # $HEADER$
 #
 
+#
+# Priority
+#
+AC_DEFUN([MCA_opal_pmix_pmix4x_PRIORITY], [80])
+
+#
+# Force this component to compile in static-only mode
+#
+AC_DEFUN([MCA_opal_pmix_pmix4x_COMPILE_MODE], [
+    AC_MSG_CHECKING([for MCA component $2:$3 compile mode])
+    $4="static"
+    AC_MSG_RESULT([$$4])
+])
+
+# MCA_pmix_pmix4x_POST_CONFIG()
+# ---------------------------------
+AC_DEFUN([MCA_opal_pmix_pmix4x_POST_CONFIG],[
+    OPAL_VAR_SCOPE_PUSH([opal_pmix_pmix4x_basedir])
+
+    # If we won, then do all the rest of the setup
+    AS_IF([test "$1" = "1" && test "$opal_pmix_pmix4x_happy" = "1"],
+          [
+           # Set this variable so that the framework m4 knows what
+           # file to include in opal/mca/pmix/pmix-internal.h
+           opal_pmix_pmix4x_basedir=opal/mca/pmix/pmix4x
+           opal_pmix_base_include="$opal_pmix_pmix4x_basedir/pmix4x.h"
+
+           # Add some stuff to CPPFLAGS so that the rest of the source
+           # tree can be built
+           file=$opal_pmix_pmix4x_basedir/openpmix
+           CPPFLAGS="-I$OPAL_TOP_SRCDIR/$file/include $CPPFLAGS"
+           AS_IF([test "$OPAL_TOP_BUILDDIR" != "$OPAL_TOP_SRCDIR"],
+                 [CPPFLAGS="-I$OPAL_TOP_BUILDDIR/$file/include $CPPFLAGS"])
+           unset file
+          ])
+    OPAL_VAR_SCOPE_POP
+
+    # This must be run unconditionally
+    # PMIX_DO_AM_CONDITIONALS
+])dnl
+
+
 # MCA_pmix_pmix4x_CONFIG([action-if-found], [action-if-not-found])
 # -----------------------------------------------------------
 AC_DEFUN([MCA_opal_pmix_pmix4x_CONFIG],[
     AC_CONFIG_FILES([opal/mca/pmix/pmix4x/Makefile])
 
-    OPAL_VAR_SCOPE_PUSH([PMIX_VERSION opal_pmix_pmix4x_save_CPPFLAGS opal_pmix_pmix2_save_CFLAGS opal_pmix_pmix4x_save_LDFLAGS opal_pmix_pmix4x_save_LIBS opal_pmix_pmix4x_basedir opal_pmix_pmix4x_args opal_pmix_pmix4x_happy  pmix_pmix4x_status_filename])
+    OPAL_VAR_SCOPE_PUSH([PMIX_VERSION opal_pmix_pmix4x_save_CPPFLAGS opal_pmix_pmix2_save_CFLAGS opal_pmix_pmix4x_save_LDFLAGS opal_pmix_pmix4x_save_LIBS opal_pmix_pmix4x_basedir opal_pmix_pmix4x_args  pmix_pmix4x_status_filename])
 
     opal_pmix_pmix4x_basedir=opal/mca/pmix/pmix4x
 
@@ -40,6 +82,10 @@ AC_DEFUN([MCA_opal_pmix_pmix4x_CONFIG],[
     AC_ARG_ENABLE([pmix-timing],
                   [AC_HELP_STRING([--enable-pmix-timing],
                                   [Enable PMIx timing measurements (default: disabled)])])
+    AC_ARG_WITH([pmix-platform],
+                [AC_HELP_STRING([--with-pmix-platform],
+                                [Platform file to use when building the internal PMIx support])])
+
     AC_MSG_CHECKING([if PMIx timing is enabled])
     if test "$enable_pmix_timing" = "yes"; then
         AC_MSG_RESULT([yes])
@@ -49,7 +95,7 @@ AC_DEFUN([MCA_opal_pmix_pmix4x_CONFIG],[
         opal_pmix_pmix4x_timing_flag=--disable-pmix-timing
     fi
 
-    opal_pmix_pmix4x_args="$opal_pmix_pmix4x_timing_flag --without-tests-examples --with-pmix-symbol-rename=OPAL_MCA_PMIX4X_ --disable-pmix-binaries --disable-pmix-backward-compatibility --disable-visibility --enable-embedded-mode --with-libevent-header=\\\"opal/mca/event/$opal_event_base_include\\\" --with-hwloc-header=\\\"$opal_hwloc_base_include\\\""
+    opal_pmix_pmix4x_args="$opal_pmix_pmix4x_timing_flag --without-tests-examples --with-pmix-symbol-rename=OPAL_MCA_PMIX4X_ --disable-pmix-binaries --disable-pmix-backward-compatibility --disable-visibility --enable-embedded-mode --with-libevent-header=\\\"opal/mca/event/event.h\\\" --with-hwloc-header=\\\"opal/mca/hwloc/hwloc-internal.h\\\""
     AS_IF([test "$enable_debug" = "yes"],
           [opal_pmix_pmix4x_args="--enable-debug $opal_pmix_pmix4x_args"
            CFLAGS="$OPAL_CFLAGS_BEFORE_PICKY $OPAL_VISIBILITY_CFLAGS -g"],
@@ -57,6 +103,9 @@ AC_DEFUN([MCA_opal_pmix_pmix4x_CONFIG],[
            CFLAGS="$OPAL_CFLAGS_BEFORE_PICKY $OPAL_VISIBILITY_CFLAGS"])
     AS_IF([test "$with_devel_headers" = "yes"],
           [opal_pmix_pmix4x_args="--with-devel-headers  $opal_pmix_pmix4x_args"])
+    if test ! -z $with_pmix_platform && test "$with_pix_platform" != "yes"; then
+        opal_pmix_pmix4x_args="$opal_pmix_pmix4x_args --with-platform=$with_pmix_platform"
+    fi
     CPPFLAGS="-I$OPAL_TOP_SRCDIR -I$OPAL_TOP_BUILDDIR -I$OPAL_TOP_SRCDIR/opal/include -I$OPAL_TOP_BUILDDIR/opal/include $CPPFLAGS"
 
     OPAL_CONFIG_SUBDIR([$opal_pmix_pmix4x_basedir/openpmix],

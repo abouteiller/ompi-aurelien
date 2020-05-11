@@ -12,7 +12,7 @@
  *                         All rights reserved.
  * Copyright (c) 2014-2018 Los Alamos National Security, LLC. All rights
  *                         reserved.
- * Copyright (c) 2018      Intel, Inc, All rights reserved
+ * Copyright (c) 2018-2019 Intel, Inc.  All rights reserved.
  *
  * Copyright (c) 2018      Amazon.com, Inc. or its affiliates.  All Rights reserved.
  * $COPYRIGHT$
@@ -30,6 +30,7 @@
 #include "opal/mca/btl/btl.h"
 #include "opal/mca/btl/base/base.h"
 #include "opal/mca/hwloc/base/base.h"
+#include "opal/mca/common/ofi/common_ofi.h"
 
 #include <string.h>
 
@@ -240,7 +241,7 @@ static mca_btl_base_module_t **mca_btl_ofi_component_init (int *num_btl_modules,
         return NULL;
     }
 
-    struct fi_info *info, *info_list;
+    struct fi_info *info, *info_list, *selected_info;
     struct fi_info hints = {0};
     struct fi_ep_attr ep_attr = {0};
     struct fi_rx_attr rx_attr = {0};
@@ -331,10 +332,27 @@ static mca_btl_base_module_t **mca_btl_ofi_component_init (int *num_btl_modules,
         rc = validate_info(info, required_caps);
         if (OPAL_SUCCESS == rc) {
             /* Device passed sanity check, let's make a module.
-             * We only pick the first device we found valid */
-            rc = mca_btl_ofi_init_device(info);
-            if (OPAL_SUCCESS == rc)
+             *
+             * The initial fi_getinfo() call will return a list of providers
+             * available for this process. once a provider is selected from the
+             * list, we will cycle through the remaining list to identify NICs
+             * serviced by this provider, and try to pick one on the same NUMA
+             * node as this process. If there are no NICs on the same NUMA node,
+             * we pick one in a manner which allows all ranks to make balanced
+             * use of available NICs on the system.
+             *
+             * Most providers give a separate fi_info object for each NIC,
+             * however some may have multiple info objects with different
+             * attributes for the same NIC. The initial provider attributes
+             * are used to ensure that all NICs we return provide the same
+             * capabilities as the inital one.
+             */
+            selected_info = opal_mca_common_ofi_select_provider(info, opal_process_info.my_local_rank);
+            rc = mca_btl_ofi_init_device(selected_info);
+            if (OPAL_SUCCESS == rc) {
+                info = selected_info;
                 break;
+            }
         }
         info = info->next;
     }
@@ -567,7 +585,7 @@ static int mca_btl_ofi_init_device(struct fi_info *info)
 
     /* post our endpoint name so peer can use it to connect to us */
     OPAL_MODEX_SEND(rc,
-                    OPAL_PMIX_GLOBAL,
+                    PMIX_GLOBAL,
                     &mca_btl_ofi_component.super.btl_version,
                     &ep_name,
                     namelen);
@@ -581,6 +599,12 @@ static int mca_btl_ofi_init_device(struct fi_info *info)
 fail:
     /* clean up */
 
+    /* close basic ep before closing av */
+    if (NULL != ep && !module->is_scalable_ep) {
+        fi_close(&ep->fid);
+        ep = NULL;
+    }
+
     /* if the contexts have not been initiated, num_contexts should
      * be zero and we skip this. */
     for (int i=0; i < module->num_contexts; i++) {
@@ -588,12 +612,14 @@ fail:
     }
     free(module->contexts);
 
-    if (NULL != av) {
-        fi_close(&av->fid);
-    }
-
+    /* check for NULL ep to avoid double-close */
     if (NULL != ep) {
         fi_close(&ep->fid);
+    }
+
+    /* close av after closing basic ep */
+    if (NULL != av) {
+        fi_close(&av->fid);
     }
 
     if (NULL != domain) {

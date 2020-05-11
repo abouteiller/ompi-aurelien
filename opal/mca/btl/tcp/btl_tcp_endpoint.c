@@ -10,7 +10,6 @@
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
  * Copyright (c) 2007-2008 Sun Microsystems, Inc.  All rights reserved.
- * Copyright (c) 2012      Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2013-2018 Cisco Systems, Inc.  All rights reserved
  * Copyright (c) 2014      Intel, Inc.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
@@ -652,8 +651,8 @@ static int mca_btl_tcp_endpoint_recv_connect_ack(mca_btl_base_endpoint_t* btl_en
      * to be able to exchange the opal_process_name_t over the network.
      */
     if (0 != opal_compare_proc(btl_proc->proc_opal->proc_name, guid)) {
-        BTL_ERROR(("received unexpected process identifier %s",
-                   OPAL_NAME_PRINT(guid)));
+        BTL_ERROR(("received unexpected process identifier: got %s expected %s",
+                   OPAL_NAME_PRINT(guid), OPAL_NAME_PRINT(btl_proc->proc_opal->proc_name)));
         btl_endpoint->endpoint_state = MCA_BTL_TCP_FAILED;
         mca_btl_tcp_endpoint_close(btl_endpoint);
         return OPAL_ERR_UNREACH;
@@ -761,9 +760,9 @@ static int mca_btl_tcp_endpoint_start_connect(mca_btl_base_endpoint_t* btl_endpo
     mca_btl_tcp_proc_tosocks(btl_endpoint->endpoint_addr, &endpoint_addr);
 
     /* Bind the socket to one of the addresses associated with
-     * this btl module.  This sets the source IP to one of the 
-     * addresses shared in modex, so that the destination rank 
-     * can properly pair btl modules, even in cases where Linux 
+     * this btl module.  This sets the source IP to one of the
+     * addresses shared in modex, so that the destination rank
+     * can properly pair btl modules, even in cases where Linux
      * might do something unexpected with routing */
     if (endpoint_addr.ss_family == AF_INET) {
         assert(NULL != &btl_endpoint->endpoint_btl->tcp_ifaddr);
@@ -970,7 +969,7 @@ static void mca_btl_tcp_endpoint_recv_handler(int sd, short flags, void* user)
                    the magic string ID failed). recv_connect_ack already cleaned
                    up the socket. */
                 /* If we get OPAL_ERROR, the other end closed the connection
-                 * because it has initiated a symetrical connexion on its end. 
+                 * because it has initiated a symetrical connexion on its end.
                  * recv_connect_ack already cleaned up the socket. */
             }
             else {

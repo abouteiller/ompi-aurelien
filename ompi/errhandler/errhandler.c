@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2018 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -15,7 +15,7 @@
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
- * Copyright (c) 2015-2016 Intel, Inc. All rights reserved.
+ * Copyright (c) 2015-2019 Intel, Inc.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -32,7 +32,7 @@
 #include "ompi/errhandler/errhandler.h"
 #include "ompi/errhandler/errhandler_predefined.h"
 #include "opal/class/opal_pointer_array.h"
-#include "opal/mca/pmix/pmix.h"
+#include "opal/mca/pmix/pmix-internal.h"
 #include "opal/util/string_copy.h"
 
 
@@ -174,7 +174,7 @@ int ompi_errhandler_finalize(void)
 
     /* JMS Add stuff here checking for unreleased errorhandlers,
        similar to communicators, info handles, etc. */
-    opal_pmix.deregister_evhandler(default_errhandler_id, NULL, NULL);
+    PMIx_Deregister_event_handler(default_errhandler_id, NULL, NULL);
 
     /* Remove errhandler F2C table */
 
@@ -232,7 +232,7 @@ ompi_errhandler_t *ompi_errhandler_create(ompi_errhandler_type_t object_type,
 }
 
 #if OPAL_ENABLE_FT_MPI
-#include "opal/threads/wait_sync.h"
+#include "opal/mca/threads/wait_sync.h"
 
 #if 0
 static void pmix_notify_cb(int status, void *cbdata)
@@ -405,32 +405,43 @@ void ompi_errhandler_registration_callback(int status,
 /**
  * Default errhandler callback for RTE reported errors
  */
-void ompi_errhandler_callback(int status,
-                              const opal_process_name_t *source,
-                              opal_list_t *info, opal_list_t *results,
-                              opal_pmix_notification_complete_fn_t cbfunc,
+void ompi_errhandler_callback(size_t refid, pmix_status_t status,
+                              const pmix_proc_t *source,
+                              pmix_info_t *info, size_t ninfo,
+                              pmix_info_t *results, size_t nresults,
+                              pmix_event_notification_cbfunc_fn_t cbfunc,
                               void *cbdata)
 {
+    int rc;
     /* an error has been found, report to the MPI layer and let it take
      * further action. */
     /* transition this from the RTE thread to the MPI progress engine */
     ompi_errhandler_event_t *event = malloc(sizeof(*event));
-    if(OPAL_LIKELY( NULL != event )) {
-        event->status = status;
-        event->procname = *source;
-        opal_event_set(opal_sync_event_base, &event->super, -1, OPAL_EV_READ,
-                       ompi_errhandler_event_cb, event);
-        opal_event_active(&event->super, OPAL_EV_READ, 1);
-        /* tell the event chain engine to go no further - we
-         * will handle this */
-        if (NULL != cbfunc) {
-            cbfunc(OMPI_ERR_HANDLERS_COMPLETE, NULL, NULL, NULL, cbdata);
-        }
+    if(NULL == event) {
+        OMPI_ERROR_LOG(OMPI_ERR_OUT_OF_RESOURCE);
+        goto error;
     }
-    else {
-        if (NULL != cbfunc) {
-            cbfunc(status, results, NULL, NULL, cbdata);
-        }
+    OPAL_PMIX_CONVERT_PROCT(rc, &event->procname, (pmix_proc_t*)source);
+    if(OPAL_UNLIKELY(OPAL_SUCCESS != rc)) {
+        OMPI_ERROR_LOG(rc);
+        free(event);
+        goto error;
+    }
+    event->status = status;
+    opal_event_set(opal_sync_event_base, &event->super, -1, OPAL_EV_READ,
+                   ompi_errhandler_event_cb, event);
+    opal_event_active(&event->super, OPAL_EV_READ, 1);
+    /* tell the event chain engine to go no further - we
+     * will handle this */
+    if (NULL != cbfunc) {
+        cbfunc(PMIX_EVENT_ACTION_COMPLETE, NULL, 0, NULL, NULL, cbdata);
+    }
+    return;
+
+error:
+    if (NULL != cbfunc) {
+        /* We can't handle this, let the default action abort. */
+        cbfunc(PMIX_EVENT_NO_ACTION_TAKEN, NULL, 0, NULL, NULL, cbdata);
     }
 }
 

@@ -9,12 +9,12 @@
 #                         University of Stuttgart.  All rights reserved.
 # Copyright (c) 2004-2005 The Regents of the University of California.
 #                         All rights reserved.
-# Copyright (c) 2008-2017 Cisco Systems, Inc.  All rights reserved
+# Copyright (c) 2008-2019 Cisco Systems, Inc.  All rights reserved
 # Copyright (c) 2008      Sun Microsystems, Inc.  All rights reserved.
 # Copyright (c) 2010-2011 Sandia National Laboratories. All rights reserved.
 # Copyright (c) 2013-2015 Los Alamos National Security, LLC. All rights
 #                         reserved.
-# Copyright (c) 2015-2017 Intel, Inc. All rights reserved.
+# Copyright (c) 2015-2019 Intel, Inc.  All rights reserved.
 # Copyright (c) 2015-2018 Research Organization for Information Science
 #                         and Technology (RIST). All rights reserved.
 # Copyright (c) 2016      IBM Corporation.  All rights reserved.
@@ -43,10 +43,10 @@ else
 mpi_fortran_base_lib =
 endif
 
-# Note that the ordering of "." in SUBDIRS is important: the C++,
-# Fortran mpif.h, and use mpi/use mpi_f08 bindings are all in
-# standalone .la files that depend on libmpi.la.  So we must fully
-# build libmpi.la first.
+# Note that the ordering of "." in SUBDIRS is important: the Fortran
+# mpif.h, and use mpi/use mpi_f08 bindings are all in standalone .la
+# files that depend on libmpi.la.  So we must fully build libmpi.la
+# first.
 
 # NOTE: A handful of files in mpi/fortran/base must be included in
 # libmpi.la.  But we wanted to keep all the Fortran sources together
@@ -66,8 +66,8 @@ endif
 # unfortunately).
 
 # The end of the result is that libmpi.la -- including a few sources
-# from mpi/fortran/base -- is fully built before the C++, mpif.h, and
-# use mpi/use mpi_f08 bindings are built.  Therefore, the C++, mpif.h
+# from mpi/fortran/base -- is fully built before the mpif.h, and
+# use mpi/use mpi_f08 bindings are built.  Therefore, the mpif.h
 # and use mpi/use mpi_f08 bindings libraries can all link against
 # libmpi.la.
 
@@ -86,19 +86,21 @@ SUBDIRS = \
         $(MCA_ompi_FRAMEWORKS_SUBDIRS) \
         $(MCA_ompi_FRAMEWORK_COMPONENT_STATIC_SUBDIRS) \
         . \
-        mpi/cxx \
         $(OMPI_MPIEXT_MPIFH_DIRS) \
         mpi/fortran/mpif-h \
         $(OMPI_MPIEXT_USEMPI_DIR) \
         $(OMPI_FORTRAN_USEMPI_DIR) \
         mpi/fortran/mpiext-use-mpi \
+        mpi/fortran/use-mpi-f08/base \
         mpi/fortran/use-mpi-f08/mod \
         mpi/fortran/use-mpi-f08/bindings \
         $(OMPI_MPIEXT_USEMPIF08_DIRS) \
         mpi/fortran/use-mpi-f08 \
         mpi/fortran/mpiext-use-mpi-f08 \
         $(MCA_ompi_FRAMEWORK_COMPONENT_DSO_SUBDIRS) \
-        $(OMPI_CONTRIB_SUBDIRS)
+        $(OMPI_CONTRIB_SUBDIRS) \
+        mpi/man/man3 \
+        mpi/man/man5
 
 if OMPI_WANT_JAVA_BINDINGS
 SUBDIRS += \
@@ -117,13 +119,13 @@ DIST_SUBDIRS = \
         etc \
         mpi/c \
         mpi/tool \
-        mpi/cxx \
         mpi/fortran/base \
         mpi/fortran/mpif-h \
         mpi/fortran/use-mpi-tkr \
         mpi/fortran/use-mpi-ignore-tkr \
         mpi/fortran/mpiext-use-mpi \
         mpi/fortran/use-mpi-f08 \
+        mpi/fortran/use-mpi-f08/base \
         mpi/fortran/use-mpi-f08/mod \
         mpi/fortran/use-mpi-f08/bindings \
         mpi/fortran/mpiext-use-mpi-f08 \
@@ -131,7 +133,9 @@ DIST_SUBDIRS = \
         $(OMPI_MPIEXT_ALL_SUBDIRS) \
         $(MCA_ompi_FRAMEWORKS_SUBDIRS) \
         $(MCA_ompi_FRAMEWORK_COMPONENT_ALL_SUBDIRS) \
-        $(OMPI_CONTRIB_DIST_SUBDIRS)
+        $(OMPI_CONTRIB_DIST_SUBDIRS) \
+        mpi/man/man3 \
+        mpi/man/man5
 
 # Build the main MPI library
 
@@ -150,10 +154,6 @@ lib@OMPI_LIBMPI_NAME@_la_LIBADD = \
         $(OMPI_LIBMPI_EXTRA_LIBS)
 
 
-if OMPI_RTE_ORTE
-lib@OMPI_LIBMPI_NAME@_la_LIBADD += \
-        $(OMPI_TOP_BUILDDIR)/orte/lib@ORTE_LIB_PREFIX@open-rte.la
-endif
 lib@OMPI_LIBMPI_NAME@_la_LIBADD += \
         $(OMPI_TOP_BUILDDIR)/opal/lib@OPAL_LIB_PREFIX@open-pal.la
 lib@OMPI_LIBMPI_NAME@_la_DEPENDENCIES = $(lib@OMPI_LIBMPI_NAME@_la_LIBADD)
@@ -167,7 +167,6 @@ noinst_LTLIBRARIES =
 include_HEADERS =
 dist_ompidata_DATA =
 lib@OMPI_LIBMPI_NAME@_la_SOURCES += $(headers)
-nodist_man_MANS =
 
 # Conditionally install the header files
 
@@ -194,27 +193,11 @@ include runtime/Makefile.am
 include win/Makefile.am
 include tools/Makefile.am
 include mpi/Makefile.am
-include mpi/man/man3/Makefile.extra
 include mpiext/Makefile.am
 include patterns/net/Makefile.am
 include patterns/comm/Makefile.am
 include mca/Makefile.am
 include util/Makefile.am
 
-# Ensure that the man page directory exists before we try to make man
-# page files (because ompi/mpi/man/man3 has no config.status-generated
-# Makefile)
-dir_stamp = $(top_builddir)/$(subdir)/mpi/man/man3/.dir-stamp
-
-# Also ensure that the man pages are rebuilt if the opal_config.h file
-# changes (e.g., configure was run again, meaning that the release
-# date or version may have changed)
-$(nodist_man_MANS): $(dir_stamp) $(top_builddir)/opal/include/opal_config.h
-
-$(dir_stamp):
-	$(MKDIR_P) `dirname $@`
-	touch "$@"
-
-# Remove the generated man pages
 distclean-local:
-	rm -f $(nodist_man_MANS) $(dir_stamp) mpiext/static-components.h
+	rm -f mpiext/static-components.h

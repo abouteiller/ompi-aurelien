@@ -68,7 +68,7 @@ int opal_common_verbs_find_max_inline(struct ibv_device *device,
 #endif
     if (NULL == cq) {
         opal_show_help("help-mpi-btl-openib.txt", "init-fail-create-q",
-                       true, opal_proc_local_get()->proc_hostname,
+                       true, OPAL_PROC_MY_NAME,
                        __FILE__, __LINE__, "ibv_create_cq",
                        strerror(errno), errno,
                        ibv_get_device_name(device));

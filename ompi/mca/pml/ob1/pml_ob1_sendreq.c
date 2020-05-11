@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2019 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -39,7 +39,6 @@
 #include "pml_ob1_rdmafrag.h"
 #include "pml_ob1_recvreq.h"
 #include "ompi/mca/bml/base/base.h"
-#include "ompi/memchecker.h"
 
 OBJ_CLASS_INSTANCE(mca_pml_ob1_send_range_t, opal_free_list_item_t,
         NULL, NULL);
@@ -334,14 +333,14 @@ mca_pml_ob1_rget_completion (mca_pml_ob1_rdma_frag_t *frag, int64_t rdma_length)
         }
     }
     else {
-        opal_output_verbose(mca_pml_ob1_output, 1, "pml:ob1: %s: operation failed with code %d", __func__, rdma_length);
+        opal_output_verbose(mca_pml_ob1_output, 1, "pml:ob1: %s: operation failed with code %d", __func__, (int)rdma_length);
         sendreq->req_send.req_base.req_ompi.req_status.MPI_ERROR =
 #if OPAL_ENABLE_FT_MPI
-            (OMPI_ERR_UNREACH == rdma_length) ? MPI_ERR_PROC_FAILED : rdma_length;
+            (OMPI_ERR_UNREACH == rdma_length) ? MPI_ERR_PROC_FAILED : (int)rdma_length;
 #else
             rdma_length;
 #endif
-        mca_bml_base_btl_array_remove(&sendreq->req_endpoint->btl_eager, bml_btl);
+        mca_bml_base_btl_array_remove(&sendreq->req_endpoint->btl_eager, bml_btl->btl);
         /**
          * Ideally we should release the BTL at this point. Unfortunately as we don't
          * know if other operations are pending on it we can't release it yet (or we

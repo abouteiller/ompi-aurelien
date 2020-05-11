@@ -17,7 +17,7 @@
  * Copyright (c) 2012-2016 Los Alamos National Security, LLC.  All rights
  *                         reserved.
  * Copyright (c) 2012      Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2013-2016 Intel, Inc.  All rights reserved.
+ * Copyright (c) 2013-2020 Intel, Inc.  All rights reserved.
  * Copyright (c) 2014-2016 Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2016      IBM Corporation.  All rights reserved.
@@ -33,8 +33,7 @@
 #include "ompi_config.h"
 
 #include "opal/dss/dss.h"
-#include "opal/mca/base/mca_base_var.h"
-#include "opal/mca/pmix/pmix.h"
+#include "opal/mca/pmix/base/base.h"
 #include "opal/util/printf.h"
 
 #include "ompi/proc/proc.h"
@@ -44,7 +43,7 @@
 #include "opal/class/opal_pointer_array.h"
 #include "opal/class/opal_list.h"
 #include "ompi/mca/pml/pml.h"
-#include "ompi/mca/rte/rte.h"
+#include "ompi/runtime/ompi_rte.h"
 #include "ompi/mca/coll/base/base.h"
 #include "ompi/request/request.h"
 #include "ompi/runtime/mpiruntime.h"
@@ -951,11 +950,12 @@ static int ompi_comm_allreduce_pmix_reduce_complete (ompi_comm_request_t *reques
     ompi_comm_allreduce_context_t *context = (ompi_comm_allreduce_context_t *) request->context;
     ompi_comm_cid_context_t *cid_context = context->cid_context;
     int32_t size_count = context->count;
-    opal_value_t info;
-    opal_pmix_pdata_t pdat;
+    pmix_info_t info;
+    pmix_pdata_t pdat;
     opal_buffer_t sbuf;
     int rc;
     int bytes_written;
+    char *key;
     const int output_id = 0;
     const int verbosity_level = 1;
 
@@ -967,32 +967,33 @@ static int ompi_comm_allreduce_pmix_reduce_complete (ompi_comm_request_t *reques
         return rc;
     }
 
-    OBJ_CONSTRUCT(&info, opal_value_t);
-    OBJ_CONSTRUCT(&pdat, opal_pmix_pdata_t);
+    PMIX_PDATA_CONSTRUCT(&pdat);
+    PMIX_INFO_CONSTRUCT(&info);
+    info.value.type = PMIX_BYTE_OBJECT;
 
-    info.type = OPAL_BYTE_OBJECT;
-    pdat.value.type = OPAL_BYTE_OBJECT;
-
-    opal_dss.unload(&sbuf, (void**)&info.data.bo.bytes, &info.data.bo.size);
+    opal_dss.unload(&sbuf, (void**)&info.value.data.bo.bytes, &rc);
+    info.value.data.bo.size = rc;
     OBJ_DESTRUCT(&sbuf);
 
-    bytes_written = opal_asprintf(&info.key,
+    bytes_written = opal_asprintf(&key,
                              cid_context->send_first ? "%s:%s:send:%d"
                                                      : "%s:%s:recv:%d",
                              cid_context->port_string,
                              cid_context->pmix_tag,
                              cid_context->iter);
-
+    PMIX_LOAD_KEY(info.key, key);
+    free(key);
     if (bytes_written == -1) {
         opal_output_verbose (verbosity_level, output_id, "writing info.key failed\n");
     } else {
-        bytes_written = opal_asprintf(&pdat.value.key,
+        bytes_written = opal_asprintf(&key,
                                  cid_context->send_first ? "%s:%s:recv:%d"
                                                          : "%s:%s:send:%d",
                                  cid_context->port_string,
                                  cid_context->pmix_tag,
                                  cid_context->iter);
-
+        PMIX_LOAD_KEY((char*)pdat.key, key);
+        free(key);
         if (bytes_written == -1) {
             opal_output_verbose (verbosity_level, output_id, "writing pdat.value.key failed\n");
         }
@@ -1010,18 +1011,19 @@ static int ompi_comm_allreduce_pmix_reduce_complete (ompi_comm_request_t *reques
 
     /* this macro is not actually non-blocking. if a non-blocking version becomes available this function
      * needs to be reworked to take advantage of it. */
-    OPAL_PMIX_EXCHANGE(rc, &info, &pdat, 600);  // give them 10 minutes
-    OBJ_DESTRUCT(&info);
+    rc = opal_pmix_base_exchange(&info, &pdat, 600);  // give them 10 minutes
+    PMIX_INFO_DESTRUCT(&info);
     if (OPAL_SUCCESS != rc) {
         OBJ_DESTRUCT(&pdat);
         return rc;
     }
+    if (PMIX_BYTE_OBJECT != pdat.value.type) {
+        OBJ_DESTRUCT(&pdat);
+        return OPAL_ERR_TYPE_MISMATCH;
+    }
 
     OBJ_CONSTRUCT(&sbuf, opal_buffer_t);
     opal_dss.load(&sbuf, pdat.value.data.bo.bytes, pdat.value.data.bo.size);
-    pdat.value.data.bo.bytes = NULL;
-    pdat.value.data.bo.size = 0;
-    OBJ_DESTRUCT(&pdat);
 
     rc = opal_dss.unpack (&sbuf, context->outbuf, &size_count, OPAL_INT);
     OBJ_DESTRUCT(&sbuf);

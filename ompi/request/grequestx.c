@@ -30,10 +30,11 @@ static bool requests_initialized = false;
 static opal_list_t requests;
 static opal_atomic_int32_t active_requests = 0;
 static bool in_progress = false;
-static opal_mutex_t lock;
+static opal_mutex_t lock = OPAL_MUTEX_STATIC_INIT;
 
 static int grequestx_progress(void) {
     ompi_grequest_t *request, *next;
+    int completed = 0;
 
     OPAL_THREAD_LOCK(&lock);
     if (!in_progress) {
@@ -43,18 +44,18 @@ static int grequestx_progress(void) {
             MPI_Status status;
             OPAL_THREAD_UNLOCK(&lock);
             request->greq_poll.c_poll(request->greq_state, &status);
-            if (REQUEST_COMPLETE(&request->greq_base)) {
-                OPAL_THREAD_LOCK(&lock);
-                opal_list_remove_item(&requests, &request->greq_base.super.super);
-                OPAL_THREAD_UNLOCK(&lock);
-            }
             OPAL_THREAD_LOCK(&lock);
+            if (REQUEST_COMPLETE(&request->greq_base)) {
+                opal_list_remove_item(&requests, &request->greq_base.super.super);
+                OBJ_RELEASE(request);
+                completed++;
+            }
         }
         in_progress = false;
     }
     OPAL_THREAD_UNLOCK(&lock);
 
-    return OMPI_SUCCESS;
+    return completed;
 }
 
 int ompi_grequestx_start(
@@ -73,13 +74,17 @@ int ompi_grequestx_start(
     }
     ((ompi_grequest_t *)*request)->greq_poll.c_poll = gpoll_fn;
 
+    /* prevent the request from being destroyed upon completion,
+     * we first have to remove it from the list of active requests
+     */
+    OBJ_RETAIN(((ompi_grequest_t *)*request));
+
+    OPAL_THREAD_LOCK(&lock);
     if (!requests_initialized) {
         OBJ_CONSTRUCT(&requests, opal_list_t);
-        OBJ_CONSTRUCT(&lock, opal_mutex_t);
         requests_initialized = true;
     }
 
-    OPAL_THREAD_LOCK(&lock);
     opal_list_append(&requests, &((*request)->super.super));
     OPAL_THREAD_UNLOCK(&lock);
     int32_t tmp = OPAL_THREAD_ADD_FETCH32(&active_requests, 1);

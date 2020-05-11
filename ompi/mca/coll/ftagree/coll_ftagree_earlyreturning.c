@@ -21,7 +21,6 @@
 #include "ompi/mca/coll/coll.h"
 #include "ompi/mca/coll/base/coll_tags.h"
 #include "ompi/mca/bml/bml.h"
-#include "ompi/mca/rte/rte.h"
 #include "ompi/op/op.h"
 #include "ompi/mca/bml/base/base.h"
 

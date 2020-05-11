@@ -87,7 +87,7 @@ int opal_common_verbs_fork_test(void)
             if (opal_common_verbs_want_fork_support > 0) {
                 opal_show_help("help-opal-common-verbs.txt",
                                "ibv_fork_init fail", true,
-                               opal_proc_local_get()->proc_hostname, errno,
+                               OPAL_PROC_MY_NAME, errno,
                                strerror(errno));
                 ret = OPAL_ERROR;
             }

@@ -35,8 +35,8 @@
 #include "mpi.h"
 #include "opal/class/opal_free_list.h"
 #include "opal/class/opal_pointer_array.h"
-#include "opal/threads/condition.h"
-#include "opal/threads/wait_sync.h"
+#include "opal/mca/threads/condition.h"
+#include "opal/mca/threads/wait_sync.h"
 #include "ompi/constants.h"
 #include "ompi/runtime/params.h"
 
@@ -161,6 +161,9 @@ typedef struct ompi_request_t ompi_request_t;
  * for full explanation why we chose the following padding construct for predefines.
  */
 #define PREDEFINED_REQUEST_PAD 256
+
+#define REQUEST_PENDING        (void *)0L
+#define REQUEST_COMPLETED      (void *)1L
 
 struct ompi_predefined_request_t {
     struct ompi_request_t request;

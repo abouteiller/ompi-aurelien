@@ -16,6 +16,7 @@
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2018 IBM Corporation. All rights reserved.
+ * Copyright (c) 2020      Intel, Inc.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -32,6 +33,7 @@
 #include <unistd.h>
 #endif  /* HAVE_UNIST_H */
 #include "ompi/mca/mca.h"
+#include "opal/util/argv.h"
 #include "opal/util/output.h"
 #include "opal/mca/base/base.h"
 
@@ -214,11 +216,22 @@ static int mca_pml_base_open(mca_base_open_flag_t flags)
         if( (NULL == default_pml || NULL == default_pml[0] ||
              0 == strlen(default_pml[0])) || (default_pml[0][0] == '^') ) {
             opal_pointer_array_add(&mca_pml_base_pml, strdup("ob1"));
-            opal_pointer_array_add(&mca_pml_base_pml, strdup("yalla"));
             opal_pointer_array_add(&mca_pml_base_pml, strdup("ucx"));
             opal_pointer_array_add(&mca_pml_base_pml, strdup("cm"));
         } else {
+#if OPAL_ENABLE_DEBUG
+            char **req_pml = opal_argv_split(default_pml[0], ',');
+            if( NULL != req_pml[1] ) {
+                opal_output(0, "Only one PML must be provided. Using %s PML (the"
+                            " first on the MCA pml list)", req_pml[0]);
+                opal_pointer_array_add(&mca_pml_base_pml, strdup(req_pml[0]));
+            } else {
+                opal_pointer_array_add(&mca_pml_base_pml, strdup(default_pml[0]));
+            }
+            opal_argv_free(req_pml);
+#else
             opal_pointer_array_add(&mca_pml_base_pml, strdup(default_pml[0]));
+#endif  /* OPAL_ENABLE_DEBUG */
         }
     }
 #if OPAL_ENABLE_FT_CR == 1

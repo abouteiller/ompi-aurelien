@@ -15,7 +15,7 @@
 #include "opal/runtime/opal_progress.h"
 #include "opal/include/opal/constants.h"
 #include "opal/class/opal_list.h"
-#include "opal/threads/tsd.h"
+#include "opal/mca/threads/tsd.h"
 
 BEGIN_C_DECLS
 
@@ -165,7 +165,7 @@ OPAL_DECLSPEC void opal_common_ucx_wpool_free(opal_common_ucx_wpool_t *wpool);
 OPAL_DECLSPEC int opal_common_ucx_wpool_init(opal_common_ucx_wpool_t *wpool,
                                              int proc_world_size, bool enable_mt);
 OPAL_DECLSPEC void opal_common_ucx_wpool_finalize(opal_common_ucx_wpool_t *wpool);
-OPAL_DECLSPEC void opal_common_ucx_wpool_progress(opal_common_ucx_wpool_t *wpool);
+OPAL_DECLSPEC int opal_common_ucx_wpool_progress(opal_common_ucx_wpool_t *wpool);
 
 /* Manage Communication context */
 OPAL_DECLSPEC int opal_common_ucx_wpctx_create(opal_common_ucx_wpool_t *wpool, int comm_size,

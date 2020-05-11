@@ -1,6 +1,6 @@
 # -*- shell-script -*-
 #
-# Copyright (c) 2009-2017 Cisco Systems, Inc.  All rights reserved
+# Copyright (c) 2009-2020 Cisco Systems, Inc.  All rights reserved
 # Copyright (c) 2017-2018 Research Organization for Information Science
 #                         and Technology (RIST). All rights reserved.
 # Copyright (c) 2018      Los Alamos National Security, LLC. All rights
@@ -26,7 +26,6 @@ AC_DEFUN([OMPI_CONFIG_FILES],[
 
         ompi/mpi/c/Makefile
         ompi/mpi/c/profile/Makefile
-        ompi/mpi/cxx/Makefile
         ompi/mpi/fortran/base/Makefile
         ompi/mpi/fortran/mpif-h/Makefile
         ompi/mpi/fortran/mpif-h/profile/Makefile
@@ -38,12 +37,16 @@ AC_DEFUN([OMPI_CONFIG_FILES],[
         ompi/mpi/fortran/use-mpi-ignore-tkr/mpi-ignore-tkr-file-interfaces.h
         ompi/mpi/fortran/use-mpi-ignore-tkr/mpi-ignore-tkr-removed-interfaces.h
         ompi/mpi/fortran/use-mpi-f08/Makefile
+        ompi/mpi/fortran/use-mpi-f08/base/Makefile
         ompi/mpi/fortran/use-mpi-f08/bindings/Makefile
         ompi/mpi/fortran/use-mpi-f08/mod/Makefile
         ompi/mpi/fortran/mpiext-use-mpi/Makefile
         ompi/mpi/fortran/mpiext-use-mpi-f08/Makefile
         ompi/mpi/tool/Makefile
         ompi/mpi/tool/profile/Makefile
+
+        ompi/mpi/man/man3/Makefile
+        ompi/mpi/man/man5/Makefile
 
         ompi/tools/ompi_info/Makefile
         ompi/tools/wrappers/Makefile
@@ -56,5 +59,6 @@ AC_DEFUN([OMPI_CONFIG_FILES],[
         ompi/tools/wrappers/ompi-fort.pc
         ompi/tools/wrappers/mpijavac.pl
         ompi/tools/mpisync/Makefile
+        ompi/tools/mpirun/Makefile
     ])
 ])

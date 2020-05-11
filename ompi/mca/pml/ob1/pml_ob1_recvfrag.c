@@ -33,14 +33,13 @@
 #include "ompi_config.h"
 
 #include "opal/class/opal_list.h"
-#include "opal/threads/mutex.h"
+#include "opal/mca/threads/mutex.h"
 #include "opal/prefetch.h"
 
 #include "ompi/constants.h"
 #include "ompi/communicator/communicator.h"
 #include "ompi/mca/pml/pml.h"
 #include "ompi/peruse/peruse-internal.h"
-#include "ompi/memchecker.h"
 #include "ompi/runtime/ompi_spc.h"
 
 #include "pml_ob1.h"

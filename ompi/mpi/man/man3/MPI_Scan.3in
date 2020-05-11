@@ -3,6 +3,8 @@
 .\" Copyright 2010 Cisco Systems, Inc.  All rights reserved.
 .\" Copyright 2006-2008 Sun Microsystems, Inc.
 .\" Copyright (c) 1996 Thinking Machines Corporation
+.\" Copyright (c) 2020      Google, LLC. All rights reserved.
+.\" Copyright (c) 2020      FUJITSU LIMITED.  All rights reserved.
 .\" $COPYRIGHT$
 .TH MPI_Scan 3 "#OMPI_DATE#" "#PACKAGE_VERSION#" "#PACKAGE_NAME#"
 
@@ -37,6 +39,7 @@ MPI_ISCAN(\fISENDBUF, RECVBUF, COUNT, DATATYPE, OP, COMM, REQUEST, IERROR\fP)
 
 .fi
 .SH Fortran 2008 Syntax
+.nf
 USE mpi_f08
 MPI_Scan(\fIsendbuf\fP, \fIrecvbuf\fP, \fIcount\fP, \fIdatatype\fP, \fIop\fP, \fIcomm\fP, \fIierror\fP)
 	TYPE(*), DIMENSION(..), INTENT(IN) :: \fIsendbuf\fP
@@ -56,14 +59,6 @@ MPI_Iscan(\fIsendbuf\fP, \fIrecvbuf\fP, \fIcount\fP, \fIdatatype\fP, \fIop\fP, \
 	TYPE(MPI_Comm), INTENT(IN) :: \fIcomm\fP
 	TYPE(MPI_Request), INTENT(OUT) :: \fIrequest\fP
 	INTEGER, OPTIONAL, INTENT(OUT) :: \fIierror\fP
-
-.fi
-.SH C++ Syntax
-.nf
-#include <mpi.h>
-void MPI::Intracomm::Scan(const void* \fIsendbuf\fP, void* \fIrecvbuf\fP,
-	int \fIcount\fP, const MPI::Datatype& \fIdatatype\fP,
-	const MPI::Op& \fIop\fP) const
 
 .fi
 .SH INPUT PARAMETERS
@@ -220,10 +215,7 @@ all collective routines return the same error value.
 .SH ERRORS
 .ft R
 Almost all MPI routines return an error value; C routines as
-the value of the function and Fortran routines in the last argument. C++
-functions do not return errors. If the default error handler is set to
-MPI::ERRORS_THROW_EXCEPTIONS, then on error the C++ exception mechanism
-will be used to throw an MPI::Exception object.
+the value of the function and Fortran routines in the last argument.
 .sp
 Before the error value is returned, the current MPI error handler is
 called. By default, this error handler aborts the MPI job, except for

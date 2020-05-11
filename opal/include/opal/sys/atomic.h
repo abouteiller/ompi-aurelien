@@ -16,6 +16,7 @@
  *                         reserved.
  * Copyright (c) 2017      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2020      Google, LLC. All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -163,8 +164,6 @@ enum {
  *********************************************************************/
 #if defined(DOXYGEN)
 /* don't include system-level gorp when generating doxygen files */
-#elif OPAL_ASSEMBLY_BUILTIN == OPAL_BUILTIN_SYNC
-#include "opal/sys/sync_builtin/atomic.h"
 #elif OPAL_ASSEMBLY_BUILTIN == OPAL_BUILTIN_GCC
 #include "opal/sys/gcc_builtin/atomic.h"
 #elif OPAL_ASSEMBLY_ARCH == OPAL_X86_64
@@ -175,20 +174,10 @@ enum {
 #include "opal/sys/arm64/atomic.h"
 #elif OPAL_ASSEMBLY_ARCH == OPAL_IA32
 #include "opal/sys/ia32/atomic.h"
-#elif OPAL_ASSEMBLY_ARCH == OPAL_IA64
-#include "opal/sys/ia64/atomic.h"
-#elif OPAL_ASSEMBLY_ARCH == OPAL_MIPS
-#include "opal/sys/mips/atomic.h"
 #elif OPAL_ASSEMBLY_ARCH == OPAL_POWERPC32
 #include "opal/sys/powerpc/atomic.h"
 #elif OPAL_ASSEMBLY_ARCH == OPAL_POWERPC64
 #include "opal/sys/powerpc/atomic.h"
-#elif OPAL_ASSEMBLY_ARCH == OPAL_SPARC
-#include "opal/sys/sparc/atomic.h"
-#elif OPAL_ASSEMBLY_ARCH == OPAL_SPARCV9_32
-#include "opal/sys/sparcv9/atomic.h"
-#elif OPAL_ASSEMBLY_ARCH == OPAL_SPARCV9_64
-#include "opal/sys/sparcv9/atomic.h"
 #endif
 
 #ifndef DOXYGEN

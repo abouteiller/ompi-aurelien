@@ -41,7 +41,7 @@ OSHMEM_DECLSPEC int mca_memheap_base_select(void);
 extern int mca_memheap_base_already_opened;
 extern int mca_memheap_base_key_exchange;
 
-#define MCA_MEMHEAP_MAX_SEGMENTS    8
+#define MCA_MEMHEAP_MAX_SEGMENTS    32
 #define HEAP_SEG_INDEX              0
 #define MCA_MEMHEAP_SEG_COUNT       2
 
@@ -62,7 +62,7 @@ typedef struct mca_memheap_map {
 extern mca_memheap_map_t mca_memheap_base_map;
 extern mca_memheap_base_config_t mca_memheap_base_config;
 
-int mca_memheap_base_alloc_init(mca_memheap_map_t *, size_t, long);
+int mca_memheap_base_alloc_init(mca_memheap_map_t *, size_t, long, char *);
 void mca_memheap_base_alloc_exit(mca_memheap_map_t *);
 int mca_memheap_base_static_init(mca_memheap_map_t *);
 void mca_memheap_base_static_exit(mca_memheap_map_t *);

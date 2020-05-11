@@ -10,7 +10,7 @@
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2007-2016 Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2007-2020 Cisco Systems, Inc.  All rights reserved
  * Copyright (c) 2007      Sun Microsystems, Inc.  All rights reserved.
  * Copyright (c) 2009      Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2010-2015 Los Alamos National Security, LLC.
@@ -24,6 +24,7 @@
  *                         All rights reserved.
  * Copyright (c) 2018-2019 Triad National Security, LLC. All rights
  *                         reserved.
+ * Copyright (c) 2020      FUJITSU LIMITED.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -53,6 +54,7 @@
 #include "opal/mca/installdirs/base/base.h"
 #include "opal/mca/memory/base/base.h"
 #include "opal/mca/patcher/base/base.h"
+#include "opal/mca/pmix/base/base.h"
 #include "opal/mca/memcpy/base/base.h"
 #include "opal/mca/hwloc/base/base.h"
 #include "opal/mca/reachable/base/base.h"
@@ -61,15 +63,15 @@
 #include "opal/mca/if/base/base.h"
 #include "opal/dss/dss.h"
 #include "opal/mca/shmem/base/base.h"
-#include "opal/mca/compress/base/base.h"
-#include "opal/threads/threads.h"
-#include "opal/threads/tsd.h"
+#include "opal/mca/threads/threads.h"
+#include "opal/mca/threads/tsd.h"
 
 #include "opal/runtime/opal_cr.h"
 #include "opal/mca/crs/base/base.h"
 
 #include "opal/runtime/opal_progress.h"
 #include "opal/mca/event/base/base.h"
+#include "opal/mca/threads/base/base.h"
 #include "opal/mca/backtrace/base/base.h"
 
 #include "opal/constants.h"
@@ -471,10 +473,11 @@ opal_init_util(int* pargc, char*** pargv)
     char *error = NULL;
     OPAL_TIMING_ENV_INIT(otmng);
 
-    if( ++opal_util_initialized != 1 ) {
-        if( opal_util_initialized < 1 ) {
+    if( opal_util_initialized != 0 ) {
+        if( opal_util_initialized < 0 ) {
             return OPAL_ERROR;
         }
+        ++opal_util_initialized;
         return OPAL_SUCCESS;
     }
 
@@ -616,6 +619,8 @@ opal_init_util(int* pargc, char*** pargv)
 
     OPAL_TIMING_ENV_NEXT(otmng, "opal_if_init");
 
+    ++opal_util_initialized;
+
     return OPAL_SUCCESS;
 }
 
@@ -625,9 +630,9 @@ opal_init_util(int* pargc, char*** pargv)
  * versions of memcpy correctly configured.
  */
 static mca_base_framework_t *opal_init_frameworks[] = {
-    &opal_hwloc_base_framework, &opal_memcpy_base_framework, &opal_memchecker_base_framework,
+    &opal_threads_base_framework, &opal_hwloc_base_framework, &opal_memcpy_base_framework, &opal_memchecker_base_framework,
     &opal_backtrace_base_framework, &opal_timer_base_framework, &opal_event_base_framework,
-    &opal_shmem_base_framework, &opal_reachable_base_framework, &opal_compress_base_framework,
+    &opal_shmem_base_framework, &opal_reachable_base_framework, &opal_pmix_base_framework,
     NULL,
 };
 
@@ -636,10 +641,11 @@ opal_init(int* pargc, char*** pargv)
 {
     int ret;
 
-    if( ++opal_initialized != 1 ) {
-        if( opal_initialized < 1 ) {
+    if( opal_initialized != 0 ) {
+        if( opal_initialized < 0 ) {
             return OPAL_ERROR;
         }
+        ++opal_initialized;
         return OPAL_SUCCESS;
     }
 
@@ -689,10 +695,7 @@ opal_init(int* pargc, char*** pargv)
         return opal_init_error ("opal_reachable_base_select", ret);
     }
 
-    /* Intitialize compress framework */
-    if (OPAL_SUCCESS != (ret = opal_compress_base_select())) {
-        return opal_init_error ("opal_compress_base_select", ret);
-    }
+    ++opal_initialized;
 
     return OPAL_SUCCESS;
 }

@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -75,7 +75,7 @@
 #include "opal/mca/common/verbs/common_verbs.h"
 #include "opal/runtime/opal_params.h"
 #include "opal/runtime/opal.h"
-#include "opal/mca/pmix/pmix.h"
+#include "opal/mca/pmix/pmix-internal.h"
 #include "opal/util/proc.h"
 
 #include "btl_openib.h"
@@ -389,7 +389,7 @@ static int btl_openib_modex_send(void)
     }
 
     /* All done -- send it! */
-    OPAL_MODEX_SEND(rc, OPAL_PMIX_GLOBAL,
+    OPAL_MODEX_SEND(rc, PMIX_GLOBAL,
                     &mca_btl_openib_component.super.btl_version,
                     message, msg_size);
     free(message);
@@ -1559,7 +1559,7 @@ static uint64_t calculate_total_mem (void)
     wildcard_rank.jobid = OPAL_PROC_MY_NAME.jobid;
     wildcard_rank.vpid = OPAL_VPID_WILDCARD;
     mptr = &mem;
-    OPAL_MODEX_RECV_VALUE_OPTIONAL(rc, OPAL_PMIX_AVAIL_PHYS_MEMORY,
+    OPAL_MODEX_RECV_VALUE_OPTIONAL(rc, PMIX_AVAIL_PHYS_MEMORY,
                                    &wildcard_rank, &mptr, OPAL_UINT64);
     if (OPAL_SUCCESS == rc) {
         return mem;

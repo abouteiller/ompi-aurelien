@@ -9,9 +9,11 @@
 #                         University of Stuttgart.  All rights reserved.
 # Copyright (c) 2004-2005 The Regents of the University of California.
 #                         All rights reserved.
-# Copyright (c) 2009-2017 Cisco Systems, Inc.  All rights reserved
-# Copyright (c) 2014      NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2009-2014 Cisco Systems, Inc.  All rights reserved.
+# Copyright (c) 2011-2014 Los Alamos National Security, LLC. All rights
+#                         reserved.
 # Copyright (c) 2017      IBM Corporation.  All rights reserved.
+# Copyright (c) 2020      Google, LLC. All rights reserved.
 # $COPYRIGHT$
 #
 # Additional copyrights may follow
@@ -19,9 +21,29 @@
 # $HEADER$
 #
 
-dist_opaldata_DATA = help-mpi-btl-sm.txt
+AM_CPPFLAGS = $(btl_sm_CPPFLAGS)
 
-libmca_btl_sm_la_sources = btl_sm_component.c
+dist_opaldata_DATA = help-btl-sm.txt
+
+libmca_btl_sm_la_sources = \
+    btl_sm_module.c \
+    btl_sm.h \
+    btl_sm_component.c \
+    btl_sm_endpoint.h \
+    btl_sm_fifo.h \
+    btl_sm_frag.c \
+    btl_sm_frag.h \
+    btl_sm_send.c \
+    btl_sm_sendi.c \
+    btl_sm_fbox.h \
+    btl_sm_get.c \
+    btl_sm_put.c \
+    btl_sm_xpmem.c \
+    btl_sm_xpmem.h \
+    btl_sm_knem.c \
+    btl_sm_knem.h \
+    btl_sm_sc_emu.c \
+    btl_sm_atomic.c
 
 # Make the output library in this directory, and name it either
 # mca_<type>_<name>.la (for DSO builds) or libmca_<type>_<name>.la
@@ -38,11 +60,11 @@ endif
 mcacomponentdir = $(opallibdir)
 mcacomponent_LTLIBRARIES = $(component_install)
 mca_btl_sm_la_SOURCES = $(libmca_btl_sm_la_sources)
-mca_btl_sm_la_LDFLAGS = -module -avoid-version
-mca_btl_sm_la_LIBADD = $(top_builddir)/opal/lib@OPAL_LIB_PREFIX@open-pal.la
-mca_btl_sm_la_CPPFLAGS = $(btl_sm_CPPFLAGS)
+mca_btl_sm_la_LDFLAGS = -module -avoid-version $(btl_sm_LDFLAGS)
+mca_btl_sm_la_LIBADD = $(top_builddir)/opal/lib@OPAL_LIB_PREFIX@open-pal.la \
+	$(btl_sm_LIBS)
 
 noinst_LTLIBRARIES = $(component_noinst)
 libmca_btl_sm_la_SOURCES = $(libmca_btl_sm_la_sources)
-libmca_btl_sm_la_LDFLAGS = -module -avoid-version
-libmca_btl_sm_la_CPPFLAGS = $(btl_sm_CPPFLAGS)
+libmca_btl_sm_la_LIBADD = $(btl_sm_LIBS)
+libmca_btl_sm_la_LDFLAGS = -module -avoid-version $(btl_sm_LDFLAGS)
