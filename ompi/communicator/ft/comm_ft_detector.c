@@ -245,14 +245,9 @@ int ompi_comm_failure_detector_finalize(void) {
         mca_bml_base_deregister_mem(detector->hb_rdma_bml_btl_observing, detector->hb_rdma_flag_lreg);
     }
 
-#if 0 /* not doing this permits an optimization in finalize and saves an extra barrier */
-    if( -1 != comm_heartbeat_recv_cb_type ) ompi_comm_rbcast_unregister_cb_type(comm_heartbeat_recv_cb_type);
-    if( -1 != comm_heartbeat_request_cb_type ) ompi_comm_rbcast_unregister_cb_type(comm_heartbeat_request_cb_type);
-    comm_heartbeat_recv_cb_type = comm_heartbeat_request_cb_type = -1;
-#else
     /* ignore heartbeats and heartbeats requests from now on */
     detector->hb_observer = detector->hb_observing = MPI_PROC_NULL;
-#endif
+
     return OMPI_SUCCESS;
 }
 
@@ -368,12 +363,10 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
             assert( NULL != bml_btl );
 
             /* register mem for the flag and cache the reg key */
-#if 1
             /* remove previous registration if any */
             if( NULL != detector->hb_rdma_flag_lreg ) {
                 mca_bml_base_deregister_mem(detector->hb_rdma_bml_btl_observing, detector->hb_rdma_flag_lreg);
             }
-#endif
             if( NULL != bml_btl->btl->btl_register_mem ) {
                 assert( !((size_t)&detector->hb_rdma_flag & ALIGNMENT_MASK(bml_btl->btl->btl_put_alignment)) );
                 mca_bml_base_register_mem(bml_btl, (void*)&detector->hb_rdma_flag, sizeof(int),
@@ -397,13 +390,7 @@ static int fd_heartbeat_request(comm_detector_t* detector) {
         }
         ret = ompi_comm_rbcast_send_msg(proc, &msg->super, sizeof(*msg)+regsize);
         free(msg);
-#if 0
-        if( OMPI_SUCCESS == ret ) break;
-        /* mark this process dead and forward */
-        ompi_errhandler_proc_failed(proc);
-#else
         break;
-#endif
     }
     detector->hb_rstamp = PMPI_Wtime()+detector->hb_timeout; /* we add one timeout slack to account for the send time */
     return OMPI_SUCCESS;
@@ -497,14 +484,6 @@ static void fd_event_cb(int fd, short flags, void* pdetector)
         OPAL_OUTPUT_VERBOSE((100, ompi_ftmpi_output_handle,
                              "%s:%s: read flag %d at stamp %g",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), __func__, flag, stamp-startdate));
-#if 0
-        if( -1 > flag ) {
-            /* still initializing after MPI_INIT, give extra slack */
-            int np = ompi_comm_size(detector->comm);
-            if( (stamp - detector->hb_rstamp) < (detector->hb_timeout + (double)np) )
-                return;
-        }
-#endif
         if( rank == flag) {
             /* this is a quit message from our observed process, stop the
              * detector */

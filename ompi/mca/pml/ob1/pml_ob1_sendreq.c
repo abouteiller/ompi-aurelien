@@ -346,17 +346,9 @@ mca_pml_ob1_rget_completion (mca_pml_ob1_rdma_frag_t *frag, int64_t rdma_length)
          * know if other operations are pending on it we can't release it yet (or we
          * will prevent any further callbacks triggering).
          */
-#if 1
+
         /* error fragment is 'delivered' */
         OPAL_THREAD_ADD_FETCH_SIZE_T(&sendreq->req_bytes_delivered, frag->rdma_length);
-#else
-        /* Progress the req to the end */
-        OPAL_THREAD_ADD_FETCH_SIZE_T(&sendreq->req_bytes_delivered,
-                                     sendreq->req_send.req_bytes_packed - sendreq->req_bytes_delivered);
-        /* TODO:ENABLE_FT_MPI should this be frag->rdma_length instead?, what if
-         * more frags are penging, the request will be deallocated and
-         * then what? */
-#endif
         if( sendreq->rdma_frag == frag )
             sendreq->rdma_frag = NULL;
         MCA_PML_OB1_RDMA_FRAG_RETURN(frag);

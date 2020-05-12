@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2010-2018 The University of Tennessee and the University
+ * Copyright (c) 2010-2020 The University of Tennessee and the University
  *                         of Tennessee research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -40,24 +40,4 @@ OMPI_DECLSPEC int PMPIX_Comm_iagree(MPI_Comm comm, int *flag, MPI_Request *reque
 
 #include <stdbool.h>
 OMPI_DECLSPEC int OMPI_Comm_failure_inject(MPI_Comm comm, bool notify);
-
-#if 0
-/********************************
- * Windows
- ********************************/
-OMPI_DECLSPEC int MPIX_Win_revoke(MPI_Win win);
-OMPI_DECLSPEC int MPIX_Win_get_failed(MPI_Win win, MPI_Group *failedgrp);
-
-OMPI_DECLSPEC int PMPIX_Win_revoke(MPI_Win win);
-OMPI_DECLSPEC int PMPIX_Win_get_failed(MPI_Win win, MPI_Group *failedgrp);
-#endif
-
-#if 0
-/********************************
- * I/O
- ********************************/
-OMPI_DECLSPEC int MPIX_File_revoke(MPI_File fh);
-
-OMPI_DECLSPEC int PMPIX_File_revoke(MPI_File fh);
-#endif
 

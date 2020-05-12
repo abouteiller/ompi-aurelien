@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2019 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -131,10 +131,9 @@ OMPI_DECLSPEC extern opal_pointer_array_t ompi_mpi_communicators;
 OMPI_DECLSPEC extern opal_pointer_array_t ompi_comm_f_to_c_table;
 #if OPAL_ENABLE_FT_MPI
 /**
- * This array hold the number of time each id has been used. In the case where a communicator
- * is revoked this reference count act as a epoch, and prevent us from revoking newly created
- * communicators, that use similar id to others communicators that are still revoked in the
- * system.
+ * This array holds the number of time each id has been used. In the case where a communicator
+ * is revoked, this reference count acts as an epoch, and prevents us from revoking newly created
+ * communicators that use an id that is similar to others communicators that are still being revoked.
  */
 OMPI_DECLSPEC extern opal_pointer_array_t ompi_mpi_comm_epoch;
 

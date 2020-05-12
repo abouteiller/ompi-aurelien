@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2013-2018 The University of Tennessee and The University
+ * Copyright (c) 2013-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -49,6 +48,13 @@ int MPIX_Comm_revoke(MPI_Comm comm)
 #include <signal.h>
 #include "ompi/errhandler/errhandler.h"
 
+/*
+ *  This is a test/debugging function that can be used to insert 
+ *  artificial faults in an MPI application. With the notify option
+ *  it will trigger a failure propagation before dying, which
+ *  permits testing the propagation framework independently of the
+ *  failure detection framework.
+ */
 int OMPI_Comm_failure_inject(MPI_Comm comm, bool notify) {
     if( notify ) {
         ompi_proc_t* proc = ompi_comm_peer_lookup(comm, ompi_comm_rank(comm));

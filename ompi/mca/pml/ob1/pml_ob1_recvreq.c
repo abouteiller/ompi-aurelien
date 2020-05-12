@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2019 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -156,14 +156,8 @@ static int mca_pml_ob1_recv_request_cancel(struct ompi_request_t* ompi_request, 
      */
 
     ompi_request->req_status._cancelled = true;
-#if 0
-    /* This macro will set the req_complete to true so the MPI Test/Wait* functions
-     * on this request will be able to complete. As the status is marked as
-     * cancelled the cancel state will be detected.
-     */
-    MCA_PML_OB1_RECV_REQUEST_MPI_COMPLETE(request);
-#endif
     recv_request_pml_complete(request);
+
     /*
      * Receive request cancelled, make user buffer accessible.
      */
@@ -243,16 +237,6 @@ static void mca_pml_ob1_put_completion (mca_pml_ob1_rdma_frag_t *frag, int64_t r
             mca_pml_ob1_recv_request_schedule(recvreq, bml_btl);
         }
     }
-#if 0 
-    // TODO: ENABLE_FT_MPI: does this case actually happen, ever? 
-    else {
-        opal_output_verbose(mca_pml_ob1_output, 1, "pml:ob1: %s: operation failed with size= %d", __func__, status);
-        recvreq->req_recv.req_base.req_ompi.req_status.MPI_ERROR = status;
-        /* Skip RDMA bytes when waiting for completion */
-        bytes_received = recvreq->req_send_offset - recvreq->req_rdma_offset;
-        recvreq->req_rdma_offset = recvreq->req_send_offset; /* prevent posting of more RDMA */
-    }
-#endif
 
     MCA_PML_OB1_PROGRESS_PENDING(bml_btl);
 }

@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2010 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2019 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -157,7 +157,7 @@ int ompi_mpi_finalize(void)
     if( ompi_ftmpi_enabled ) {
         ompi_communicator_t* comm = &ompi_mpi_comm_world.comm;
         OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle, "FT: Rank %d entering finalize", ompi_comm_rank(comm)));
-#if 1
+
         /* grpcomm barrier does not tolerate /new/ failures. Let's make sure
          * we drain all preexisting failures before we proceed;
          * TODO: when we have better failure support in the runtime, we can
@@ -176,7 +176,8 @@ int ompi_mpi_finalize(void)
             goto done;
         }
         OBJ_RELEASE(ncomm);
-#endif
+        /* End of failure drain */
+
         /* finalize the fault tolerant infrastructure (revoke,
          * failure propagator, etc). From now-on we do not tolerate failures. */
         OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle, "FT: Rank %05d turning off the failure detector", ompi_comm_rank(comm)));

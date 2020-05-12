@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -68,6 +68,13 @@ struct ompi_comm_cid_context_t {
     int nextcid;
     int nextlocal_cid;
 #if OPAL_ENABLE_FT_MPI
+    /* Revoke messages are unexpected and can be received even after a
+     * communicator has been freed locally. If a new communicator reuses the
+     * cid, we need to avoid revoking that new communicator instead of the
+     * previous (freed) one, when a stall revoke message is received. An
+     * epoch is attached to any cid, so that we can recognize which
+     * communicator (cid, epoch) we want to revoke. MPI matching is not
+     * modified. */
     int nextcid_epoch;
 #endif /* OPAL_ENABLE_FT_MPI */
     int start;
@@ -235,12 +242,6 @@ static ompi_comm_cid_context_t *mca_comm_cid_context_alloc (ompi_communicator_t 
     case OMPI_COMM_CID_INTRA_PMIX_FT:
         context->allreduce_fn = ompi_comm_ft_allreduce_intra_pmix_nb;
         break;
-#if 0
-//TODO: should not need this, remove?
-    case OMPI_COMM_CID_INTRA_BRIDGE_FT:
-        allreduce_fn=(ompi_comm_cid_allredfct*)ompi_comm_allreduce_intra_bridge_ft;
-        break;
-#endif
 #endif /* OPAL_ENABLE_FT_MPI */
     default:
         OBJ_RELEASE(context);
@@ -1311,18 +1312,6 @@ static int ompi_comm_ft_allreduce_intra_pmix_nb(int *inbuf, int *outbuf, int cou
     //TODO: CID_INTRA_PMIX_FT needs an implementation, using the non-ft for now...
     return ompi_comm_allreduce_intra_pmix_nb(inbuf, outbuf, count, op, cid_context, req);
 }
-
-#if 0
-int ompi_comm_allreduce_intra_bridge_ft( int *inbuf, int* outbuf,
-                                  int count, struct ompi_op_t *op,
-                                  ompi_communicator_t *comm,
-                                  ompi_communicator_t *bridgecomm,
-                                  void* local_leader,
-                                  void* remote_ledaer,
-                                  int send_first, char *tag, int iter ) {
-    return MPI_ERR_UNSUPPORTED_OPERATION;
-}
-#endif
 
 #endif /* OPAL_ENABLE_FT_MPI */
 

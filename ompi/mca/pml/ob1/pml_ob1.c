@@ -836,9 +836,6 @@ void mca_pml_ob1_error_handler(
                          "PML:OB1: the error handler was invoked by the %s BTL for proc %s with info %s",
                          btl->btl_component->btl_version.mca_component_name,
                          (NULL == errproc ? "null" : OMPI_NAME_PRINT(&errproc->proc_name)), btlinfo);
-#if 0
-    opal_backtrace_print(stderr, NULL, 0);
-#endif
     if( ompi_ftmpi_enabled && (NULL != errproc) ) {
         /* It's safe to upgrade to the OMPI type */
         ompi_errhandler_proc_failed((ompi_proc_t*)errproc);
