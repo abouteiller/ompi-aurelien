@@ -16,7 +16,6 @@
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2013      NVIDIA Corporation.  All rights reserved.
  * Copyright (c) 2013      Intel, Inc. All rights reserved
- *
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -160,6 +159,7 @@ OMPI_DECLSPEC extern char * ompi_mpi_spc_attach_string;
  * values in MPI_Finalize.  A value of true dumps the counters and false does not.
  */
 OMPI_DECLSPEC extern bool ompi_mpi_spc_dump_enabled;
+
 
 /**
  * Register MCA parameters used by the MPI layer.

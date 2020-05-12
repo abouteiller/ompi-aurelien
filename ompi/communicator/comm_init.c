@@ -236,6 +236,7 @@ int ompi_comm_init(void)
     return OMPI_SUCCESS;
 }
 
+
 ompi_communicator_t *ompi_comm_allocate ( int local_size, int remote_size )
 {
     ompi_communicator_t *new_comm;

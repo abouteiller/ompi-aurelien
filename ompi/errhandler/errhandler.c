@@ -34,6 +34,7 @@
 #include "opal/class/opal_pointer_array.h"
 #include "opal/mca/pmix/pmix-internal.h"
 #include "opal/util/string_copy.h"
+#include "opal/mca/backtrace/backtrace.h"
 
 
 /*
@@ -268,7 +269,7 @@ int ompi_errhandler_proc_failed_internal(ompi_proc_t* ompi_proc, int status, boo
                         OMPI_NAME_PRINT(&ompi_proc->super.proc_name),
                         status );
 
-    if(90 > opal_output_get_verbosity(ompi_ftmpi_output_handle)) {
+    if(90 < opal_output_get_verbosity(ompi_ftmpi_output_handle)) {
         /* how did we get there? */
         opal_backtrace_print(stderr, NULL, 0);
     }
