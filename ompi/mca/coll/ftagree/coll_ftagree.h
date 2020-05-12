@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; -*- */
 /*
- * Copyright (c) 2012-2019 The University of Tennessee and The University
+ * Copyright (c) 2012-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -43,11 +43,6 @@ BEGIN_C_DECLS
 OMPI_MODULE_DECLSPEC extern const mca_coll_base_component_2_0_0_t
 mca_coll_ftagree_component;
 extern int mca_coll_ftagree_priority;
-extern int mca_coll_ftagree_crossover;
-
-#if defined(OPAL_ENABLE_DEBUG)
-OMPI_DECLSPEC extern int coll_ftagree_era_debug_rank_may_fail;
-#endif
 
 enum mca_coll_ftagree_algorithm_t {
     COLL_FTAGREE_NOFT = 0,
@@ -59,7 +54,17 @@ typedef enum mca_coll_ftagree_algorithm_t mca_coll_ftagree_algorithm_t;
 extern mca_coll_ftagree_algorithm_t mca_coll_ftagree_algorithm;
 extern int mca_coll_ftagree_era_rebuild;
 
-struct mca_coll_ftagree_request_t;
+/* Define this to enable testing random failures in various
+ * places in Agree. This can be used to harden the agreement 
+ * against failures that happen at various places between
+ * message events.
+ */
+#if !defined(OPAL_ENABLE_DEBUG)
+#undef FTAGREE_DEBUG_FAILURE_INJECT
+#endif
+#if defined(FTAGREE_DEBUG_FAILURE_INJECT)
+extern double mca_coll_ftagree_debug_inject_proba;
+#endif
 
 /*
  * Base agreement structure
@@ -71,11 +76,6 @@ struct mca_coll_ftagree_t {
 
     /* Agreement Sequence Number */
     int agreement_seq_num;
-
-    /* Current non-blocking Agreement Request */
-#ifdef IAGREE
-    struct mca_coll_ftagree_request_t *cur_request;
-#endif
 };
 typedef struct mca_coll_ftagree_t mca_coll_ftagree_t;
 OBJ_CLASS_DECLARATION(mca_coll_ftagree_t);

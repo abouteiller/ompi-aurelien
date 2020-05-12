@@ -38,8 +38,6 @@ static ompi_comm_rank_failure_callback_t *ompi_stacked_rank_failure_callback_fct
 static uint64_t msg_seqnum = 1;
 static opal_free_list_t era_iagree_requests = {{{0}}};
 
-extern int coll_ftagree_debug_rank_may_fail;
-
 typedef enum {
     MSG_UP = 1,
     MSG_DOWN,
@@ -104,10 +102,6 @@ static inline uint64_t hash_name(opal_process_name_t name) {
 #define ERAID_KEY    u.uint64
 #define ERAID_FIELDS u.fields
 
-#if OPAL_ENABLE_DEBUG
-#define PROGRESS_FAILURE_PROB 0.05
-#endif /* OPAL_ENABLE_DEBUG */
-#undef PROGRESS_FAILURE_PROB
 
 typedef struct {
     int32_t  ret;                            /**< Return code */
@@ -2087,12 +2081,10 @@ static void send_msg(ompi_communicator_t *comm,
     unsigned int to_send, sent;
     long unsigned int payload_size;
 
-#if defined(PROGRESS_FAILURE_PROB)
-#pragma message("Hard coded probability of failure inside the agreement")
-    if( coll_ftagree_debug_rank_may_fail &&
-        (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
+#if defined(FTAGREE_DEBUG_FAILURE_INJECT)
+    if( (double)rand() / (double)RAND_MAX < mca_coll_ftagree_rank_fault_proba ) {
         OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
-                             "%s ftagree:agreement (ERA) Killing myself just before sending message [(%d.%d).%d, %s, %08x.%d.%d..] to %d/%s\n",
+                             "%s ftagree:agreement (ERA) INJECT: Killing myself just before sending message [(%d.%d).%d, %s, %08x.%d.%d..] to %d/%s\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              agreement_id.ERAID_FIELDS.contextid,
                              agreement_id.ERAID_FIELDS.epoch,
@@ -2693,12 +2685,10 @@ static void era_cb_fn(struct mca_btl_base_module_t* btl,
         ack_failed = NULL;
     }
 
-#if defined(PROGRESS_FAILURE_PROB)
-#pragma message("Hard coded probability of failure inside the agreement")
-    if( coll_ftagree_debug_rank_may_fail &&
-        (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
+#if defined(FTAGREE_DEBUG_FAILURE_INJECT)
+    if( (double)rand() / (double)RAND_MAX < mca_coll_ftagree_rank_fault_proba ) {
         OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
-                             "%s ftagree:agreement (ERA) Killing myself just before receiving message [(%d.%d).%d, %d, %08x.%d.%d...] from %d/%s\n",
+                             "%s ftagree:agreement (ERA) INJECT: Killing myself just before receiving message [(%d.%d).%d, %d, %08x.%d.%d...] from %d/%s\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              msg_header->agreement_id.ERAID_FIELDS.contextid,
                              msg_header->agreement_id.ERAID_FIELDS.epoch,
@@ -3031,12 +3021,10 @@ static int mca_coll_ftagree_era_prepare_agreement(ompi_communicator_t* comm,
                          agreement_id.ERAID_FIELDS.agreementid));
     era_debug_print_group(3, group, comm, "Before Agreement");
 
-#if defined(PROGRESS_FAILURE_PROB)
-#pragma message("Hard coded probability of failure inside the agreement")
-    if( coll_ftagree_debug_rank_may_fail &&
-        (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
+#if defined(FTAGREE_DEBUG_FAILURE_INJECT)
+    if( (double)rand() / (double)RAND_MAX < mca_coll_ftagree_rank_fault_proba ) {
         OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
-                             "%s ftagree:agreement (ERA) Killing myself just before entering the agreement (%d.%d).%d\n",
+                             "%s ftagree:agreement (ERA) INJECT: Killing myself just before entering the agreement (%d.%d).%d\n",
                              OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                              agreement_id.ERAID_FIELDS.contextid,
                              agreement_id.ERAID_FIELDS.epoch,

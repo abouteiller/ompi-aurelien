@@ -26,11 +26,6 @@
 #include MCA_timer_IMPLEMENTATION_HEADER
 #include "coll_ftagree.h"
 
-#if OPAL_ENABLE_DEBUG && 0
-#define PROGRESS_FAILURE_PROB 0.05
-extern int coll_ftagree_debug_rank_may_fail;
-#endif
-
 /**
  * This Agreement implements the protocol proposed in
  *   Early Consensus in Message-passing Systems Enriched with a Perfect Failure Detector
@@ -135,12 +130,10 @@ mca_coll_ftagree_eta_intra(void *contrib,
         nr = 0;
         for(i = 0; i < np; i++) {
 
-#if defined(PROGRESS_FAILURE_PROB)
-#pragma message("Hard coded probability of failure inside the agreement")
-            if( coll_ftagree_debug_rank_may_fail &&
-                (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
+#if defined(FTAGREE_DEBUG_FAILURE_INJECT)
+            if( (double)rand() / (double)RAND_MAX < mca_coll_ftagree_rank_fault_proba ) {
                 OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
-                                     "%s ftagree:agreement (ETA) Killing myself just before posting message reception to/from %d\n",
+                                     "%s ftagree:agreement (ETA) INJECT: Killing myself just before posting message reception to/from %d\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME),
                                      i));
                 raise(SIGKILL);
@@ -182,12 +175,10 @@ mca_coll_ftagree_eta_intra(void *contrib,
                                  "%s ftagree:agreement (ETA) Entering waitall(%d)\n",
                                  OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), nr));
 
-#if defined(PROGRESS_FAILURE_PROB)
-#pragma message("Hard coded probability of failure inside the agreement")
-            if( coll_ftagree_debug_rank_may_fail &&
-                (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
+#if defined(FTAGREE_DEBUG_FAILURE_INJECT)
+            if( (double)rand() / (double)RAND_MAX < mca_coll_ftagree_rank_fault_proba ) {
                 OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
-                                     "%s ftagree:agreement (ETA) Killing myself just before waitall\n",
+                                     "%s ftagree:agreement (ETA) INJECT: Killing myself just before waitall\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME)));
                 raise(SIGKILL);
             }
@@ -195,12 +186,10 @@ mca_coll_ftagree_eta_intra(void *contrib,
 
             rc = ompi_request_wait_all(nr, reqs, statuses);
 
-#if defined(PROGRESS_FAILURE_PROB)
-#pragma message("Hard coded probability of failure inside the agreement")
-            if( coll_ftagree_debug_rank_may_fail &&
-                (double)rand() / (double)RAND_MAX < PROGRESS_FAILURE_PROB ) {
+#if defined(FTAGREE_DEBUG_FAILURE_INJECT)
+            if( (double)rand() / (double)RAND_MAX < mca_coll_ftagree_rank_fault_proba ) {
                 OPAL_OUTPUT_VERBOSE((0, ompi_ftmpi_output_handle,
-                                     "%s ftagree:agreement (ETA) Killing myself just after waitall\n",
+                                     "%s ftagree:agreement (ETA) INJECT: Killing myself just after waitall\n",
                                      OMPI_NAME_PRINT(OMPI_PROC_MY_NAME)));
                 raise(SIGKILL);
             }

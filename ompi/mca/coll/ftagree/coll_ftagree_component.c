@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019 The University of Tennessee and The University
+ * Copyright (c) 2012-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -34,6 +34,9 @@ int mca_coll_ftagree_priority  = 0;
 mca_coll_ftagree_algorithm_t mca_coll_ftagree_algorithm = COLL_FTAGREE_EARLY_RETURNING;
 int mca_coll_ftagree_cur_era_topology = 1;
 int mca_coll_ftagree_era_rebuild = 0;
+#if defined(FTAGREE_DEBUG_FAILURE_INJECT)
+double mca_coll_ftagree_debug_inject_proba = 0.0;
+#endif
 
 /*
  * Local function
@@ -145,6 +148,15 @@ ftagree_register(void)
                                            MCA_BASE_VAR_SCOPE_READONLY,
                                            &mca_coll_ftagree_era_rebuild);
 
+#if defined(FTAGREE_DEBUG_FAILURE_INJECT)
+    mca_coll_ftagree_rank_fault_proba = 0.0; /* by default, inject no faults */
+    (void) mca_base_component_var_register(&mca_coll_ftagree_component.collm_version,
+                                           "era_debug_fault_proba", "Inject faults with set probability at points of interest in the Agreement algorithm; For debugging only. (0.: no faults, 1.: always inject; 0.05 is typical)",
+                                           MCA_BASE_VAR_TYPE_DOUBLE, NULL, 0, 0,
+                                           OPAL_INFO_LVL_9,
+                                           MCA_BASE_VAR_SCOPE_READONLY,
+                                           &mca_coll_ftagree_rank_fault_proba);
+#endif /* FTAGREE_DEBUG_FAILURE_INJECT */
 
     return OMPI_SUCCESS;
 }

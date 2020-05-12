@@ -1,6 +1,6 @@
 /* -*- Mode: C; c-basic-offset:4 ; -*- */
 /*
- * Copyright (c) 2012-2019 The University of Tennessee and The University
+ * Copyright (c) 2012-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -22,8 +22,6 @@
 #include "ompi/mca/coll/ftagree/coll_ftagree.h"
 #include "ompi/mca/coll/ftagree/coll_ftagree_era.h"
 
-int coll_ftagree_debug_rank_may_fail = 0;
-
 /*************************************
  * Local Functions
  *************************************/
@@ -36,18 +34,8 @@ static void mca_coll_ftagree_construct(mca_coll_ftagree_t *v_info)
     v_info->agreement_seq_num = 0;
 }
 
-static void mca_coll_ftagree_destruct(mca_coll_ftagree_t *v_info)
-{
-#ifdef IAGREE
-    if( NULL != v_info->cur_request ) {
-        OBJ_RELEASE(v_info->cur_request);
-        v_info->cur_request = NULL;
-    }
-#endif
-}
-
 OBJ_CLASS_INSTANCE(mca_coll_ftagree_t,
                    opal_object_t,
                    mca_coll_ftagree_construct,
-                   mca_coll_ftagree_destruct);
+                   NULL);
 
