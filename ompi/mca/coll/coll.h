@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2016 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -191,7 +191,7 @@ typedef int
  * @param failgroup:
  *               as input: group of locally acknowledged dead processes
  *               as output: group of globally acknowledged dead processes
- *               NOTE: iagreement does not need to update group
+ *               NOTE: iagree does not need to update group
  *                     as only the blocking agreement function is used
  *                     in shrink, and only in that case we need the group
  *                     to be global at output.
@@ -201,12 +201,12 @@ typedef int
  * @param contrib: a pointer to the contribution / output
  * @param module: the MCA module that defines this agreement.
  */
-typedef int (*mca_coll_base_module_agreement_fn_t)
+typedef int (*mca_coll_base_module_agree_fn_t)
  (void *contrib, int dt_count, struct ompi_datatype_t *dtype,
    struct ompi_op_t *op, struct ompi_group_t **failedgroup, bool update_failedgroup,
    struct ompi_communicator_t *comm,
    struct mca_coll_base_module_2_3_0_t *module);
-typedef int (*mca_coll_base_module_iagreement_fn_t)
+typedef int (*mca_coll_base_module_iagree_fn_t)
   (void *contrib, int dt_count, struct ompi_datatype_t *dtype,
    struct ompi_op_t *op, struct ompi_group_t **failedgroup, bool update_failedgroup,
    struct ompi_communicator_t *comm, ompi_request_t **request,
@@ -623,8 +623,8 @@ struct mca_coll_base_module_2_3_0_t {
 
     /* fault tolerant collective functions */
 #if OPAL_ENABLE_FT_MPI
-    mca_coll_base_module_agreement_fn_t coll_agreement;
-    mca_coll_base_module_iagreement_fn_t coll_iagreement;
+    mca_coll_base_module_agree_fn_t coll_agree;
+    mca_coll_base_module_iagree_fn_t coll_iagree;
 #endif
 
     /** Fault tolerance event trigger function */
@@ -807,10 +807,10 @@ struct mca_coll_base_comm_coll_t {
     mca_coll_base_module_2_3_0_t *coll_reduce_local_module;
 
 #if OPAL_ENABLE_FT_MPI
-    mca_coll_base_module_agreement_fn_t coll_agreement;
-    mca_coll_base_module_2_3_0_t *coll_agreement_module;
-    mca_coll_base_module_iagreement_fn_t coll_iagreement;
-    mca_coll_base_module_2_3_0_t *coll_iagreement_module;
+    mca_coll_base_module_agree_fn_t coll_agree;
+    mca_coll_base_module_2_3_0_t *coll_agree_module;
+    mca_coll_base_module_iagree_fn_t coll_iagree;
+    mca_coll_base_module_2_3_0_t *coll_iagree_module;
 #endif /* OPAL_ENABLE_FT_MPI */
 };
 typedef struct mca_coll_base_comm_coll_t mca_coll_base_comm_coll_t;

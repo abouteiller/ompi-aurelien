@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2015-2018 The University of Tennessee and The University
+ * Copyright (c) 2015-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
@@ -46,13 +46,13 @@ int MPIX_Comm_agree(MPI_Comm comm, int *flag)
 
     ompi_comm_failure_get_acked_internal( comm, &acked );
 
-    rc = comm->c_coll->coll_agreement( flag,
-                                       1,
-                                       &ompi_mpi_int.dt,
-                                       &ompi_mpi_op_band.op,
-                                       &acked, false, /* Acked failures are ignored */
-                                       (ompi_communicator_t*)comm,
-                                       comm->c_coll->coll_agreement_module);
+    rc = comm->c_coll->coll_agree( flag,
+                                   1,
+                                   &ompi_mpi_int.dt,
+                                   &ompi_mpi_op_band.op,
+                                   &acked, false, /* Acked failures are ignored */
+                                   (ompi_communicator_t*)comm,
+                                   comm->c_coll->coll_agree_module);
     OBJ_RELEASE( acked );
     OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
 }

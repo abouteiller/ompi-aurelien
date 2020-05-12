@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2012-2019 The University of Tennessee and The University
+# Copyright (c) 2012-2020 The University of Tennessee and The University
 #                         of Tennessee Research Foundation.  All rights
 #                         reserved.
 # $COPYRIGHT$
@@ -8,8 +8,6 @@
 #
 # $HEADER$
 #
-
-EXTRA_DIST = .windows
 
 sources = \
         coll_ftagree.h \

@@ -58,10 +58,7 @@ static const mca_coll_base_module_1_0_0_t intra = {
     mca_coll_demo_scan_intra,
     mca_coll_demo_scatter_intra,
     mca_coll_demo_scatterv_intra,
-#if OPAL_ENABLE_FT_MPI
-    NULL, /* agreement */
-    NULL, /* iagreement */
-#endif
+
     mca_coll_demo_ft_event
 };
 
@@ -94,10 +91,7 @@ static const mca_coll_base_module_1_0_0_t inter = {
     NULL,
     mca_coll_demo_scatter_inter,
     mca_coll_demo_scatterv_inter,
-#if OPAL_ENABLE_FT_MPI
-    NULL, /* agreement */
-    NULL, /* iagreement */
-#endif
+
     mca_coll_demo_ft_event
 };
 
@@ -133,11 +127,6 @@ mca_coll_demo_comm_query(struct ompi_communicator_t *comm, int *priority)
 
     demo_module->super.coll_module_enable = mca_coll_demo_module_enable;
     demo_module->super.ft_event = mca_coll_demo_ft_event;
-
-#if OPAL_ENABLE_FT_MPI
-    demo_module->super.coll_agreement   = NULL;
-    demo_module->super.coll_iagreement  = NULL;
-#endif
 
     if (OMPI_COMM_IS_INTRA(comm)) {
         demo_module->super.coll_allgather  = mca_coll_demo_allgather_intra;

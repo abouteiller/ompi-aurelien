@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2016 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -300,6 +300,25 @@ int ompi_coll_base_scatter_intra_linear_nb(SCATTER_ARGS, int max_reqs);
 int mca_coll_base_reduce_local(const void *inbuf, void *inoutbuf, int count,
                                struct ompi_datatype_t * dtype, struct ompi_op_t * op,
                                mca_coll_base_module_t *module);
+
+#if OPAL_ENABLE_FT_MPI
+/* Agreement */
+int ompi_coll_base_agree_noft(void *contrib,
+                              int dt_count,
+                              struct ompi_datatype_t *dt,
+                              struct ompi_op_t *op,
+                              struct ompi_group_t **group, bool update_grp,
+                              struct ompi_communicator_t* comm,
+                              mca_coll_base_module_t *module);
+int ompi_coll_base_iagree_noft(void *contrib,
+                               int dt_count,
+                               struct ompi_datatype_t *dt,
+                               struct ompi_op_t *op,
+                               struct ompi_group_t **group, bool update_grp,
+                               struct ompi_communicator_t* comm,
+                               ompi_request_t **request,
+                               mca_coll_base_module_t *module);
+#endif /* OPAL_ENABLE_FT_MPI */
 
 END_C_DECLS
 

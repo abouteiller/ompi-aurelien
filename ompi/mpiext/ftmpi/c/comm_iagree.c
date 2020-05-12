@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018 The University of Tennessee and The University
+ * Copyright (c) 2014-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -46,14 +46,14 @@ int MPIX_Comm_iagree(MPI_Comm comm, int *flag, MPI_Request *request)
     }
 
     ompi_comm_failure_get_acked_internal( comm, &acked );
-    rc = comm->c_coll->coll_iagreement( flag,
-                                        1,
-                                        &ompi_mpi_int.dt,
-                                        &ompi_mpi_op_band.op,
-                                        &acked, false,
-                                        (ompi_communicator_t*)comm,
-                                        request,
-                                        comm->c_coll->coll_iagreement_module);
+    rc = comm->c_coll->coll_iagree( flag,
+                                    1,
+                                    &ompi_mpi_int.dt,
+                                    &ompi_mpi_op_band.op,
+                                    &acked, false,
+                                    (ompi_communicator_t*)comm,
+                                    request,
+                                    comm->c_coll->coll_iagree_module);
     OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
 }
 

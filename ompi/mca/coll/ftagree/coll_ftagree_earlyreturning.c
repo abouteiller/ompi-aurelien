@@ -3342,12 +3342,12 @@ int mca_coll_ftagree_era_free_comm(ompi_communicator_t* comm,
     ompi_group_intersection(comm->c_remote_group, ompi_group_all_failed_procs, &acked);
     do {
         rc = mca_coll_ftagree_era_intra(NULL,
-                                                  0,
-                                                  &ompi_mpi_int.dt,
-                                                  &ompi_mpi_op_band.op,
-                                                  &acked, true,
-                                                  comm,
-                                                  comm->c_coll->coll_agreement_module);
+                                        0,
+                                        &ompi_mpi_int.dt,
+                                        &ompi_mpi_op_band.op,
+                                        &acked, true,
+                                        comm,
+                                        comm->c_coll->coll_agree_module);
     } while(rc != MPI_SUCCESS);
     OBJ_RELEASE(acked);
 

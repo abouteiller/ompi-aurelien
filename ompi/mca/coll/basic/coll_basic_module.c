@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2016 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -71,11 +71,6 @@ mca_coll_basic_comm_query(struct ompi_communicator_t *comm,
     basic_module->super.coll_module_enable = mca_coll_basic_module_enable;
     basic_module->super.ft_event = mca_coll_basic_ft_event;
 
-#if OPAL_ENABLE_FT_MPI
-    basic_module->super.coll_agreement   = NULL;
-    basic_module->super.coll_iagreement  = NULL;
-#endif
-
     if (OMPI_COMM_IS_INTER(comm)) {
         basic_module->super.coll_allgather  = mca_coll_basic_allgather_inter;
         basic_module->super.coll_allgatherv = mca_coll_basic_allgatherv_inter;
@@ -140,6 +135,12 @@ mca_coll_basic_comm_query(struct ompi_communicator_t *comm,
     basic_module->super.coll_neighbor_alltoallw = mca_coll_basic_neighbor_alltoallw;
 
     basic_module->super.coll_reduce_local = mca_coll_base_reduce_local;
+
+#if OPAL_ENABLE_FT_MPI
+    /* Default to some shim mappings over allreduce */
+    basic_module->super.coll_agree   = ompi_coll_base_agree_noft;
+    basic_module->super.coll_iagree  = ompi_coll_base_iagree_noft;
+#endif
 
     return &(basic_module->super);
 }

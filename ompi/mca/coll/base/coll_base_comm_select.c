@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -232,8 +232,8 @@ int mca_coll_base_comm_select(ompi_communicator_t * comm)
             COPY(avail->ac_module, comm, reduce_local);
 
 #if OPAL_ENABLE_FT_MPI
-            COPY(avail->ac_module, comm, agreement);
-            COPY(avail->ac_module, comm, iagreement);
+            COPY(avail->ac_module, comm, agree);
+            COPY(avail->ac_module, comm, iagree);
 #endif
         }
         /* release the original module reference and the list item */
