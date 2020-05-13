@@ -28,6 +28,7 @@
 #include <stdio.h>
 
 #include "opal/util/show_help.h"
+#include "opal/util/printf.h"
 
 #include "ompi/info/info.h"
 #include "ompi/mpi/c/bindings.h"
@@ -54,8 +55,8 @@ int MPI_Comm_spawn(const char *command, char *argv[], int maxprocs, MPI_Info inf
 {
     int rank, rc=OMPI_SUCCESS, i, flag;
     bool send_first = false; /* we wait to be contacted */
-    ompi_communicator_t *newcomp=NULL;
-    char port_name[MPI_MAX_PORT_NAME];
+    ompi_communicator_t *newcomp=MPI_COMM_NULL;
+    char port_name[MPI_MAX_PORT_NAME]; char *port_string = NULL;
     bool non_mpi = false;
 
     MEMCHECKER(
@@ -135,17 +136,29 @@ int MPI_Comm_spawn(const char *command, char *argv[], int maxprocs, MPI_Info inf
         }
         if (OMPI_SUCCESS != (rc = ompi_dpm_spawn (1, &command, &argv, &maxprocs,
                                                   &info, port_name))) {
-            snprintf(port_name, MPI_MAX_PORT_NAME, "OMPI_SPAWN_ERROR=%d", rc);
+            goto error;
         }
+    }
+
+error:
+    if (OMPI_SUCCESS != rc) {
+        /* There was an error in one of the above stages,
+         * we still need to do the connect_accept stage so that
+         * non-root ranks do not deadlock.
+         * Add the error code to the port string for connect_accept
+         * to propagate the error code. */
+        (void)opal_asprintf(&port_string, "%s:error=%d", port_name, rc);
+    }
+    else {
+        port_string = port_name;
     }
 
     if (non_mpi) {
         newcomp = MPI_COMM_NULL;
     } else {
-        rc = ompi_dpm_connect_accept (comm, root, port_name, send_first, &newcomp);
+        rc = ompi_dpm_connect_accept (comm, root, port_string, send_first, &newcomp);
     }
 
-error:
     if (OPAL_ERR_NOT_SUPPORTED == rc) {
         opal_show_help("help-mpi-api.txt",
                        "MPI function not supported",

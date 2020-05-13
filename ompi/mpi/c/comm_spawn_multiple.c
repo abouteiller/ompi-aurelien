@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -28,6 +28,7 @@
 #include <stdio.h>
 
 #include "opal/util/show_help.h"
+#include "opal/util/printf.h"
 
 #include "ompi/mpi/c/bindings.h"
 #include "ompi/runtime/params.h"
@@ -54,9 +55,9 @@ int MPI_Comm_spawn_multiple(int count, char *array_of_commands[], char **array_o
                             int array_of_errcodes[])
 {
     int i=0, rc=0, rank=0, size=0, flag;
-    ompi_communicator_t *newcomp=NULL;
+    ompi_communicator_t *newcomp=MPI_COMM_NULL;
     bool send_first=false; /* they are contacting us first */
-    char port_name[MPI_MAX_PORT_NAME];
+    char port_name[MPI_MAX_PORT_NAME]; char *port_string = NULL;
     bool non_mpi = false, cumulative = false;
 
     MEMCHECKER(
@@ -180,13 +181,25 @@ int MPI_Comm_spawn_multiple(int count, char *array_of_commands[], char **array_o
         }
     }
 
+error:
+    if (OMPI_SUCCESS != rc) {
+        /* There was an error in one of the above stages,
+         * we still need to do the connect_accept stage so that
+         * non-root ranks do not deadlock.
+         * Add the error code to the port string for connect_accept
+         * to propagate the error code. */
+        (void)opal_asprintf(&port_string, "%s:error=%d", port_name, rc);
+    }
+    else {
+        port_string = port_name;
+    }
+
     if (non_mpi) {
         newcomp = MPI_COMM_NULL;
     } else {
         rc = ompi_dpm_connect_accept (comm, root, port_name, send_first, &newcomp);
     }
 
-error:
     if (OPAL_ERR_NOT_SUPPORTED == rc) {
         opal_show_help("help-mpi-api.txt",
                        "MPI function not supported",
@@ -204,7 +217,7 @@ error:
 
     /* set array of errorcodes */
     if (MPI_ERRCODES_IGNORE != array_of_errcodes) {
-        if (NULL != newcomp) {
+        if (MPI_COMM_NULL != newcomp) {
             size = newcomp->c_remote_group->grp_proc_count;
         } else {
             for ( i=0; i < count; i++) {

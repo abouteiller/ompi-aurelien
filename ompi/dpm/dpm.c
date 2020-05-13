@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -97,7 +97,7 @@ int ompi_dpm_connect_accept(ompi_communicator_t *comm, int root,
 {
     int k, size, rsize, rank, rc, rportlen=0;
     char **members = NULL, *nstring, *rport=NULL, *key, *pkey;
-    bool dense, isnew, spawn_error=false;
+    bool dense, isnew;
     opal_process_name_t pname;
     opal_list_t ilist, mlist, rlist;
     pmix_info_t info;
@@ -118,32 +118,7 @@ int ompi_dpm_connect_accept(ompi_communicator_t *comm, int root,
 
     /* set default error return */
     *newcomm = MPI_COMM_NULL;
-#if 0
-<<<<<<< HEAD
-    if (NULL == opal_pmix.publish || NULL == opal_pmix.connect ||
-        NULL == opal_pmix.unpublish ||
-       (NULL == opal_pmix.lookup && NULL == opal_pmix.lookup_nb)) {
-        /* print a nice message explaining we don't have support */
-        opal_show_help("help-mpi-runtime.txt", "noconxcpt", true);
-        return OMPI_ERR_NOT_SUPPORTED;
-    }
-    if (NULL != port_string && strstr(port_string, "OMPI_SPAWN_ERROR=")) {
-        /* we will set the rportlen to a negative value corresponding to the
-         * error code produced by pmix spawn */
-        char *value = strchr(port_string, '=');
-        assert(NULL != value);
-        rportlen = atoi(++value);
-        if (rportlen > 0) rportlen *= -1;
-        spawn_error = true;
-    }
-    if (!spawn_error && !ompi_rte_connect_accept_support(port_string)) {
-        /* they will have printed the help message */
-        return OMPI_ERR_NOT_SUPPORTED;
-    }
 
-=======
->>>>>>> master
-#endif
     size = ompi_comm_size ( comm );
     rank = ompi_comm_rank ( comm );
 
@@ -154,7 +129,23 @@ int ompi_dpm_connect_accept(ompi_communicator_t *comm, int root,
      * to complete on the other's key. Once that completes, the list of remote
      * procs is used to complete construction of the intercommunicator. */
 
-  if (!spawn_error) {
+    /* If there was an error during the COMM_SPAWN stage, the port string will
+     * be set (in mpi/c/comm_spawn.c) with a special value that contains the error
+     * code. Extract said error code, and store it in rportlen, as this value will
+     * be exchanged with other peers on comm. We need to perform this exchange even
+     * in error cases to avoid leaving some processes deadlock waiting on the
+     * root to broadcast.
+     */
+    if (NULL != port_string && strstr(port_string, ":error=")) {
+        /* we will set the rportlen to a negative value corresponding to the
+         * error code produced by pmix spawn */
+        char *value = strrchr(port_string, '=');
+        assert(NULL != value);
+        rportlen = atoi(++value);
+        if (rportlen > 0) rportlen *= -1;
+        goto bcast_rportlen;
+    }
+
     /* everyone constructs the list of members from their communicator */
     pname.jobid = OMPI_PROC_MY_NAME->jobid;
     pname.vpid = OPAL_VPID_WILDCARD;
@@ -230,7 +221,8 @@ int ompi_dpm_connect_accept(ompi_communicator_t *comm, int root,
         rportlen = strlen(rport) + 1;  // retain the NULL terminator
         PMIX_PDATA_DESTRUCT(&pdat);
     }
-  }
+
+bcast_rportlen:
     /* if we aren't in a comm_spawn, the non-root members won't have
      * the port_string - so let's make sure everyone knows the other
      * side's participants */
@@ -244,7 +236,7 @@ int ompi_dpm_connect_accept(ompi_communicator_t *comm, int root,
     }
 
     /* This is the comm_spawn error case: the root couldn't do the pmix spawn
-     * and is now propagating to the local group that this operation has to 
+     * and is now propagating to the local group that this operation has to
      * fail. */
     if (0 >= rportlen) {
         rc = rportlen;
