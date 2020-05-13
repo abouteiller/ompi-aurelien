@@ -127,6 +127,7 @@ static int mca_pml_ob1_send_request_cancel(struct ompi_request_t* request, int c
 {
 #if OPAL_ENABLE_FT_MPI
     ompi_communicator_t* comm = request->req_mpi_object.comm;
+    mca_pml_ob1_send_request_t* pml_req = (mca_pml_ob1_send_request_t*)request;
 
     if( REQUEST_COMPLETE(request) ) { /* way to late to cancel this one */
         return OMPI_SUCCESS;
@@ -135,16 +136,15 @@ static int mca_pml_ob1_send_request_cancel(struct ompi_request_t* request, int c
      * However, we should not release the request as we don't know if there are
      * no pending fragments. This generates a memory leak as the send requests
      * will never be recovered. */
-    if( !ompi_comm_is_proc_active(comm, request->req_peer,
+    if( !ompi_comm_is_proc_active(comm, pml_req->req_send.req_base.req_peer,
                                   OMPI_COMM_IS_INTER(comm)) ) {
-        mca_pml_ob1_send_request_t* pml_req = (mca_pml_ob1_send_request_t*)request;
         /**
          * As now the PML is done with this request we have to force the pml_complete
          * to true. Otherwise, the request will never be freed.
          */
         opal_output_verbose(10, ompi_ftmpi_output_handle,
                                 "Send_request_cancel: cancel granted for request %p because peer %d is dead\n",
-                                (void*)request, request->req_peer);
+                                (void*)request, pml_req->req_send.req_base.req_peer);
         request->req_status._cancelled = true;
 #if 0
         /* as said above, in theory we should descedule pending frags and make

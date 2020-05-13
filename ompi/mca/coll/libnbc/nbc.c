@@ -3,7 +3,7 @@
  * Copyright (c) 2006      The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2013-2019 The University of Tennessee and The University
+ * Copyright (c) 2013-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2006      The Technical University of Chemnitz. All
@@ -337,8 +337,7 @@ int NBC_Progress(NBC_Handle *handle) {
         ompi_request_t *subreq = handle->req_array[handle->req_count - 1];
 #if OPAL_ENABLE_FT_MPI
         if (REQUEST_COMPLETE(subreq)
-         || OPAL_UNLIKELY( ompi_ftmpi_enabled
-                        && !ompi_request_state_ok(subreq) )) {
+         || OPAL_UNLIKELY( ompi_request_is_failed(subreq) )) {
 #else
         if (REQUEST_COMPLETE(subreq)) {
 #endif /* OPAL_ENABLE_FT_MPI */

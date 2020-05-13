@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2019 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2005 High Performance Computing Center Stuttgart,
@@ -137,16 +137,6 @@ struct ompi_request_t {
     ompi_request_complete_fn_t req_complete_cb; /**< Called when the request is MPI completed */
     void *req_complete_cb_data;
     ompi_mpi_object_t req_mpi_object;           /**< Pointer to MPI object that created this request */
-#if 1 || OPAL_ENABLE_FT_MPI
-    /* TODO: this is set in pml_base_sendreq/recvreq in a macro, add an
-     * initializer to enable conditional definition */
-    /* FT Functionality uses the (req_peer) to return the peer that caused a
-     * failure, and (req_tag) to identify which operations are collective in
-     * nature. */
-    int req_peer; /**< Peer rank that this request is associated with */
-    int req_tag;  /**< Tag associated with this request */
-    bool req_any_source_pending;
-#endif /* OPAL_ENABLE_FT_MPI */
 };
 
 /**
@@ -416,7 +406,8 @@ static inline int ompi_request_free(ompi_request_t** request)
 #define ompi_request_wait_some  (ompi_request_functions.req_wait_some)
 
 #if OPAL_ENABLE_FT_MPI
-OMPI_DECLSPEC bool ompi_request_state_ok(ompi_request_t *req);
+OMPI_DECLSPEC bool ompi_request_is_failed_fn(ompi_request_t *req);
+#define ompi_request_is_failed(req) OPAL_UNLIKELY(ompi_ftmpi_enabled? ompi_request_is_failed_fn(req): false)
 
 #include "ompi/mca/coll/base/coll_tags.h"
 
@@ -440,7 +431,7 @@ static inline void ompi_request_wait_completion(ompi_request_t *req)
         ompi_wait_sync_t sync;
 #if OPAL_ENABLE_FT_MPI
 redo:
-        if(OPAL_UNLIKELY( ompi_ftmpi_enabled && !ompi_request_state_ok(req) )) {
+        if(OPAL_UNLIKELY( ompi_request_is_failed(req) )) {
             return;
         }
 #endif /* OPAL_ENABLE_FT_MPI */
@@ -457,10 +448,10 @@ redo:
 
 #if OPAL_ENABLE_FT_MPI
         if (OPAL_UNLIKELY(OMPI_SUCCESS != sync.status)) {
-            OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle, "Status %d reported for sync %p rearming req %p (peer %d tag %d)", sync.status, (void*)&sync, (void*)req, req->req_peer, req->req_tag));
+            OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle, "Status %d reported for sync %p rearming req %p", sync.status, (void*)&sync, (void*)req));
             _tmp_ptr = &sync;
             if (OPAL_ATOMIC_COMPARE_EXCHANGE_STRONG_PTR(&req->req_complete, &_tmp_ptr, REQUEST_PENDING)) {
-                opal_output_verbose(10, ompi_ftmpi_output_handle, "Status %d reported for sync %p rearmed req %p (peer %d tag %d)", sync.status, (void*)&sync, (void*)req, req->req_peer, req->req_tag);
+                opal_output_verbose(10, ompi_ftmpi_output_handle, "Status %d reported for sync %p rearmed req %p", sync.status, (void*)&sync, (void*)req);
                 WAIT_SYNC_RELEASE(&sync);
                 goto redo;
             }
@@ -474,8 +465,7 @@ redo:
 #if OPAL_ENABLE_FT_MPI
             /* Check to make sure that process failure did not break the
              * request. */
-            if(OPAL_UNLIKELY( ompi_ftmpi_enabled
-                           && !ompi_request_state_ok(req) )) {
+            if(OPAL_UNLIKELY( ompi_request_is_failed(req) )) {
                 break;
             }
 #endif /* OPAL_ENABLE_FT_MPI */

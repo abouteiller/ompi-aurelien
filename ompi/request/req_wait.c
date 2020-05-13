@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2010 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2018 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -45,7 +45,7 @@ int ompi_request_default_wait(
 
 #if OPAL_ENABLE_FT_MPI
     /* Special case for MPI_ANY_SOURCE */
-    if( req->req_any_source_pending ) {
+    if( MPI_ERR_PROC_FAILED_PENDING == req->req_status.MPI_ERROR ) {
         if( MPI_STATUS_IGNORE != status ) {
             status->MPI_TAG    = req->req_status.MPI_TAG;
             status->MPI_SOURCE = req->req_status.MPI_SOURCE;
@@ -135,8 +135,7 @@ recheck:
         }
 
 #if OPAL_ENABLE_FT_MPI
-        if(OPAL_UNLIKELY( ompi_ftmpi_enabled
-                       && !ompi_request_state_ok(request) )) {
+        if(OPAL_UNLIKELY( ompi_request_is_failed(request) )) {
             completed = i;
             *index = i;
             goto after_sync_wait;
@@ -199,7 +198,7 @@ recheck:
     request = requests[*index];
 #if OPAL_ENABLE_FT_MPI
     /* Special case for MPI_ANY_SOURCE */
-    if( request->req_any_source_pending ) {
+    if( MPI_ERR_PROC_FAILED == request->req_status.MPI_ERROR ) {
         WAIT_SYNC_RELEASE(&sync);
         return MPI_ERR_PROC_FAILED_PENDING;
     }
@@ -275,8 +274,7 @@ recheck:
         }
 
 #if OPAL_ENABLE_FT_MPI
-        if(OPAL_UNLIKELY( ompi_ftmpi_enabled
-                       && !ompi_request_state_ok(request) )) {
+        if(OPAL_UNLIKELY( ompi_request_is_failed(request) )) {
             failed++;
             continue;
         }
@@ -353,7 +351,7 @@ recheck:
                     statuses[i].MPI_ERROR = MPI_ERR_PENDING;
 #if OPAL_ENABLE_FT_MPI
                     /* PROC_FAILED_PENDING errors are also not completed yet */
-                    if( requests[i]->req_any_source_pending ) {
+                    if( MPI_ERR_PROC_FAILED_PENDING == requests[i]->req_status.MPI_ERROR ) {
                         statuses[i].MPI_ERROR = MPI_ERR_PROC_FAILED_PENDING;
                     }
 #endif /* OPAL_ENABLE_FT_MPI */
@@ -421,7 +419,7 @@ recheck:
                     rc = MPI_ERR_PENDING;
 #if OPAL_ENABLE_FT_MPI
                     /* PROC_FAILED_PENDING errors are also not completed yet */
-                    if( requests[i]->req_any_source_pending ) {
+                    if( MPI_ERR_PROC_FAILED_PENDING == requests[i]->req_status.MPI_ERROR ) {
                         rc = MPI_ERR_PROC_FAILED_PENDING;
                     }
 #endif  /* OPAL_ENABLE_FT_MPI */
@@ -522,8 +520,7 @@ int ompi_request_default_wait_some(size_t count,
         }
 
 #if OPAL_ENABLE_FT_MPI
-        if(OPAL_UNLIKELY( ompi_ftmpi_enabled
-                       && !ompi_request_state_ok(request) )) {
+        if(OPAL_UNLIKELY( ompi_request_is_failed(request) )) {
             num_requests_done++;
             continue;
         }
@@ -578,8 +575,8 @@ int ompi_request_default_wait_some(size_t count,
         }
 #if OPAL_ENABLE_FT_MPI
         /* Special case for MPI_ANY_SOURCE - Error managed below */
-        else if( !ompi_request_state_ok(request) &&
-                 request->req_any_source_pending ) {
+        else if(OPAL_UNLIKELY( ompi_request_is_failed(request) &&
+                               MPI_ERR_PROC_FAILED_PENDING == request->req_status.MPI_ERROR )) {
             indices[num_requests_done++] = i;
         }
 #endif /* OPAL_ENABLE_FT_MPI */
@@ -610,7 +607,7 @@ int ompi_request_default_wait_some(size_t count,
         request = requests[indices[i]];
 #if OPAL_ENABLE_FT_MPI
         /* Special case for MPI_ANY_SOURCE */
-        if( request->req_any_source_pending ) {
+        if( MPI_ERR_PROC_FAILED_PENDING == request->req_status.MPI_ERROR ) {
             rc = MPI_ERR_IN_STATUS;
             if (MPI_STATUSES_IGNORE != statuses) {
                 statuses[i] = request->req_status;

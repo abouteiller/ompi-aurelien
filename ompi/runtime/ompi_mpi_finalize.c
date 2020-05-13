@@ -179,15 +179,13 @@ int ompi_mpi_finalize(void)
         /* End of failure drain */
 
         /* finalize the fault tolerant infrastructure (revoke,
-         * failure propagator, etc). From now-on we do not tolerate failures. */
+         * failure propagator, etc). From now-on we do not tolerate new failures. */
         OPAL_OUTPUT_VERBOSE((50, ompi_ftmpi_output_handle, "FT: Rank %05d turning off the failure detector", ompi_comm_rank(comm)));
         ompi_comm_failure_detector_finalize();
         ompi_comm_failure_propagator_finalize();
         ompi_comm_revoke_finalize();
         ompi_comm_rbcast_finalize();
         opal_output_verbose(40, ompi_ftmpi_output_handle, "Rank %05d: DONE WITH FINALIZE", ompi_comm_rank(comm));
-        ompi_ftmpi_enabled = false;
-        //ompi_async_mpi_finalize = true; //TODO: when pmix fence_nb can tolerate failures, reenable it to flush UDP transports */
     }
 #endif /* OPAL_ENABLE_FT_MPI */
 
