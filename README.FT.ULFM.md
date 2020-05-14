@@ -42,8 +42,9 @@ supplementary interfaces defined in the communicator section of the
   completions and agreement return values.
 
 ## Supported Systems
-There are four main MPI network models available in Open MPI: "ob1", "cm",
-"yalla", and "ucx". Only "ob1" is adapted to support fault tolerance.
+There are several MPI engines available in Open MPI,
+notably, PML "ob1", "cm", "ucx", and MTL "ofi", "portals4", "psm2".
+At this point, only "ob1" is adapted to support fault tolerance.
 
 "ob1" uses BTL ("Byte Transfer Layer") components for each supported
 network. "ob1" supports a variety of networks that can be used in
@@ -52,10 +53,10 @@ non-blocking) use an optimized implementation on top of "ob1".
 
 - Loopback (send-to-self)
 - TCP
-- OpenFabrics: InfiniBand, iWARP, and RoCE
+- UCT (InfiniBand)
 - uGNI (Cray Gemini, Aries)
-- Shared memory Vader (FT supported w/CMA, XPmem, KNEM untested)
-- Tuned, and non-blocking collective communications
+- Shared Memory (FT supported w/CMA and XPmem; KNEM is untested)
+- Tuned and non-blocking collective communications
 
 A full list of supported, untested and disabled components is provided
 later in this document.
@@ -81,7 +82,8 @@ Building ULFM Open MPI
 ======================
 ```bash
 ./configure --with-ft [...options...]
-#    use --with-ft (default) to enable ULFM, --without-ft to disable it
+#    use --with-ft to enable building with ULFM (default),
+#        --without-ft to disable it
 make [-j N] all install
 #    use an integer value of N for parallel builds
 ```
@@ -93,17 +95,16 @@ summary of ULFM Open MPI specific options behavior.
 ## Configure options
 + `--with-ft=TYPE`
   Specify the type of fault tolerance to enable.  Options: mpi (ULFM MPI
-  draft standard).  Fault tolerance support is enabled by default
-  (as if `--with-ft=mpi` were implicitly present on the configure line).
-  You may specify `--without-ft` to compile an almost stock Open MPI.
+  draft standard).  Fault tolerance build support is **enabled by default**.
 
 + `--with-platform=FILE`
   Load configure options for the build from FILE.  When
   `--with-ft=mpi` is set, the file `contrib/platform/ft_mpi_ulfm` is
   loaded by default. This file disables components that are known to
-  not be able to sustain failures, or are insufficiently tested.
-  You may edit this file and/or force back these options on the
-  command line to enable these components.
+  prevent supporting failure management __when built-in__. This list should
+  be very short, as ulfm has a separate mechanism to warn about, or
+  disable loading a component that is poorly tested or known to cause
+  breakage when fault-tolerance is selected at runtime.
 
 + `--enable-mca-no-build=LIST`
   Comma-separated list of _<type>-<component>_ pairs that will not be
@@ -120,10 +121,11 @@ summary of ULFM Open MPI specific options behavior.
   application gets killed by the scheduler upon the first failure. Instead,
   **Use `mpirun` in an `salloc/sbatch`**.
 
-+ `-with-sge`
++ `-with-lsf`
   This is untested with fault tolerance.
 
-+ `--with-tm=<directory>`
++ `--with-alps`
+  `--with-tm`
   Force the building of PBS/Torque scheduler support.
   PBS is tested with fault tolerance. **Use `mpirun` in a `qsub`
   allocation.**
@@ -143,18 +145,26 @@ ___________________________________________________________________________
 Frameworks and components which are not listed in the following list are
 unmodified and support fault tolerance. Listed frameworks may be **modified**
 (and work after a failure), **untested** (and work before a failure, but may
-malfunction after a failure), or **disabled** (they prevent the fault
-tolerant components from operating properly).
+malfunction after a failure), or **disabled** (they cause unspecified behavior
+all around when FT is enabled).
+
+All runtime disabled components are listed in the `ft-mpi` aggregate MCA param file
+`$installdir/share/openmpi/amca-param-sets/ft-mpi`. You can tune the runtime behavior
+with ULFM by either setting or unsetting variables in this file (or by overiding
+the variable on the command line (e.g., ``--omca btl ofi,self``). Note that if FT is
+runtime disabled, these components will load normally (this may change observed
+performance when comparing with and without fault tolerance).
+All configure time disabled components are listed in `contrib/platform/ft_mpi_ulfm`.
 
 - **pml** MPI point-to-point management layer
     - "ob1" modified to **handle errors**
     - "monitoring", "v" unmodified, **untested**
-    - "bfo", "cm", "crcpw", "ucx", "yalla" **disabled**
+    - "cm", "crcpw", "ucx" **disabled**
 
 - **btl** Point-to-point Byte Transfer Layer
-    - "openib", "tcp", "vader(+cma,+xpmem)" modified to **handle errors** (removed
+    - "ugni", "uct", "tcp", "sm(+cma,+xpmem)" modified to **handle errors** (removed
       unconditional abort on error, expect performance similar to upstream)
-    - "uct", "portals4", "scif", "smcuda", "usnic", "vader(+knem)" unmodified,
+    - "ofi", "portals4", "smcuda", "usnic", "sm(+knem)" unmodified,
       **untested** (may work properly, please report)
 
 - **mtl** Matching transport layer Used for MPI point-to-point messages on
@@ -162,8 +172,9 @@ tolerant components from operating properly).
     - All "mtl" components are **disabled**
 
 - **coll** MPI collective algorithms
-    - "tuned", "basic", "nbc" modified to **handle errors**
-    - "cuda", "fca", "hcoll", "portals4" unmodified, **untested** (expect
+    - "base", "basic", "tuned", "nbc" modified to **handle errors**
+    - "cuda", "inter", "sync", "sm" unmodified, **untested** (expect correct post-failure behavior)
+    - "hcoll", "portals4" unmodified, **disabled** (expect
       unspecified post-failure behavior)
 
 - **osc** MPI one-sided communications
@@ -179,11 +190,14 @@ tolerant components from operating properly).
       (expect clean post-failure abort)
 
 - **vprotocol** Checkpoint/Restart components
-    - "pml-v", "crcp" unmodified, **untested**
+    - unmodified **untested**
 
-- **wait_sync** Multithreaded wait-synchronization object
-    - modified to **handle errors** (added a global interrupt to trigger all
-      wait_sync objects)
+- **threads** `wait-sync` Multithreaded wait-synchronization object
+    - "pthreads" modified to **handle errors** (added a global interrupt to 
+       trigger all wait_sync objects)
+    - "argotbots", "qthreads" unmodified, **disabled** (expect post-failure
+      deadlock)
+
 ___________________________________________________________________________
 
 Running ULFM Open MPI
@@ -203,14 +217,14 @@ Compile your application as usual, using the provided `mpicc`, `mpif90`, or
 You can launch your application with fault tolerance by simply using the
 provided `mpiexec`. Beware that your distribution may already provide a
 version of MPI, make sure to set your `PATH` and `LD_LIBRARY_PATH` properly.
-Note that fault tolerance is enabled by default in ULFM Open MPI; you can
+Note that fault tolerance is disabled by default in ULFM Open MPI; you can
 disable all fault tolerance systems by launching your application with
-`mpiexec --disable-recovery`.
+`mpiexec --enable-recovery`.
 
 ## Running under a batch scheduler
 
 ULFM can operate under a job/batch scheduler, and is tested routinely with
-both PBS and Slurm. One difficulty comes from the fact that many job
+both ALPS, PBS and Slurm. One difficulty comes from the fact that many job
 schedulers will "cleanup" the application as soon as a process fails. In
 order to avoid this problem, it is preferred that you use `mpiexec`
 within an allocation (e.g. `salloc`, `sbatch`, `qsub`) rather than
@@ -220,21 +234,22 @@ a direct launch (e.g. `srun`).
 
 ULFM comes with a variety of knobs for controlling how it runs. The default
 parameters are sane and should result in very good performance in most
-cases. You can change the default settings with `--mca mpi_ft_foo <value>`.
+cases. You can change the default settings with `--omca mpi_ft_foo <value>`.
 
-- `orte_enable_recovery <true|false> (default: true)` controls automatic
-  cleanup of apps with failed processes within mpirun. The default
-  differs from upstream Open MPI.
-- `mpi_ft_enable <true|false> (default: true)` permits turning off fault
-  tolerance without recompiling. Failure detection is disabled. Interfaces
-  defined by the fault tolerance extensions are substituted with dummy
-  non-fault tolerant implementations (e.g. `MPI_Allreduce` is substituted
-  to `MPIX_Comm_agree`).
+- `prrte_enable_recovery <true|false> (default: false)` controls automatic
+  cleanup of apps with failed processes within mpirun. Enabling this option 
+  also enable `mpi_ft_enable`.
+- `mpi_ft_enable <true|false> (default: same as prrte_enable_recovery)`
+  permits turning on/off fault tolerance at runtime. When false, failure
+  detection is disabled; Interfaces defined by the fault tolerance extensions
+  are substituted with dummy non-fault tolerant implementations (e.g.,
+  `MPI_Allreduce` is substituted to `MPIX_Comm_agree`); All other controls 
+  below become irrelevant.
 - `mpi_ft_verbose <int> (default: 0)` increases the output of the fault
   tolerance activities. A value of 1 will report detected failures.
-- `mpi_ft_detector <true|false> (default: false)` controls the activation
+- `mpi_ft_detector <true|false> (default: true)` controls the activation
   of the OMPI level failure detector. When this detector if turned
-  off, all failure detection is delegated to ORTE, which may be
+  off, all failure detection is delegated to PRTE, which may be
   slow and/or incomplete.
 - `mpi_ft_detector_thread <true|false> (default: false)` controls the use
   of a thread to emit and receive failure detector's heartbeats. _Setting
@@ -250,28 +265,67 @@ cases. You can change the default settings with `--mca mpi_ft_foo <value>`.
   timeout (i.e. failure detection speed). Recommended value is 3 times
   the heartbeat period.
 
-## Known Limitations in ULFM-2.1:
-- Infiniband support is provided through the OpenIB BTL, fault tolerant 
-  operation over UCX is not yet supported.
-- TOPO, FILE, RMA are not fault tolerant.
+## Known Limitations in ULFM
+
+- Infiniband support is provided through the OpenIB or UCT BTL, fault tolerant 
+  operation over the UCX PML is not yet supported.
+- TOPO, FILE, RMA are not fault tolerant. They are expected to work properly
+  before the occurence of the first failure.
 - There is a tradeoff between failure detection accuracy and performance.
   The current default is to favor performance. Users that experience
-  accuracy issues may enable a more precise mode.
+  accuracy issues may enable a more precise mode. See the tuning knobs above
+  to adjust to taste.
 - The failure detector operates on MPI_COMM_WORLD exclusively. Processes
   connected from MPI_COMM_CONNECT/ACCEPT and MPI_COMM_SPAWN may
   occasionally not be detected when they fail.
-- Return of OpenIB credits spent toward a failed process can take several
-  seconds. Until the `btl_openib_ib_timeout` and `btl_openib_ib_retry_count`
-  controlled timeout triggers, lack of send credits may cause a temporary
-  stall under certain communication patterns. Impacted users can try to
-  adjust the value of these mca parameters.
+
 ___________________________________________________________________________
 
 
 Changelog
 =========
 
-## Release 2.1
+## ULFM Integrated in Open MPI
+ULFM is now integrated in Open MPI. This text will be updated when a new 
+Open MPI release is made.
+
+## ULFM Standalone Release 4.0.2u1
+This is a stability and upstream parity upgrade. It is based on the most
+current Open MPI Release (v4.0.2, October 2019).
+
+- This release is based on Open MPI release v4.0.2 (ompi #cb5f4e737a).
+- This release is based on ULFM master (ulfm #0e249ca1).
+- New features
+    - Support for the UCT BTL enters beta stage.
+- Bugfixes
+    - High sensitivity to noise in the failure detector.
+    - Deadlocks when revoking while BTL progress threads are updating messages.
+    - A case where the failure detector would keep observing a dead process forever.
+    - Disable the use of external pmix/libevent by default (the internals are modified
+      to handle error cases).
+    - Clean error paths leaving some rdma registration dangling.
+    - Do not remove the orte job/proc session dir prematurely upon error.
+
+## ULFM Standalone Release 4.0.1u1
+This is a stability and upstream parity upgrade. It improves stability, 
+performance and is based on the most current Open MPI Release (v4.0.1,
+May 2019).
+
+- This release is based on Open MPI release v4.0.1 (ompi #b780667).
+- This release is based on ULFM master (ulfm #cf8dc43f).
+- New features
+    - Addition of the `MPI_Comm_is_revoked` function
+    - Renamed `ftbasic` collective component to `ftagree`
+    - Restored the `pcollreq` extension
+- Bugfixes
+    - Failures of node-local siblings were not always detected
+    - Failure propagation and detection was slowed down by trying to 
+      notify known dead processes
+    - There were deadlocks in multithreaded programs
+    - There were issues with PMPI when compiling Fortran Interfaces
+    - There were deadlocks on OS-X
+
+## ULFM Standalone Release 2.1
 This release is a bugfix and upstream parity upgrade. It improves stability,
 performance and is based on the most current Open MPI master (November 2018).
 
@@ -288,7 +342,7 @@ performance and is based on the most current Open MPI master (November 2018).
       MPIX_PROC_FAILED_PENDING can now correctly complete during 
       later MPI_WAIT/TEST.
 
-## Release 2.0
+## ULFM Standalone Release 2.0
 Focus has been toward integration with current Open MPI master (November 2017),
 performance, and stability.
 
@@ -316,7 +370,7 @@ performance, and stability.
       ERR_PROC_FAILED_PENDING for ANY_SOURCE receptions.
 ___________________________________________________________________________
 
-## Release 1.1
+## ULFM Standalone Release 1.1
 Focus has been toward improving stability, feature coverage for intercomms,
 and following the updated specification for MPI_ERR_PROC_FAILED_PENDING.
 
@@ -344,7 +398,7 @@ and following the updated specification for MPI_ERR_PROC_FAILED_PENDING.
       MPI_ERR_REVOKED when another process revokes the communicator.
 ___________________________________________________________________________
 
-## Release 1.0
+## ULFM Standalone Release 1.0
 Focus has been toward improving performance, both before and after the occurence of failures.
 The list of new features includes:
 
@@ -364,18 +418,18 @@ The list of new features includes:
     - Open IB: reasonably tested
     - uGNI: reasonably tested
 - The tuned collective module is now enabled by default (reasonably tested), expect a
-  huge performance boost compared to the former basic default setting<
+  huge performance boost compared to the former basic default setting
     - Back-ported PBS/ALPS fixes from Open MPI
     - Back-ported OpenIB bug/performance fixes from Open MPI
     - Improve Context ID allocation algorithm to reduce overheads of Shrink
     - Miscellaneous bug fixes
 ___________________________________________________________________________
 
-## Version Numbers and Binary Compatibility
-Starting from ULFM Open MPI version 2.0, ULFM Open MPI is binary compatible
-with the corresponding Open MPI master branch and compatible releases (see
+## Binary Compatibility
+ULFM Open MPI is binary compatible with any version of Open MPI compatible
+with the underlying Open MPI master branch or release (see
 the binary compatibility and version number section in the upstream Open MPI
-README).That is, applications compiled with a compatible Open MPI can run
+README). That is, applications compiled with a compatible Open MPI can run
 with the ULFM Open MPI `mpirun` and MPI libraries. Conversely, _as long as
 the application does not employ one of the MPIX functions_, which are
 exclusively defined in ULFM Open MPI, an application compiled with
@@ -412,7 +466,7 @@ Copyright
 =========
 
 ```
-Copyright (c) 2012-2018 The University of Tennessee and The University
+Copyright (c) 2012-2020 The University of Tennessee and The University
                         of Tennessee Research Foundation.  All rights
                         reserved.
 
