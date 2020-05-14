@@ -2,14 +2,13 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2018 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2010-2012 Oracle and/or its affiliates.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
@@ -79,29 +78,10 @@ int MPI_Sendrecv_replace(void * buf, int count, MPI_Datatype datatype,
 
 #if OPAL_ENABLE_FT_MPI
     /*
-     * An early check, so as to return early if we are communicating with
-     * a failed process. This is not absolutely necessary since we will
-     * check for this, and other, error conditions during the completion
-     * call in the PML.
+     * The final call to Sendrecv will check for process failures inside
+     * So no need to check here.
      */
-    if( OPAL_UNLIKELY(!ompi_comm_iface_p2p_check_proc(comm, dest, &rc)) ) {
-        if( MPI_STATUS_IGNORE != status ) {
-            status->MPI_SOURCE = dest;
-            status->MPI_TAG    = recvtag;
-            status->MPI_ERROR  = rc;
-        }
-        OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
-    }
-
-    if( OPAL_UNLIKELY(!ompi_comm_iface_p2p_check_proc(comm, source, &rc)) ) {
-        if( MPI_STATUS_IGNORE != status ) {
-            status->MPI_SOURCE = source;
-            status->MPI_TAG    = recvtag;
-            status->MPI_ERROR  = rc;
-        }
-        OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
-    }
-#endif
+#endif /* OPAL_ENABLE_FT_MPI */
 
     OPAL_CR_ENTER_LIBRARY();
 

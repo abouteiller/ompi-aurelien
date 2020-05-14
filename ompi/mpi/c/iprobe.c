@@ -2,14 +2,13 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2018 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
  *                         University of Stuttgart.  All rights reserved.
  * Copyright (c) 2004-2005 The Regents of the University of California.
  *                         All rights reserved.
- * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
  * $COPYRIGHT$
@@ -81,18 +80,9 @@ int MPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status
 
 #if OPAL_ENABLE_FT_MPI
     /*
-     * Check here for issues with the peer, so we do not have to duplicate the
-     * functionality in the PML.
+     * The request will check checked for process failure errors during the
+     * completion calls. So no need to check here.
      */
-    if( OPAL_UNLIKELY(!ompi_comm_iface_p2p_check_proc(comm, source, &rc)) ) {
-        if (MPI_STATUS_IGNORE != status) {
-            status->MPI_SOURCE = source;
-            status->MPI_TAG    = tag;
-            status->MPI_ERROR  = rc;
-        }
-        *flag = false;
-        OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
-    }
 #endif
 
     OPAL_CR_ENTER_LIBRARY();
