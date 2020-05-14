@@ -80,7 +80,7 @@ int MPI_Startall(int count, MPI_Request requests[])
 
 #if OPAL_ENABLE_FT_MPI
     /*
-     * The request will check checked for process failure errors during the
+     * The request will be checked for process failure errors during the
      * completion calls. So no need to check here.
      */
 #endif

@@ -75,7 +75,7 @@ int MPI_Improbe(int source, int tag, MPI_Comm comm, int *flag,
 
 #if OPAL_ENABLE_FT_MPI
     /*
-     * The request will check checked for process failure errors during the
+     * The request will be checked for process failure errors during the
      * completion calls. So no need to check here.
      */
 #endif

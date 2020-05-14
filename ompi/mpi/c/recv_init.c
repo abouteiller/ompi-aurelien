@@ -78,7 +78,7 @@ int MPI_Recv_init(void *buf, int count, MPI_Datatype type, int source,
 
 #if OPAL_ENABLE_FT_MPI
     /*
-     * The request will check checked for process failure errors during the
+     * The request will be checked for process failure errors during the
      * completion calls. So no need to check here.
      */
 #endif
