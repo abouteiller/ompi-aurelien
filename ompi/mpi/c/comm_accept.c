@@ -3,7 +3,7 @@
  * Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
  *                         University Research and Technology
  *                         Corporation.  All rights reserved.
- * Copyright (c) 2004-2017 The University of Tennessee and The University
+ * Copyright (c) 2004-2020 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2004-2008 High Performance Computing Center Stuttgart,
@@ -12,7 +12,6 @@
  *                         All rights reserved.
  * Copyright (c) 2006-2015 Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2008      University of Houston, Inc.  All rights reserved.
- * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
  * Copyright (c) 2013      Los Alamos National Security, LLC.  All rights
  *                         reserved.
  * Copyright (c) 2015      Intel, Inc. All rights reserved.
@@ -105,13 +104,11 @@ int MPI_Comm_accept(const char *port_name, MPI_Info info, int root,
 
 #if OPAL_ENABLE_FT_MPI
     /*
-     * An early check, so as to return early if we are using a broken
-     * communicator. This is not absolutely necessary since we will
-     * check for this, and other, error conditions during the operation.
+     * We must not call ompi_comm_iface_create_check() here, because that
+     * risks leaving the connect side dangling on an unmatched operation.
+     * We will let the connect_accept logic proceed and discover the
+     * issue internally so that all sides get informed.
      */
-    if( OPAL_UNLIKELY(!ompi_comm_iface_create_check(comm, &rc)) ) {
-        OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
-    }
 #endif
 
     OPAL_CR_ENTER_LIBRARY();
