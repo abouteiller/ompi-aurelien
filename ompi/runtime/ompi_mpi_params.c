@@ -106,7 +106,7 @@ int ompi_mpi_register_params(void)
         opal_output_set_verbosity(ompi_ftmpi_output_handle, value);
     }
 
-    ompi_ftmpi_enabled = true;
+    ompi_ftmpi_enabled = false;
     (void) mca_base_var_register ("ompi", "mpi", "ft", "enable",
                                   "Enable UFLM MPI Fault Tolerance framework",
                                   MCA_BASE_VAR_TYPE_BOOL, NULL, 0, 0,

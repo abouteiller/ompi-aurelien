@@ -258,7 +258,7 @@ int mca_io_base_file_select(ompi_file_t *file,
     if(ompi_ftmpi_enabled) {
         /* check if module is tested for FT, warn if not. */
         const char* ft_whitelist="";
-        opal_show_help("help-ft-mpi.txt", "module:untested:failundef", true,
+        opal_show_help("help-mpi-ft.txt", "module:untested:failundef", true,
             selected.ai_component.v2_0_0.io_version.mca_type_name,
             selected.ai_component.v2_0_0.io_version.mca_component_name,
             ft_whitelist);

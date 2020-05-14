@@ -34,7 +34,7 @@ libmpiext_ftmpi_c_la_SOURCES = \
 libmpiext_ftmpi_c_la_LIBADD = \
     profile/libpmpiext_ftmpi_c.la
 
-dist_ompidata_DATA = help-ft-mpi.txt
+dist_ompidata_DATA = help-mpi-ft.txt
 
 ompidir = $(ompiincludedir)/mpiext/
 ompi_HEADERS = $(headers)

@@ -76,7 +76,7 @@ ompi_osc_base_select(ompi_win_t *win,
     if(ompi_ftmpi_enabled) {
         /* check if module is tested for FT, warn if not. */
         const char* ft_whitelist="";
-        opal_show_help("help-ft-mpi.txt", "module:untested:failundef", true,
+        opal_show_help("help-mpi-ft.txt", "module:untested:failundef", true,
             best_component->osc_version.mca_type_name,
             best_component->osc_version.mca_component_name,
             ft_whitelist);
