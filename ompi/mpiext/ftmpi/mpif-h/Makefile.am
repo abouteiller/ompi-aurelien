@@ -1,6 +1,6 @@
 #
 # Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
-# Copyright (c) 2016-2019 The University of Tennessee and The University
+# Copyright (c) 2016-2020 The University of Tennessee and The University
 #                         of Tennessee Research Foundation.  All rights
 #                         reserved.
 # $COPYRIGHT$
@@ -18,6 +18,8 @@ if OMPI_BUILD_FORTRAN_MPIFH_BINDINGS
 headers = \
     mpiext_ftmpi_mpifh.h
 
+noinst_HEADERS = prototypes_mpi.h
+
 f77_sources = \
     comm_revoke_f.c \
     comm_is_revoked_f.c \
@@ -30,7 +32,7 @@ f77_sources = \
 f77_lib = libmpiext_ftmpi_mpifh.la
 f77_lib_sources = $(f77_sources)
 
-libmpiext_ftmpi_mpifh_la_SOURCES = $(f77_lib_sources)
+libmpiext_ftmpi_mpifh_la_SOURCES = $(f77_lib_sources) $(headers)
 libmpiext_ftmpi_mpifh_la_LIBADD  = $(lib_sources)
 libmpiext_ftmpi_mpifh_la_LDFLAGS = -module -avoid-version
 
