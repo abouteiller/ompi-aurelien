@@ -19,7 +19,7 @@
 # We must set these #defines and include paths so that the inner OMPI
 # MPI prototype header files do the Right Thing.
 AM_FCFLAGS = $(OMPI_FC_MODULE_FLAG)$(top_builddir)/ompi/mpi/fortran/use-mpi-f08/mod \
-             -I$(top_srcdir) $(FCFLAGS_f90)
+             -I$(top_builddir) -I$(top_srcdir) $(FCFLAGS_f90)
 
 # Note that the mpi_f08-based bindings are optional -- they can only
 # be built if OMPI is also building the Fortran-based bindings.  So we
