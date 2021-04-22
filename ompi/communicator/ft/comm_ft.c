@@ -352,14 +352,14 @@ int ompi_comm_ishrink_internal(ompi_communicator_t* comm, ompi_communicator_t** 
      * the value of flag, instead we are only using the globally consistent
      * return value.
      */
-    rc = comm->c_coll->coll_iagreement( &flag,
-                                        1,
-                                        &ompi_mpi_int.dt,
-                                        &ompi_mpi_op_band.op,
-                                        &context->failed_group, true,
-                                        comm,
-                                        subreq,
-                                        comm->c_coll->coll_iagreement_module );
+    rc = comm->c_coll->coll_iagree( &flag,
+                                    1,
+                                    &ompi_mpi_int.dt,
+                                    &ompi_mpi_op_band.op,
+                                    &context->failed_group, true,
+                                    comm,
+                                    subreq,
+                                    comm->c_coll->coll_iagree_module );
     if( OMPI_SUCCESS != rc ) {
         ompi_comm_request_return(request);
         OBJ_RELEASE(context->failed_group);
@@ -397,14 +397,14 @@ static int ompi_comm_ishrink_check_agree(ompi_comm_request_t *request) {
     if( MPI_ERR_PROC_FAILED == rc ) {
         /* previous round found more failures, redo */
         request->super.req_status.MPI_ERROR = MPI_SUCCESS;
-        rc = comm->c_coll->coll_iagreement( &flag,
-                                            1,
-                                            &ompi_mpi_int.dt,
-                                            &ompi_mpi_op_band.op,
-                                            &context->failed_group, true,
-                                            comm,
-                                            subreq,
-                                            comm->c_coll->coll_iagreement_module );
+        rc = comm->c_coll->coll_iagree( &flag,
+                                        1,
+                                        &ompi_mpi_int.dt,
+                                        &ompi_mpi_op_band.op,
+                                        &context->failed_group, true,
+                                        comm,
+                                        subreq,
+                                        comm->c_coll->coll_iagree_module );
         if( OMPI_SUCCESS != rc ) {
             ompi_comm_request_return(request);
             OBJ_RELEASE(context->failed_group);
