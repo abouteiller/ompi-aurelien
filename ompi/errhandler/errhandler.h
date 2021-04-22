@@ -471,8 +471,8 @@ static inline int ompi_errhandler_proc_failed(struct ompi_proc_t* ompi_proc) {
      || ((is_create_op) && OMPI_COMM_CHECK_ASSERT(_comm, OMPI_COMM_UNIFORM_CREATE)) ) { \
         OPAL_OUTPUT_VERBOSE((5, ompi_ftmpi_output_handle, "comm %p rc=%d", object, rc)); \
         ompi_group_t* _group = MPI_GROUP_EMPTY; \
-        comm->c_coll->coll_agreement(&(rc), 1, &ompi_mpi_int.dt, &ompi_mpi_op_max.op, \
-                                     &_group, false, _comm, _comm->c_coll->coll_agreement_module); \
+        comm->c_coll->coll_agree(&(rc), 1, &ompi_mpi_int.dt, &ompi_mpi_op_max.op, \
+                                 &_group, false, _comm, _comm->c_coll->coll_agree_module); \
     } \
 } while(0)
 #endif /* OPAL_ENABLE_FT_MPI */
