@@ -16,6 +16,8 @@
 #include "ompi/mpiext/ftmpi/c/mpiext_ftmpi_c.h"
 #include "ompi/mpiext/ftmpi/mpif-h/prototypes_mpi.h"
 
+#include "ompi/communicator/communicator.h"
+
 #if OPAL_HAVE_WEAK_SYMBOLS
 #pragma weak PMPIX_COMM_SHRINK = ompix_comm_shrink_f
 #pragma weak pmpix_comm_shrink = ompix_comm_shrink_f
