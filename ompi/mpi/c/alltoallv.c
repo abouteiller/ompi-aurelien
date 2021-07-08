@@ -131,6 +131,7 @@ int MPI_Alltoallv(const void *sendbuf, const int sendcounts[],
      * check for this, and other, error conditions during the operation.
      */
     if( OPAL_UNLIKELY(!ompi_comm_iface_coll_check(comm, &err)) ) {
+        OMPI_ERRHANDLER_UNIFORM(comm, false, err);
         OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
     }
 #endif
@@ -139,6 +140,7 @@ int MPI_Alltoallv(const void *sendbuf, const int sendcounts[],
     err = comm->c_coll->coll_alltoallv(sendbuf, sendcounts, sdispls, sendtype,
                                       recvbuf, recvcounts, rdispls, recvtype,
                                       comm, comm->c_coll->coll_alltoallv_module);
+    OMPI_ERRHANDLER_UNIFORM(comm, false, err);
     OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
 }
 

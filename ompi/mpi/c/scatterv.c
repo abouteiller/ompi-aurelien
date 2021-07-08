@@ -198,6 +198,7 @@ int MPI_Scatterv(const void *sendbuf, const int sendcounts[], const int displs[]
      * check for this, and other, error conditions during the operation.
      */
     if( OPAL_UNLIKELY(!ompi_comm_iface_coll_check(comm, &err)) ) {
+        OMPI_ERRHANDLER_UNIFORM(comm, false, err);
         OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
     }
 #endif
@@ -206,5 +207,6 @@ int MPI_Scatterv(const void *sendbuf, const int sendcounts[], const int displs[]
     err = comm->c_coll->coll_scatterv(sendbuf, sendcounts, displs,
                                      sendtype, recvbuf, recvcount, recvtype, root, comm,
                                      comm->c_coll->coll_scatterv_module);
+    OMPI_ERRHANDLER_UNIFORM(comm, false, err);
     OMPI_ERRHANDLER_RETURN(err, comm, err, FUNC_NAME);
 }
