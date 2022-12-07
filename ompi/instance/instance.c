@@ -3,6 +3,9 @@
  * Copyright (c) 2018-2022 Triad National Security, LLC. All rights
  *                         reserved.
  * Copyright (c) 2022      Cisco Systems, Inc.  All rights reserved.
+ * Copyright (c) 2022      The University of Tennessee and The University
+ *                         of Tennessee Research Foundation.  All rights
+ *                         reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
@@ -435,8 +438,12 @@ static int ompi_mpi_instance_init_common (void)
     /* give it a name so we can distinguish it */
     PMIX_INFO_LOAD(&info[1], PMIX_EVENT_HDLR_NAME, "ULFM-Event-handler", PMIX_STRING);
     OPAL_PMIX_CONSTRUCT_LOCK(&mylock);
-    pmix_status_t codes[2] = { PMIX_ERR_PROC_ABORTED, PMIX_ERR_LOST_CONNECTION };
-    PMIx_Register_event_handler(codes, 1, info, 2, ompi_errhandler_callback, evhandler_reg_callbk, (void*)&mylock);
+    pmix_status_t codes[3] = {
+        PMIX_ERR_PROC_TERM_WO_SYNC,
+        PMIX_ERR_PROC_ABORTED_BY_SIG,
+        PMIX_ERR_PROC_ABORTED
+    };
+    PMIx_Register_event_handler(codes, 3, info, 2, ompi_errhandler_callback, evhandler_reg_callbk, (void*)&mylock);
     OPAL_PMIX_WAIT_THREAD(&mylock);
     rc = mylock.status;
     ompi_ulfm_pmix_err_handler = mylock.errhandler_ref;
