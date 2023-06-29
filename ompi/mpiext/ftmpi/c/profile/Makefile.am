@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2016-2022 The University of Tennessee and The University
+# Copyright (c) 2016-2023 The University of Tennessee and The University
 #                         of Tennessee Research Foundation.  All rights
 #                         reserved.
 # Copyright (c) 2021 Cisco Systems, Inc.  All rights reserved.
@@ -18,6 +18,7 @@ AM_CPPFLAGS = -DOMPI_BUILD_MPI_PROFILING=1
 noinst_LTLIBRARIES = libpmpiext_ftmpi_c.la
 
 nodist_libpmpiext_ftmpi_c_la_SOURCES = \
+    psession_revoke.c \
     pcomm_revoke.c \
     pcomm_is_revoked.c \
     pcomm_shrink.c \

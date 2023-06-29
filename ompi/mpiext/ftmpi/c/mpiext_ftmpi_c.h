@@ -51,3 +51,12 @@ OMPI_DECLSPEC int OMPI_Comm_failure_inject(MPI_Comm comm, bool notify);
 #define OMPI_HAVE_MPIX_COMM_ACK_FAILED 1
 #define OMPI_HAVE_MPIX_COMM_ISHRINK    1
 
+/********************************
+ * Sessions
+ ********************************/
+
+OMPI_DECLSPEC int MPIX_Session_revoke(MPI_Session session);
+//TODO should we have MPIX_Session_is_revoked?
+
+OMPI_DECLSPEC int PMPIX_Session_revoke(MPI_Session session);
+

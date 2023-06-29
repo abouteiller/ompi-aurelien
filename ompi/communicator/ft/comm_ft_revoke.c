@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
- * Copyright (c) 2011-2018 The University of Tennessee and The University
+ * Copyright (c) 2011-2023 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * Copyright (c) 2021      Triad National Security, LLC. All rights
@@ -94,5 +94,26 @@ static int ompi_comm_revoke_local(ompi_communicator_t* comm, ompi_comm_rbcast_me
     /* Signal the point-to-point stack to recheck requests */
     wait_sync_global_wakeup(MPI_ERR_REVOKED);
     return true;
+}
+
+int ompi_instance_revoke_comms(ompi_instance_t* instance) {
+    int ret = OMPI_SUCCESS, rc = OMPI_SUCCESS, max_num_comm = 0, i;
+    ompi_communicator_t *comm = NULL;
+
+    max_num_comm = opal_pointer_array_get_size(&ompi_mpi_communicators);
+    for( i = 0; i < max_num_comm; ++i ) {
+        comm = (ompi_communicator_t *)opal_pointer_array_get_item(&ompi_mpi_communicators, i);
+        if( NULL == comm ) {
+            continue;
+        }
+        if( instance != comm->instance ) {
+            continue;
+        }
+        rc = ompi_comm_revoke_internal(comm);
+        if( ret == OMPI_SUCCESS ) {
+            ret = rc;
+        }
+    }
+    return ret;
 }
 

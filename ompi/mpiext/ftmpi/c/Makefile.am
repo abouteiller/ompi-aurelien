@@ -1,6 +1,6 @@
 #
 # Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
-# Copyright (c) 2016-2022 The University of Tennessee and The University
+# Copyright (c) 2016-2023 The University of Tennessee and The University
 #                         of Tennessee Research Foundation.  All rights
 #                         reserved.
 # $COPYRIGHT$
@@ -24,6 +24,7 @@ AM_CPPFLAGS = -DOMPI_BUILD_MPI_PROFILING=0
 noinst_LTLIBRARIES = libmpiext_ftmpi_c.la
 
 libmpiext_ftmpi_c_la_SOURCES = \
+    session_revoke.c \
     comm_revoke.c \
     comm_is_revoked.c \
     comm_shrink.c \

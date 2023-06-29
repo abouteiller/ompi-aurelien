@@ -629,6 +629,11 @@ OMPI_DECLSPEC int ompi_comm_failure_get_acked_internal(ompi_communicator_t* comm
 OMPI_DECLSPEC int ompi_comm_revoke_internal(ompi_communicator_t* comm);
 
 /*
+ * Revoke all communicators in an instance (session-revoke)
+ */
+OMPI_DECLSPEC int ompi_instance_revoke_comms(ompi_instance_t* instance);
+
+/*
  * Shrink the communicator
  */
 OMPI_DECLSPEC int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** newcomm);

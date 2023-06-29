@@ -1,6 +1,6 @@
 ! -*- f90 -*-
 !
-! Copyright (c) 2018-2022 The University of Tennessee and the University
+! Copyright (c) 2018-2023 The University of Tennessee and the University
 !                         of Tennessee Research Foundation.  All rights
 !                         reserved.
 ! $COPYRIGHT$
@@ -11,6 +11,24 @@
 !
 !
 ! $COPYRIGHT$
+
+interface mpix_session_revoke
+subroutine mpix_session_revoke_f08(session,ierror)
+   use :: mpi_f08_types, only : MPI_session
+   implicit none
+   TYPE(MPI_session), INTENT(IN) :: session
+   INTEGER, OPTIONAL, INTENT(OUT) :: ierror
+end subroutine mpix_session_revoke_f08
+end interface mpix_session_revoke
+
+interface pmpix_session_revoke
+subroutine pmpix_session_revoke_f08(session,ierror)
+   use :: mpi_f08_types, only : MPI_session
+   implicit none
+   TYPE(MPI_session), INTENT(IN) :: session
+   INTEGER, OPTIONAL, INTENT(OUT) :: ierror
+end subroutine pmpix_session_revoke_f08
+end interface pmpix_session_revoke
 
 interface mpix_comm_revoke
 subroutine mpix_comm_revoke_f08(comm,ierror)

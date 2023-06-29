@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022 The University of Tennessee and The University
+ * Copyright (c) 2019-2023 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  * $COPYRIGHT$
@@ -39,6 +39,7 @@
 
 BEGIN_C_DECLS
 
+PN2(void, MPIX_Session_revoke, mpix_session_revoke, MPIX_SESSION_REVOKE, (MPI_Fint *session, MPI_Fint *ierr));
 PN2(void, MPIX_Comm_agree, mpix_comm_agree, MPIX_COMM_AGREE, (MPI_Fint *comm, ompi_fortran_logical_t *flag, MPI_Fint *ierr));
 PN2(void, MPIX_Comm_failure_ack, mpix_comm_failure_ack, MPIX_COMM_FAILURE_ACK, (MPI_Fint *comm, MPI_Fint *ierr));
 PN2(void, MPIX_Comm_failure_get_acked, mpix_comm_failure_get_acked, MPIX_COMM_FAILURE_GET_ACKED, (MPI_Fint *comm, MPI_Fint *group, MPI_Fint *ierr));

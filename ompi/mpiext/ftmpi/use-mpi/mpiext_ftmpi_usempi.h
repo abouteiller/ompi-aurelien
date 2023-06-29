@@ -1,6 +1,6 @@
 ! -*- fortran -*-
 ! Copyright (c) 2010-2012 Oak Ridge National Labs.  All rights reserved.
-! Copyright (c) 2010-2022 The University of Tennessee and the University
+! Copyright (c) 2010-2023 The University of Tennessee and the University
 !                         of Tennessee research foundation.  All rights
 !                         reserved.
 ! $COPYRIGHT$
@@ -13,6 +13,24 @@
 ! Include the parameters for this extension
 ! Included from config/ompi_ext.m4 into mpif90-ext.f90
 ! include '../mpiext/ftmpi/mpif-h/mpiext_ftmpi_mpifh.h'
+
+!
+! Sessions
+!
+interface mpix_session_revoke
+    subroutine mpix_session_revoke(session, ierr)
+      integer, intent(IN) :: session
+      integer, intent(OUT) :: ierr
+    end subroutine mpix_session_revoke
+end interface mpix_session_revoke
+
+interface pmpix_session_revoke
+    subroutine pmpix_session_revoke(session, ierr)
+      integer, intent(IN) :: session
+      integer, intent(OUT) :: ierr
+    end subroutine pmpix_session_revoke
+end interface pmpix_session_revoke
+
 
 !
 ! Communicators
